@@ -1,0 +1,20 @@
+# OS / éditeurs
+.DS_Store
+Thumbs.db
+*.swp
+.vscode/
+.idea/
+
+# Logs / temporaire
+*.log
+tmp/
+*.tmp
+
+# Secrets / env (ne JAMAIS committer de clés d'API serveur)
+.env
+.env.*
+*.key
+serviceAccount*.json
+
+# Dépendances (pas de build ici, mais par sécurité)
+node_modules/

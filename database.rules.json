@@ -1,0 +1,74 @@
+{
+  "rules": {
+    // ─────────────────────────────────────────────────────────────────────
+    //  LECTURE PAR DÉFAUT = STAFF SEULEMENT (non-anonyme)
+    //  L'admin et la caisse se connectent en email/mot de passe → ils
+    //  satisfont cette règle et gardent l'accès en lecture à TOUT.
+    //  Les clients (sites) se connectent en ANONYME → ils ne peuvent PAS
+    //  lire par défaut. On leur rouvre la lecture, nœud par nœud, UNIQUEMENT
+    //  sur les données publiques ci-dessous (aucune PII).
+    //
+    //  ⚠️ L'auth anonyme DOIT rester activée dans Firebase (sinon les sites
+    //     perdent l'accès en écriture des commandes).
+    //  ⚠️ Plus de date d'expiration : fini la coupure du 17 juillet.
+    // ─────────────────────────────────────────────────────────────────────
+    ".read": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous'",
+    ".write": "auth != null",
+
+    // ─── NŒUDS PUBLICS : lecture autorisée aux clients anonymes (aucune PII) ───
+    "cartes":                  { ".read": "auth != null" },
+    "parametres":              { ".read": "auth != null" },
+    "creneaux_web":            { ".read": "auth != null" },
+    "planning_emplacements":   { ".read": "auth != null" },
+    "overrides":               { ".read": "auth != null" },
+    "emplacements_repertoire": { ".read": "auth != null" },
+    "site_config":             { ".read": "auth != null" },
+    "spots_pokeben":           { ".read": "auth != null" },
+
+    // ─── COMMANDES WEB (Capt&Fish + Pok&Ben) ───
+    //  Pas de ".read" ici → hérite de la racine = STAFF SEULEMENT.
+    //  Les clients anonymes peuvent toujours créer/annuler (write racine),
+    //  mais ne peuvent plus LIRE la PII des commandes. Validations conservées.
+    "commandes_web": {
+      "$etab": {
+        "$orderId": {
+          // À la création, statut forcément "pending" (pas d'auto-confirmation).
+          ".validate": "data.exists() || newData.child('status').val() === 'pending'",
+          // Montant : nombre >= 0, FIGÉ après création (pas de prix trafiqué).
+          "total":  { ".validate": "newData.isNumber() && newData.val() >= 0 && (!data.exists() || newData.val() === data.val())" },
+          // Statut : seulement les valeurs prévues par les apps.
+          "status": { ".validate": "newData.isString() && newData.val().matches(/^(pending|confirmed|cancelled|printed)$/)" },
+          // Contenu non vidable.
+          "items":  { ".validate": "newData.hasChildren()" },
+          // Champs figés après création (identité, créneau, horaire).
+          "id":                 { ".validate": "!data.exists() || newData.val() === data.val()" },
+          "num":                { ".validate": "!data.exists() || newData.val() === data.val()" },
+          "fname":              { ".validate": "!data.exists() || newData.val() === data.val()" },
+          "lname":              { ".validate": "!data.exists() || newData.val() === data.val()" },
+          "phone":              { ".validate": "!data.exists() || newData.val() === data.val()" },
+          "email":              { ".validate": "!data.exists() || newData.val() === data.val()" },
+          "jour":               { ".validate": "!data.exists() || newData.val() === data.val()" },
+          "service":            { ".validate": "!data.exists() || newData.val() === data.val()" },
+          "emplacement":        { ".validate": "!data.exists() || newData.val() === data.val()" },
+          "creneau_id":         { ".validate": "!data.exists() || newData.val() === data.val()" },
+          "heure_slot_demande": { ".validate": "!data.exists() || newData.val() === data.val()" },
+          "heure_retrait":      { ".validate": "!data.exists() || newData.val() === data.val()" },
+          "cree_le":            { ".validate": "!data.exists() || newData.val() === data.val()" }
+        }
+      }
+    },
+
+    // ─── CLIENTS WEB (auto-remplissage) : forme verrouillée ───
+    //  Pas de ".read" ici → hérite de la racine = STAFF SEULEMENT (PII protégée).
+    "clients_web": {
+      "$phone": {
+        ".validate": "newData.hasChildren()",
+        "fname":  { ".validate": "newData.isString()" },
+        "lname":  { ".validate": "newData.isString()" },
+        "email":  { ".validate": "newData.isString()" },
+        "maj":    { ".validate": "newData.isNumber()" },
+        "$other": { ".validate": false }
+      }
+    }
+  }
+}
