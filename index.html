@@ -9,7 +9,7 @@
    une seule fois. Invisible pour l'utilisateur, garantit toujours la dernière version.
    ============================================================ */
 (function(){
-  var SITE_VERSION = '2026-07-07-3';   // <-- incrémenter à CHAQUE mise en ligne
+  var SITE_VERSION = '2026-07-07-4';   // <-- incrémenter à CHAQUE mise en ligne
   try {
     var stored = localStorage.getItem('cf_site_version');
     if (stored !== SITE_VERSION) {
@@ -1211,7 +1211,7 @@
       <p class="hero-eyebrow" id="hero-eyebrow">🚚 Foodtruck · Valence & alentours</p>
       <h1 id="hero-title">Le <em>Véritable</em><br>Burger de Poisson</h1>
       <p class="hero-kicker" id="hero-kicker"><span>…mais pas que.</span></p>
-      <p id="hero-desc">Tartares, bocaux, accompagnements — toute une carte de la mer, préparée à bord.</p>
+      <p id="hero-desc">Le fish-burger qui vous fait voyager — carte fraîche, préparée à bord.</p>
       <div class="hero-buttons">
         <button class="btn-primary" onclick="showPage('order')">Commander maintenant</button>
         <button class="btn-secondary" onclick="showPage('spots')">Voir les emplacements</button>
@@ -1855,8 +1855,21 @@ const ANNULATION_DELAI_H = 24;
 const JOURS_K = ['lundi','mardi','mercredi','jeudi','vendredi','samedi','dimanche'];
 const JOURS_LBL = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
 
-// Auth anonyme (les règles exigent un utilisateur authentifié)
-_pubAuth.signInAnonymously().catch(e=>console.warn('Auth anonyme:', e.message));
+// ── Auth anonyme robuste — compatible mode "web app" écran d'accueil iOS ──
+// Depuis iOS 16.4, un raccourci écran d'accueil s'ouvre en web app autonome dont
+// le stockage IndexedDB peut se bloquer indéfiniment (bug WebKit connu). Firebase
+// Auth s'appuie sur IndexedDB pour persister la session : blocage = auth jamais
+// prête = règles refusent la lecture = page figée sur ses textes par défaut.
+// Correctif : persistance EN MÉMOIRE (zéro IndexedDB) + relances automatiques
+// (voir chien de garde plus bas). Les règles exigent un utilisateur authentifié.
+function _startAnonAuth(){
+  const doSignIn = () => _pubAuth.signInAnonymously()
+    .catch(e => console.warn('Auth anonyme:', e && e.message));
+  if (firebase.auth && firebase.auth.Auth && firebase.auth.Auth.Persistence) {
+    _pubAuth.setPersistence(firebase.auth.Auth.Persistence.NONE).then(doSignIn, doSignIn);
+  } else { doSignIn(); }
+}
+_startAnonAuth();
 
 // Caches alimentés par Firebase
 let fbProduits = {};      // cartes/burger/produits
@@ -2160,15 +2173,30 @@ function initFirebaseListeners(){
 // Attendre que l'auth anonyme soit prête avant de lire (règles Firebase : auth != null)
 // Sinon la 1ère lecture est refusée et la page reste vide jusqu'au refresh.
 (function(){
-  let attached = false;
+  let attached = false, authOK = false;
   function attachWhenReady(){
     _pubAuth.onAuthStateChanged(function(user){
-      if(user && !attached){ attached = true; initFirebaseListeners(); }
+      if(user){ authOK = true; if(!attached){ attached = true; initFirebaseListeners(); } }
     });
     // Sécurité : si l'auth n'est pas encore initiée, on la déclenche
-    if(!_pubAuth.currentUser){
-      _pubAuth.signInAnonymously().catch(e=>console.warn('Auth anonyme:', e.message));
-    }
+    if(!_pubAuth.currentUser){ _startAnonAuth(); }
+    // ── Chien de garde (mode web app iOS) ──
+    // Si l'auth n'a pas abouti, on relance à 2,5s puis 6s. À 10s, dernier
+    // recours : rechargement unique de la page (débloque IndexedDB figé).
+    setTimeout(function(){ if(!authOK) _startAnonAuth(); }, 2500);
+    setTimeout(function(){ if(!authOK) _startAnonAuth(); }, 6000);
+    setTimeout(function(){
+      if(!authOK){
+        let already = null;
+        try{ already = sessionStorage.getItem('cf_auth_reload'); }catch(e){}
+        if(!already){
+          try{ sessionStorage.setItem('cf_auth_reload','1'); }catch(e){}
+          window.location.reload();
+        }
+      } else {
+        try{ sessionStorage.removeItem('cf_auth_reload'); }catch(e){}
+      }
+    }, 10000);
   }
   if(document.readyState === 'loading'){
     document.addEventListener('DOMContentLoaded', attachWhenReady);
