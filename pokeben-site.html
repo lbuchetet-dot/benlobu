@@ -872,9 +872,10 @@ const JOURS=['Lundi','Mardi','Mercredi','Jeudi','Vendredi'];
 const todayName=JOURS_FR[new Date().getDay()];
 
 const fbConfig={apiKey:"AIzaSyDSAprSq4hr_A03-ctIVWiwOVfgHYStVTU",authDomain:"pokeben-caisse.firebaseapp.com",databaseURL:"https://pokeben-caisse-default-rtdb.europe-west1.firebasedatabase.app",projectId:"pokeben-caisse",storageBucket:"pokeben-caisse.firebasestorage.app",messagingSenderId:"881243394887",appId:"1:881243394887:web:bd6b2126b77574271db262"};
-firebase.initializeApp(fbConfig);
-const db=firebase.database();
-firebase.auth().signInAnonymously().catch(function(){});
+const _pubApp = firebase.initializeApp(fbConfig, 'pokbenPublic'); // session isolée (n'écrase plus l'admin/caisse)
+const db=_pubApp.database();
+const _pubAuth = _pubApp.auth();
+_pubAuth.signInAnonymously().catch(function(){});
 
 // ===== CONTRAINTES COMMANDE (miroir Capt&Fish) =====
 const CUTOFF_PB = { midi:'09:30', soir:'17:00' };   // heure limite de commande
@@ -1574,7 +1575,7 @@ function validerCommande(){
     _origin: 'web'          // source pour filtrage admin
   };
   function _envoiCmd(){ return db.ref('commandes_web/pokeben/'+num).set(_lastOrder); }
-  var _authEnsure = (firebase.auth().currentUser) ? Promise.resolve() : firebase.auth().signInAnonymously();
+  var _authEnsure = (_pubAuth.currentUser) ? Promise.resolve() : _pubAuth.signInAnonymously();
   _authEnsure.then(_envoiCmd).then(function(){
     try{var arr=JSON.parse(localStorage.getItem('pokeben_commandes')||'[]');arr.unshift(Object.assign({},_lastOrder,{savedAt:Date.now()}));localStorage.setItem('pokeben_commandes',JSON.stringify(arr.slice(0,30)));}catch(e){}
     cart=[];selectedSpot=null;updatePill();

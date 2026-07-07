@@ -506,7 +506,7 @@ const QUESTIONS = [
   { id:'manuel',       text:'', type:'text', trigger:'manual', active:false }
 ];
 
-const app = initializeApp(firebaseConfig);
+const app = initializeApp(firebaseConfig, 'fidelitePublic'); // session isolée (n'écrase plus l'admin/caisse)
 const db = getDatabase(app);
 const auth = getAuth(app);
 
