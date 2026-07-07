@@ -1672,8 +1672,12 @@ const firebaseConfig = {
   messagingSenderId: "881243394887",
   appId: "1:881243394887:web:bd6b2126b77574271db262"
 };
-firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
+// App Firebase DÉDIÉE au site public (session isolée). L'auth anonyme du site ne
+// partage plus la session Firebase avec l'admin/caisse (app [DEFAULT]) → fini les
+// "permission_denied" quand le site et l'admin/caisse sont ouverts en même temps.
+const _pubApp = firebase.initializeApp(firebaseConfig, 'captfishPublic');
+const db = _pubApp.database();
+const _pubAuth = _pubApp.auth();
 
 // ── Chargement dynamique du hero depuis Firebase ──
 db.ref('site_config/captfish/hero').on('value', snap => {
@@ -1698,7 +1702,7 @@ const JOURS_K = ['lundi','mardi','mercredi','jeudi','vendredi','samedi','dimanch
 const JOURS_LBL = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
 
 // Auth anonyme (les règles exigent un utilisateur authentifié)
-firebase.auth().signInAnonymously().catch(e=>console.warn('Auth anonyme:', e.message));
+_pubAuth.signInAnonymously().catch(e=>console.warn('Auth anonyme:', e.message));
 
 // Caches alimentés par Firebase
 let fbProduits = {};      // cartes/burger/produits
@@ -1995,12 +1999,12 @@ function initFirebaseListeners(){
 (function(){
   let attached = false;
   function attachWhenReady(){
-    firebase.auth().onAuthStateChanged(function(user){
+    _pubAuth.onAuthStateChanged(function(user){
       if(user && !attached){ attached = true; initFirebaseListeners(); }
     });
     // Sécurité : si l'auth n'est pas encore initiée, on la déclenche
-    if(!firebase.auth().currentUser){
-      firebase.auth().signInAnonymously().catch(e=>console.warn('Auth anonyme:', e.message));
+    if(!_pubAuth.currentUser){
+      _pubAuth.signInAnonymously().catch(e=>console.warn('Auth anonyme:', e.message));
     }
   }
   if(document.readyState === 'loading'){
@@ -3203,7 +3207,7 @@ function adminLogin() {
   const email = (document.getElementById('admin-user').value||'').trim();
   const pwd = document.getElementById('admin-pass').value||'';
   document.getElementById('login-error').style.display = 'none';
-  firebase.auth().signInWithEmailAndPassword(email, pwd)
+  _pubAuth.signInWithEmailAndPassword(email, pwd)
     .then(() => { showPage('admin'); })
     .catch(() => { document.getElementById('login-error').style.display = 'block'; });
 }
