@@ -17,6 +17,21 @@
   .menu-off-grid .menu-card,.menu-card-off{opacity:.4;filter:grayscale(.6);pointer-events:none;cursor:default}
   .menu-off-grid .menu-card:hover{transform:none;border-color:var(--border)}
   .menu-off-tag{font-size:.72rem;color:rgba(245,237,214,.5);font-weight:600}
+  /* Page événements B2B */
+  .evt-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;margin-bottom:26px}
+  .evt-card{background:rgba(255,255,255,.04);border:1px solid rgba(245,237,214,.12);border-radius:18px;padding:26px 24px}
+  .evt-card-icon{font-size:2rem;margin-bottom:10px}
+  .evt-card h3{font-size:1.25rem;color:var(--gold);margin:0 0 8px}
+  .evt-card p{color:rgba(245,237,214,.7);font-size:.95rem;line-height:1.5;margin:0 0 14px}
+  .evt-card ul{list-style:none;padding:0;margin:0}
+  .evt-card li{color:rgba(245,237,214,.88);font-size:.92rem;padding:5px 0 5px 22px;position:relative}
+  .evt-card li:before{content:'✓';position:absolute;left:0;color:#e1512d;font-weight:700}
+  .evt-contact{background:linear-gradient(135deg,#e1512d,#c0401f);border-radius:20px;padding:30px 26px;text-align:center}
+  .evt-contact h3{font-size:1.5rem;color:#fff;margin:0 0 8px}
+  .evt-contact p{color:rgba(255,255,255,.92);font-size:1rem;margin:0 0 18px}
+  .evt-contact-actions{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+  .evt-btn-primary{background:#fff;color:#c0401f;padding:13px 22px;border-radius:12px;font-weight:700;text-decoration:none;font-size:.95rem}
+  .evt-btn-ghost{background:rgba(255,255,255,.15);color:#fff;padding:13px 22px;border-radius:12px;font-weight:700;text-decoration:none;font-size:.95rem;border:1px solid rgba(255,255,255,.35)}
 </style>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Space+Grotesk:wght@400;500;600&display=swap');
@@ -1162,19 +1177,47 @@
 
 <!-- ===== PAGE ÉVÉNEMENTS ===== -->
 <div class="page" id="page-events">
-  <div class="hero" style="padding:3.5rem 2rem 4rem;">
+  <div class="hero" style="padding:3.5rem 2rem 3rem;">
     <div class="hero-content">
-      <p class="hero-eyebrow" id="events-eyebrow">🎉 Upcoming Events</p>
-      <h1 id="events-title" style="font-size:clamp(2rem,5vw,3.2rem);">Retrouvez-nous<br><em>sur le terrain</em></h1>
-      <p id="events-intro" style="font-size:1rem;color:rgba(245,237,214,0.55);max-width:520px;margin:0 auto;">Marchés, festivals, soirées privées — suivez nos prochaines dates.</p>
+      <p class="hero-eyebrow">🎉 Événements & Privatisations</p>
+      <h1 style="font-size:clamp(2rem,5vw,3.2rem);">Capt&Fish<br><em>chez vous</em></h1>
+      <p style="font-size:1rem;color:rgba(245,237,214,0.6);max-width:580px;margin:0 auto;">Privatisations, mariages, séminaires, soirées à thème (foot…), événements d'entreprise ou CSE — on vient à vous avec nos burgers de poisson faits maison.</p>
     </div>
   </div>
 
-  <section style="max-width:900px;margin:0 auto;padding:2.5rem 2rem;">
-    <div id="events-list"></div>
-    <div id="events-empty" style="display:none;text-align:center;padding:3rem 0;">
-      <div style="font-size:3rem;margin-bottom:1rem;">📅</div>
-      <p style="color:rgba(245,237,214,0.45);font-size:0.95rem;">No events scheduled yet.<br>Check back soon!</p>
+  <section style="max-width:1000px;margin:0 auto;padding:1rem 1.5rem 3.5rem;">
+    <div class="evt-grid">
+      <div class="evt-card">
+        <div class="evt-card-icon">🎉</div>
+        <h3>Privatisation & événements</h3>
+        <p>Pour vos moments uniques, le foodtruck Capt&Fish se déplace et régale vos invités avec une carte gourmande, 100% maison.</p>
+        <ul>
+          <li>Mariages & anniversaires</li>
+          <li>Fêtes de famille & soirées privées</li>
+          <li>Soirées à thème (foot, festivals…)</li>
+          <li>Prestation clé en main</li>
+        </ul>
+      </div>
+      <div class="evt-card">
+        <div class="evt-card-icon">🏢</div>
+        <h3>Entreprises & CSE</h3>
+        <p>Offrez à vos équipes une pause déjeuner conviviale et généreuse, directement sur votre lieu de travail.</p>
+        <ul>
+          <li>Emplacement dédié sur votre site</li>
+          <li>Déjeuners d'équipe & team buildings</li>
+          <li>Commandes groupées CSE</li>
+          <li>Séminaires & événements pro</li>
+        </ul>
+      </div>
+    </div>
+    <div class="evt-contact">
+      <h3>Parlons de votre projet</h3>
+      <p>Dites-nous votre besoin, on vous répond rapidement avec une proposition sur mesure.</p>
+      <div class="evt-contact-actions">
+        <a id="ev-contact-tel" href="#" class="evt-btn-primary" style="display:none">📞 Nous appeler</a>
+        <a id="ev-contact-mail" href="#" class="evt-btn-ghost" style="display:none">✉️ Nous écrire</a>
+        <a href="https://instagram.com/captn_fish" target="_blank" rel="noopener" class="evt-btn-ghost">📸 @captn_fish</a>
+      </div>
     </div>
   </section>
 </div>
@@ -2005,7 +2048,7 @@ function initFirebaseListeners(){
   // Répertoire des adresses d'emplacements (renseigné dans l'admin)
   db.ref('emplacements_repertoire/'+ETAB_ID).on('value', s => { fbRepertoire = s.val() || {}; });
   // Infos légales paramétrées dans l'admin
-  db.ref('parametres/legal_captn').on('value', s => { fbLegal = s.val() || {}; renderLegal(); });
+  db.ref('parametres/legal_captn').on('value', s => { fbLegal = s.val() || {}; renderLegal(); renderEventContact(); });
   // Capacité créneaux : on lit le MIROIR SANS PII (creneaux_web), jamais les commandes (RGPD)
   db.ref('creneaux_web/'+ETAB_ID).on('value', s => {
     fbCreneaux = s.val() || {};
@@ -2087,6 +2130,13 @@ const ALLERGENES_LBL = {
 function _lg(key, fallback){ const x = (fbLegal && fbLegal[key]) ? String(fbLegal[key]).trim() : ''; return x || (fallback || ''); }
 // Suffixe telephone commande — numero parametre dans l'admin (infos legales). Vide si non renseigne.
 function noteTelCommande(){ const t = _lg('tel'); return t ? ' ☎ Commandez par téléphone au ' + t : ''; }
+function renderEventContact(){
+  const tel=_lg('tel'), mail=_lg('email');
+  const tEl=document.getElementById('ev-contact-tel');
+  const mEl=document.getElementById('ev-contact-mail');
+  if(tEl){ if(tel){ tEl.href='tel:'+tel.replace(/\s+/g,''); tEl.textContent='📞 '+tel; tEl.style.display=''; } else { tEl.style.display='none'; } }
+  if(mEl){ if(mail){ mEl.href='mailto:'+mail; mEl.style.display=''; } else { mEl.style.display='none'; } }
+}
 function _todo(label){ return '<span class="legal-pending">à compléter dans l\'admin</span>'; }
 function _val(key){ const x = _lg(key); return x ? esc(x) : _todo(); }
 function esc(s){ return String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
@@ -3342,6 +3392,7 @@ function saveBurgerDuMoment(){
 // =================== ÉVÉNEMENTS ===================
 function renderEvents() {
   db.ref('site_config/captfish/events').once('value', snap => {
+    if(!document.getElementById('events-list')) return; // page Événements refondue en B2B (plus d'agenda)
     const cfg = snap.val() || {};
     if (cfg.eyebrow) document.getElementById('events-eyebrow').textContent = cfg.eyebrow;
     if (cfg.title)   document.getElementById('events-title').innerHTML = cfg.title;
