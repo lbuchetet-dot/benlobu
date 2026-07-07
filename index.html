@@ -3,7 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Capt&Fish — Nuit des Pêcheurs</title>
+<title>Capt&Fish — Foodtruck burger de poisson mais pas que ! · Valence</title>
+<style>
+  /* Anti-flash hero : le contenu par défaut reste invisible tant que le vrai (Firebase) n'est pas chargé */
+  #hero-eyebrow,#hero-title,#hero-kicker,#hero-desc{opacity:0;transition:opacity .3s ease}
+  body.hero-ready #hero-eyebrow,body.hero-ready #hero-title,body.hero-ready #hero-kicker,body.hero-ready #hero-desc{opacity:1}
+</style>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Space+Grotesk:wght@400;500;600&display=swap');
 
@@ -1682,12 +1687,15 @@ const _pubAuth = _pubApp.auth();
 // ── Chargement dynamique du hero depuis Firebase ──
 db.ref('site_config/captfish/hero').on('value', snap => {
   const h = snap.val();
-  if (!h) return;
-  if (h.eyebrow !== undefined) document.getElementById('hero-eyebrow').textContent = h.eyebrow;
-  if (h.title   !== undefined) document.getElementById('hero-title').innerHTML    = h.title;
-  if (h.kicker  !== undefined) document.getElementById('hero-kicker').innerHTML   = '<span>' + h.kicker + '</span>';
-  if (h.desc    !== undefined) document.getElementById('hero-desc').textContent   = h.desc;
+  if (h) {
+    if (h.eyebrow !== undefined) document.getElementById('hero-eyebrow').textContent = h.eyebrow;
+    if (h.title   !== undefined) document.getElementById('hero-title').innerHTML    = h.title;
+    if (h.kicker  !== undefined) document.getElementById('hero-kicker').innerHTML   = '<span>' + h.kicker + '</span>';
+    if (h.desc    !== undefined) document.getElementById('hero-desc').textContent   = h.desc;
+  }
+  document.body.classList.add('hero-ready'); // révèle le hero une fois le vrai contenu chargé (anti-flash)
 });
+setTimeout(function(){ document.body.classList.add('hero-ready'); }, 3000); // filet si Firebase lent/indispo
 
 const ETAB_ID = 'captfish';
 const CARTE = 'burger';
