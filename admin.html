@@ -354,6 +354,16 @@ tr:hover td{background:var(--bg)}
               <div class="form-field" id="ov-montant-field" style="display:none"><label class="form-label">Montant forfait (€)</label><input type="number" step="0.01" class="form-input" id="ov-montant" placeholder="1200" min="0"></div>
               <div class="form-field" style="grid-column:1/-1"><label class="form-label"><span id="ov-com-label">Commentaire</span> <small style="font-weight:500;color:var(--text-muted)">(visible sur l'iPad)</small></label><textarea class="form-input" id="ov-commentaire" rows="2" placeholder="Infos équipe : accès, contact sur place, horaire de montage, particularités…"></textarea></div>
             </div>
+            <div style="margin-top:4px;padding-top:14px;border-top:1px solid var(--border)">
+              <label class="form-label" style="display:flex;align-items:center;gap:8px;cursor:pointer">
+                <input type="checkbox" id="ov-event" onchange="ovEventToggle()" style="width:auto"> 🎉 Mode événement (soirée) — <small style="font-weight:500;color:var(--text-muted)">sans limite de créneaux + carte resserrée</small>
+              </label>
+              <div id="ov-event-extras" style="display:none;margin-top:12px">
+                <div class="form-field" style="grid-column:1/-1"><label class="form-label">Message affiché au client <small style="font-weight:500;color:var(--text-muted)">(ex. « Soirée foot — voici la carte de la soirée ! »)</small></label><input type="text" class="form-input" id="ov-message" placeholder="Soirée foot — carte spéciale ce soir !"></div>
+                <label class="form-label" style="margin-top:12px;display:block">Carte de l'événement <small style="font-weight:500;color:var(--text-muted)">(coche les produits dispo ce soir-là ; vide = carte entière)</small></label>
+                <div id="ov-menu-event" style="max-height:240px;overflow-y:auto;border:1px solid var(--border);border-radius:10px;padding:12px;margin-top:6px">Active le mode événement pour charger la carte…</div>
+              </div>
+            </div>
             <button class="btn btn-primary" onclick="sauvegarderOverride()">Enregistrer l'override</button>
             <button id="ov-delete-btn" class="btn btn-danger" style="display:none;margin-left:8px" onclick="supprimerOverrideCourant()">Supprimer cet événement</button>
             <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border)">
@@ -2018,6 +2028,13 @@ function prefillOverride(iso,service,ov){
   const tEl=document.getElementById('ov-type'); if(tEl){ tEl.value=ov.type||'service'; }
   const mEl=document.getElementById('ov-montant'); if(mEl){ mEl.value=ov.montant||''; }
   const cEl=document.getElementById('ov-commentaire'); if(cEl){ cEl.value=ov.commentaire||''; }
+  const evCb=document.getElementById('ov-event');
+  if(evCb){
+    evCb.checked = !!ov.sansLimite;
+    const mEv=document.getElementById('ov-message'); if(mEv) mEv.value = ov.messageEvent||'';
+    _ovMenuSel = Array.isArray(ov.menuEvent) ? ov.menuEvent : [];
+    ovEventToggle();
+  }
   if(typeof ovTypeChange==='function') ovTypeChange();
   document.getElementById('ov-date').scrollIntoView({behavior:'smooth',block:'center'});
   const dBtn=document.getElementById('ov-delete-btn'); if(dBtn) dBtn.style.display='inline-block';
@@ -2028,6 +2045,10 @@ function _resetOverrideForm(){
   const tEl=document.getElementById('ov-type'); if(tEl) tEl.value='service';
   if(typeof ovTypeChange==='function') ovTypeChange();
   const dBtn=document.getElementById('ov-delete-btn'); if(dBtn) dBtn.style.display='none';
+  const evCb2=document.getElementById('ov-event'); if(evCb2) evCb2.checked=false;
+  const mEv2=document.getElementById('ov-message'); if(mEv2) mEv2.value='';
+  _ovMenuSel=[];
+  const eEx=document.getElementById('ov-event-extras'); if(eEx) eEx.style.display='none';
 }
 function supprimerOverride(iso, svc){
   const etabId=_planningEtab||selectedPlanningEtab;
@@ -2465,6 +2486,49 @@ function ovTypeChange(){
   const comLabel=document.getElementById('ov-com-label');
   if(comLabel) comLabel.textContent = ferme ? 'Motif (vacances, panne, arrêt…)' : 'Commentaire';
 }
+let _ovMenuSel = [];
+function renderOvMenuPicker(selectedIds){
+  selectedIds = selectedIds || [];
+  const box = document.getElementById('ov-menu-event'); if(!box) return;
+  box.innerHTML = 'Chargement…';
+  db.ref('cartes/burger/produits').once('value', function(snap){
+    const data = snap.val() || {};
+    const cats = {};
+    Object.keys(data).forEach(function(id){
+      const pr = data[id]; if(!pr || pr.actif===false) return;
+      const c = pr.categorie || 'Autres';
+      (cats[c] = cats[c] || []).push({id:id, nom:(pr.nom||id)});
+    });
+    const sel = {}; selectedIds.forEach(function(x){ sel[x]=true; });
+    const keys = Object.keys(cats);
+    if(!keys.length){ box.innerHTML = '<div style="color:var(--text-muted);font-size:13px">Aucun produit.</div>'; return; }
+    box.innerHTML = keys.map(function(cat){
+      const safe = cat.replace(/"/g,'&quot;');
+      return '<div style="margin-bottom:10px">'
+        + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">'
+        +   '<strong style="font-size:13px">'+cat+'</strong>'
+        +   '<button type="button" class="btn btn-secondary" onclick="ovToggleCat(this)" data-cat="'+safe+'" style="font-size:11px;padding:3px 8px">Tout</button>'
+        + '</div>'
+        + cats[cat].map(function(x){
+            return '<label style="display:flex;align-items:center;gap:8px;font-size:13px;padding:3px 0;cursor:pointer">'
+              + '<input type="checkbox" class="ovme-cb" data-cat="'+safe+'" value="'+x.id+'"'+(sel[x.id]?' checked':'')+' style="width:auto">'
+              + x.nom + '</label>';
+          }).join('')
+        + '</div>';
+    }).join('');
+  });
+}
+function ovToggleCat(btn){
+  const cat = btn.getAttribute('data-cat');
+  const cbs = document.querySelectorAll('.ovme-cb[data-cat="'+cat+'"]');
+  let allOn = true; cbs.forEach(function(c){ if(!c.checked) allOn=false; });
+  cbs.forEach(function(c){ c.checked = !allOn; });
+}
+function ovEventToggle(){
+  const cb = document.getElementById('ov-event'); if(!cb) return;
+  document.getElementById('ov-event-extras').style.display = cb.checked ? 'block' : 'none';
+  if(cb.checked) renderOvMenuPicker(_ovMenuSel || []);
+}
 function sauvegarderOverride(){
   const etabId=selectedPlanningEtab;
   if(!etabId){ showNotif('Sélectionne un établissement','error'); return; }
@@ -2493,6 +2557,12 @@ function sauvegarderOverride(){
   if(!lieu){ showNotif('Date et emplacement requis','error'); return; }
   const rec={nom:lieu,capacite:cap,date,service,type,evenement:true,commentaire};
   if(type==='forfait') rec.montant=montant; // optionnel : peut être complété plus tard
+  const _evOn = document.getElementById('ov-event') && document.getElementById('ov-event').checked;
+  if(_evOn){
+    rec.sansLimite = true;
+    rec.messageEvent = ((document.getElementById('ov-message')||{}).value||'').trim();
+    rec.menuEvent = Array.prototype.map.call(document.querySelectorAll('.ovme-cb:checked'), function(c){ return c.value; });
+  }
   db.ref(`overrides/${etabId}/${date}_${service}`).set(rec)
     .then(()=>{
       showNotif((type==='forfait' && montant<=0) ? 'Événement enregistré ✓ — pense à saisir le montant forfait' : 'Événement enregistré ✓','success');
