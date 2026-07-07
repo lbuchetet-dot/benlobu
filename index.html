@@ -9,7 +9,7 @@
    une seule fois. Invisible pour l'utilisateur, garantit toujours la dernière version.
    ============================================================ */
 (function(){
-  var SITE_VERSION = '2026-07-07-4';   // <-- incrémenter à CHAQUE mise en ligne
+  var SITE_VERSION = '2026-07-07-5';   // <-- incrémenter à CHAQUE mise en ligne
   try {
     var stored = localStorage.getItem('cf_site_version');
     if (stored !== SITE_VERSION) {
@@ -1803,45 +1803,52 @@ function applyCaptfishLogo(url){
     if(foot) foot.innerHTML='Capt<span>&Fish</span> \u2693';
   }
 }
-db.ref('site_config/captfish/logo').on('value', snap => applyCaptfishLogo(snap.val()));
+// ── Listeners de la page d'accueil (logo, hero, burger du moment) ──
+// IMPORTANT : appelés UNIQUEMENT après l'auth anonyme (voir initFirebaseListeners).
+// Un listener lancé avant l'auth est refusé par les règles Firebase et ANNULÉ
+// DÉFINITIVEMENT — il ne réessaie jamais, même quand l'auth aboutit ensuite.
+// C'était la cause de la page d'accueil figée sur ses textes par défaut.
+function initSiteConfigListeners(){
+  db.ref('site_config/captfish/logo').on('value', snap => applyCaptfishLogo(snap.val()));
 
-// ── Chargement dynamique du hero depuis Firebase ──
-db.ref('site_config/captfish/hero').on('value', snap => {
-  const h = snap.val();
-  if (h) {
-    if (h.eyebrow !== undefined) document.getElementById('hero-eyebrow').textContent = h.eyebrow;
-    if (h.title   !== undefined) document.getElementById('hero-title').innerHTML    = h.title;
-    if (h.kicker  !== undefined) document.getElementById('hero-kicker').innerHTML   = '<span>' + h.kicker + '</span>';
-    if (h.desc    !== undefined) document.getElementById('hero-desc').textContent   = h.desc;
-  }
-  document.body.classList.add('hero-ready'); // révèle le hero une fois le vrai contenu chargé (anti-flash)
-});
+  // Chargement dynamique du hero depuis Firebase
+  db.ref('site_config/captfish/hero').on('value', snap => {
+    const h = snap.val();
+    if (h) {
+      if (h.eyebrow !== undefined) document.getElementById('hero-eyebrow').textContent = h.eyebrow;
+      if (h.title   !== undefined) document.getElementById('hero-title').innerHTML    = h.title;
+      if (h.kicker  !== undefined) document.getElementById('hero-kicker').innerHTML   = '<span>' + h.kicker + '</span>';
+      if (h.desc    !== undefined) document.getElementById('hero-desc').textContent   = h.desc;
+    }
+    document.body.classList.add('hero-ready'); // révèle le hero une fois le vrai contenu chargé (anti-flash)
+  });
+
+  // Chargement dynamique du Burger du Moment depuis Firebase
+  // Tant qu'aucune valeur n'existe dans site_config/captfish/burger_moment,
+  // le site masque la section (aucun fallback).
+  db.ref('site_config/captfish/burger_moment').on('value', snap => {
+    const v = snap.val();
+    if (v) {
+      if (v.productId !== undefined) burgerDuMoment.productId = v.productId;
+      if (v.name  !== undefined) burgerDuMoment.name  = v.name;
+      if (v.desc  !== undefined) burgerDuMoment.desc  = v.desc;
+      if (v.price !== undefined) burgerDuMoment.price = Number(v.price) || 0;
+      if (v.emoji !== undefined) burgerDuMoment.emoji = v.emoji;
+      if (v.photo !== undefined) burgerDuMoment.photo = v.photo;
+      if (v.badge !== undefined) burgerDuMoment.badge = v.badge;
+      if (v.actif !== undefined) burgerDuMoment.actif = v.actif;
+    }
+    // Masqué si : rien de configuré (nom vide) OU explicitement masqué dans l'admin
+    const sec = document.getElementById('burger-moment-section');
+    if (sec) {
+      const hide = (!burgerDuMoment.name || burgerDuMoment.actif === false);
+      sec.classList.toggle('bdm-hidden', hide);
+    }
+    renderBurgerDuMoment();
+    if (typeof renderBDMAdmin === 'function') renderBDMAdmin();
+  });
+}
 setTimeout(function(){ document.body.classList.add('hero-ready'); }, 3000); // filet si Firebase lent/indispo
-
-// ── Chargement dynamique du Burger du Moment depuis Firebase ──
-// Tant qu'aucune valeur n'existe dans site_config/captfish/burger_moment,
-// le site masque la section (aucun fallback).
-db.ref('site_config/captfish/burger_moment').on('value', snap => {
-  const v = snap.val();
-  if (v) {
-    if (v.productId !== undefined) burgerDuMoment.productId = v.productId;
-    if (v.name  !== undefined) burgerDuMoment.name  = v.name;
-    if (v.desc  !== undefined) burgerDuMoment.desc  = v.desc;
-    if (v.price !== undefined) burgerDuMoment.price = Number(v.price) || 0;
-    if (v.emoji !== undefined) burgerDuMoment.emoji = v.emoji;
-    if (v.photo !== undefined) burgerDuMoment.photo = v.photo;
-    if (v.badge !== undefined) burgerDuMoment.badge = v.badge;
-    if (v.actif !== undefined) burgerDuMoment.actif = v.actif;
-  }
-  // Masqué si : rien de configuré (nom vide) OU explicitement masqué dans l'admin
-  const sec = document.getElementById('burger-moment-section');
-  if (sec) {
-    const hide = (!burgerDuMoment.name || burgerDuMoment.actif === false);
-    sec.classList.toggle('bdm-hidden', hide);
-  }
-  renderBurgerDuMoment();
-  if (typeof renderBDMAdmin === 'function') renderBDMAdmin();
-});
 
 const ETAB_ID = 'captfish';
 const CARTE = 'burger';
@@ -2176,7 +2183,7 @@ function initFirebaseListeners(){
   let attached = false, authOK = false;
   function attachWhenReady(){
     _pubAuth.onAuthStateChanged(function(user){
-      if(user){ authOK = true; if(!attached){ attached = true; initFirebaseListeners(); } }
+      if(user){ authOK = true; if(!attached){ attached = true; initFirebaseListeners(); initSiteConfigListeners(); } }
     });
     // Sécurité : si l'auth n'est pas encore initiée, on la déclenche
     if(!_pubAuth.currentUser){ _startAnonAuth(); }
