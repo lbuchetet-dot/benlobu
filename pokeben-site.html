@@ -658,21 +658,22 @@ footer{background:var(--ink);color:#fff;padding:3.5rem 2.5rem 2rem;}
     </div>
   </div>
 
-  <!-- À LA UNE : Poké du moment (principe Capt&Fish) -->
-  <div class="une">
+  <!-- À LA UNE : Poké du moment — piloté par site_config/pokeben/poke_moment (admin, onglet Poke du moment).
+       Masqué tant que rien n'est configuré ou si "Masqué" est sélectionné. -->
+  <div class="une" id="une-section" style="display:none">
     <div class="une-label">À la une</div>
     <div class="une-title">Le Poké du Moment</div>
     <div class="une-card">
       <div class="une-card-left">
-        <div class="une-badge">Nouveau</div>
-        <div class="une-name" id="une-name">Nouvelle Carte</div>
-        <div class="une-desc" id="une-desc">Burrata crémeuse, jambon, tomates cerises confites, pesto maison et croutons dorés.</div>
+        <div class="une-badge" id="une-badge">Nouveau</div>
+        <div class="une-name" id="une-name"></div>
+        <div class="une-desc" id="une-desc"></div>
         <div class="une-foot">
-          <div class="une-price" id="une-price">13,90 €</div>
+          <div class="une-price" id="une-price"></div>
           <button class="btn-coral" id="une-btn" onclick="addUneToCart()">Ajouter au panier</button>
         </div>
       </div>
-      <div class="une-card-right">
+      <div class="une-card-right" id="une-visual">
         <div class="une-deco-circle une-deco-1"></div>
         <div class="une-deco-circle une-deco-2"></div>
         <span class="big-emoji">🥗</span>
@@ -1010,7 +1011,7 @@ let CATS=['Pokés','Formule','Desserts','Boissons'];
 let activeCat='Pokés',cart=[],selectedSpot=null,_lastOrder=null,_lineSeq=1;
 
 /* ===== CARTE POKÉ depuis Firebase (admin BDD Produits) ===== */
-var _cfgPoke={categories:{},articles:{}}, _prodsPoke=null, _uneId=null;
+var _cfgPoke={categories:{},articles:{}}, _prodsPoke=null;
 function _buildMenuPoke(){
   if(_prodsPoke===null) return;
   var catCfg=_cfgPoke.categories||{}, artCfg=_cfgPoke.articles||{};
@@ -1048,15 +1049,39 @@ function _buildMenuPoke(){
   try{var pc=document.getElementById('page-carte'); if(pc&&pc.classList.contains('active'))renderCarte();}catch(e){}
   try{var po=document.getElementById('page-order'); if(po&&po.classList.contains('active'))renderCatsOrder();}catch(e){}
 }
+/* ===== POKÉ DU MOMENT — même principe que le Burger du moment Capt&Fish =====
+   Piloté par site_config/pokeben/poke_moment (admin, onglet "Poke du moment").
+   Champs : productId, name, desc, price, emoji, photo (base64), badge, actif. */
+var pokeMoment=null;
 function renderUne(){
-  var src=MENU.filter(function(m){return m.cat===_firstProdCatPoke();});
-  var m=src.length?src[0]:(MENU.length?MENU[0]:null);
-  if(!m) return; _uneId=m.id;
-  var n=document.getElementById('une-name'); if(n)n.textContent=m.nom;
-  var d=document.getElementById('une-desc'); if(d)d.textContent=m.desc;
-  var pp=document.getElementById('une-price'); if(pp)pp.textContent=m.prix.toFixed(2).replace('.',',')+' €';
+  var sec=document.getElementById('une-section'); if(!sec) return;
+  var m=pokeMoment;
+  // Masqué si rien de configuré ou explicitement masqué dans l'admin
+  if(!m || !m.name || m.actif===false){ sec.style.display='none'; return; }
+  sec.style.display='';
+  var n=document.getElementById('une-name'); if(n)n.textContent=m.name||'';
+  var d=document.getElementById('une-desc'); if(d)d.textContent=m.desc||'';
+  var pp=document.getElementById('une-price'); if(pp)pp.textContent=(Number(m.price)||0).toFixed(2).replace('.',',')+' €';
+  var bd=document.getElementById('une-badge');
+  if(bd){ bd.textContent=m.badge||''; bd.style.display=m.badge?'':'none'; }
+  var vis=document.getElementById('une-visual');
+  if(vis){
+    vis.innerHTML = m.photo
+      ? '<img src="'+m.photo+'" alt="'+String(m.name||'').replace(/"/g,'&quot;')+'" style="width:100%;height:100%;object-fit:cover;display:block">'
+      : '<div class="une-deco-circle une-deco-1"></div><div class="une-deco-circle une-deco-2"></div><span class="big-emoji">'+(m.emoji||'🥗')+'</span>';
+  }
 }
-function addUneToCart(){ if(_uneId) addToCart(_uneId); }
+function addUneToCart(){
+  var m=pokeMoment; if(!m) return;
+  // 1. Lien direct par id produit (défini via le sélecteur de l'admin) — fiable
+  var item=null;
+  if(m.productId) item=MENU.find(function(x){return x.id===m.productId;});
+  // 2. Secours : correspondance par nom exact
+  if(!item) item=MENU.find(function(x){return x.nom===m.name;});
+  if(item){ addToCart(item.id); go('order'); }
+  else{ showToast('Ce produit n\'est pas disponible à la commande en ligne','⚠️'); go('order'); }
+}
+db.ref('site_config/pokeben/poke_moment').on('value',function(sn){ pokeMoment=sn.val(); try{renderUne();}catch(e){} });
 db.ref('parametres/carte_config/poke').on('value',function(sn){ _cfgPoke=sn.val()||{categories:{},articles:{}}; _buildMenuPoke(); });
 db.ref('cartes/poke/produits').on('value',function(sn){ _prodsPoke=sn.val()||{}; _buildMenuPoke(); });
 

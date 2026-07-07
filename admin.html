@@ -1262,6 +1262,9 @@ tr:hover td{background:var(--bg)}
           <div class="card">
             <div class="card-title">Burger du moment</div>
             <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px">Produit mis en avant en page d'accueil du site. « Masqué » retire la section du site. Pense à <strong>Enregistrer</strong> pour publier.</p>
+            <div class="form-field"><label class="form-label">Choisir depuis la carte <span style="font-weight:400;text-transform:none;color:var(--text-muted)">— pré-remplit nom, description, prix et photo</span></label>
+              <select class="form-input" id="captfish-moment-product" onchange="choisirMomentProduit('captfish')"><option value="">— Saisie libre —</option></select>
+            </div>
             <div class="form-field"><label class="form-label">Nom du burger</label><input class="form-input" id="captfish-moment-name" type="text" placeholder="Burger Capitaine"></div>
             <div class="form-field"><label class="form-label">Description</label><textarea class="form-input" id="captfish-moment-desc" rows="3" style="resize:vertical" placeholder="Décris les ingrédients…"></textarea></div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
@@ -1375,6 +1378,9 @@ tr:hover td{background:var(--bg)}
           <div class="card">
             <div class="card-title">Poke du moment</div>
             <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px">Produit mis en avant en page d'accueil du site. « Masqué » retire la section du site. Pense à <strong>Enregistrer</strong> pour publier.</p>
+            <div class="form-field"><label class="form-label">Choisir depuis la carte <span style="font-weight:400;text-transform:none;color:var(--text-muted)">— pré-remplit nom, description, prix et photo</span></label>
+              <select class="form-input" id="pokeben-moment-product" onchange="choisirMomentProduit('pokeben')"><option value="">— Saisie libre —</option></select>
+            </div>
             <div class="form-field"><label class="form-label">Nom du poke</label><input class="form-input" id="pokeben-moment-name" type="text" placeholder="Poke Saumon Teriyaki"></div>
             <div class="form-field"><label class="form-label">Description</label><textarea class="form-input" id="pokeben-moment-desc" rows="3" style="resize:vertical" placeholder="Décris les ingrédients…"></textarea></div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
@@ -6261,16 +6267,32 @@ function switchSiteTab(brand, tab) {
 // ─────────── Produit du moment (burger Capt&Fish / poke Pok&Ben) ───────────
 // Écrit dans site_config/captfish/burger_moment et site_config/pokeben/poke_moment.
 const MOMENT = {
-  captfish:{ node:'burger_moment', emoji:'🍔', bg:'#0D1B2A', bg2:'#0a1520', gold:'#C8A96E', accent:'#E8533A', cream:'#F5EDD6' },
-  pokeben: { node:'poke_moment',   emoji:'🥗', bg:'#1a2e1a', bg2:'#111e11', gold:'#a8c97a', accent:'#e1512d', cream:'#f0eedd' }
+  captfish:{ node:'burger_moment', carte:'burger', emoji:'🍔', bg:'#0D1B2A', bg2:'#0a1520', gold:'#C8A96E', accent:'#E8533A', cream:'#F5EDD6' },
+  pokeben: { node:'poke_moment',   carte:'poke',   emoji:'🥗', bg:'#1a2e1a', bg2:'#111e11', gold:'#a8c97a', accent:'#e1512d', cream:'#f0eedd' }
 };
 function _momEsc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function momentRef(brand){ return db.ref('site_config/'+brand+'/'+MOMENT[brand].node); }
 
 function chargerMoment(brand){
-  momentRef(brand).once('value').then(s=>{
+  const carte=MOMENT[brand].carte;
+  Promise.all([
+    db.ref('cartes/'+carte+'/produits').once('value'),
+    momentRef(brand).once('value')
+  ]).then(([ps,s])=>{
+    // 1. Peuple le sélecteur avec les produits actifs de la carte
+    const prods=ps.val()||{};
+    MOMENT[brand]._produits=prods;
+    const sel=document.getElementById(brand+'-moment-product');
+    if(sel){
+      sel.innerHTML='<option value="">— Saisie libre —</option>'+Object.entries(prods)
+        .filter(([,p])=>p&&p.actif!==false)
+        .sort((a,b)=>String(a[1].nom||'').localeCompare(String(b[1].nom||'')))
+        .map(([id,p])=>'<option value="'+_momEsc(id)+'">'+_momEsc(p.nom||id)+'</option>').join('');
+    }
+    // 2. Remplit le formulaire avec les valeurs enregistrées
     const m=s.val()||{};
     const g=id=>document.getElementById(brand+'-moment-'+id);
+    if(sel) sel.value = (m.productId && prods[m.productId]) ? m.productId : '';
     if(g('name'))  g('name').value  = m.name||'';
     if(g('desc'))  g('desc').value  = m.desc||'';
     if(g('price')) g('price').value = (m.price!=null?m.price:'');
@@ -6290,6 +6312,7 @@ function chargerMoment(brand){
 function lireMomentForm(brand){
   const g=id=>{ const el=document.getElementById(brand+'-moment-'+id); return el?el.value:''; };
   return {
+    productId:(g('product')||'').trim(),
     name:(g('name')||'').trim(),
     desc:(g('desc')||'').trim(),
     price:parseFloat(g('price'))||0,
@@ -6298,6 +6321,24 @@ function lireMomentForm(brand){
     photo:(g('photo')||'').trim(),
     actif:(g('actif')!=='0')
   };
+}
+
+// Sélection d'un produit de la carte → pré-remplit nom, description, prix (taille la moins chère) et photo
+function choisirMomentProduit(brand){
+  const sel=document.getElementById(brand+'-moment-product');
+  const prods=MOMENT[brand]._produits||{};
+  const p=(sel&&sel.value)?prods[sel.value]:null;
+  if(p){
+    const g=id=>document.getElementById(brand+'-moment-'+id);
+    if(g('name')) g('name').value=p.nom||'';
+    if(g('desc')) g('desc').value=p.description||'';
+    let prix=null;
+    Object.values(p.tailles||{}).forEach(t=>{ const v=Number(t&&t.prix); if(!isNaN(v)&&(prix===null||v<prix)) prix=v; });
+    if(g('price')) g('price').value=(prix!=null?prix:'');
+    if(g('photo')) g('photo').value=p.photo||'';
+    renderMomentPhotoBtn(brand);
+  }
+  mettreAJourMomentPreview(brand, lireMomentForm(brand));
 }
 
 function renderMomentPhotoBtn(brand){
