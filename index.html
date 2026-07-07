@@ -1134,7 +1134,7 @@
 
 <!-- NAV -->
 <nav>
-  <div class="nav-logo">Capt<span>&Fish</span></div>
+  <div class="nav-logo" id="nav-logo">Capt<span>&Fish</span></div>
   <div class="nav-links">
     <button onclick="showPage('home')" class="active" id="nav-home">Accueil</button>
     <button onclick="showPage('events')" id="nav-events">Events</button>
@@ -1216,7 +1216,7 @@
       <div class="evt-contact-actions">
         <a id="ev-contact-tel" href="#" class="evt-btn-primary" style="display:none">📞 Nous appeler</a>
         <a id="ev-contact-mail" href="#" class="evt-btn-ghost" style="display:none">✉️ Nous écrire</a>
-        <a href="https://instagram.com/captn_fish" target="_blank" rel="noopener" class="evt-btn-ghost">📸 @captn_fish</a>
+        <a id="ev-contact-insta" href="https://instagram.com/captn_fish" target="_blank" rel="noopener" class="evt-btn-ghost">📸 @captn_fish</a>
       </div>
     </div>
   </section>
@@ -1622,7 +1622,7 @@
 <footer class="site-footer" id="site-footer">
   <div class="footer-inner">
     <div class="footer-brand">
-      <div class="footer-logo">Capt<span>&Fish</span> ⚓</div>
+      <div class="footer-logo" id="footer-logo">Capt<span>&Fish</span> ⚓</div>
       <p class="footer-tagline">Le fish-burger qui vous fait voyager.</p>
       <a href="https://instagram.com/captn_fish" target="_blank" rel="noopener" class="footer-insta">📷 @captn_fish</a>
     </div>
@@ -1735,6 +1735,20 @@ const firebaseConfig = {
 const _pubApp = firebase.initializeApp(firebaseConfig, 'captfishPublic');
 const db = _pubApp.database();
 const _pubAuth = _pubApp.auth();
+
+// ── Logo dynamique (image uploadée dans l'admin, sinon logo texte) ──
+function applyCaptfishLogo(url){
+  const nav=document.getElementById('nav-logo');
+  const foot=document.getElementById('footer-logo');
+  if(url){
+    if(nav)  nav.innerHTML='<img src="'+url+'" alt="Capt&Fish" style="height:36px;width:auto;max-height:44px;display:block">';
+    if(foot) foot.innerHTML='<img src="'+url+'" alt="Capt&Fish" style="height:40px;width:auto;display:block;margin-bottom:8px">';
+  } else {
+    if(nav)  nav.innerHTML='Capt<span>&Fish</span>';
+    if(foot) foot.innerHTML='Capt<span>&Fish</span> \u2693';
+  }
+}
+db.ref('site_config/captfish/logo').on('value', snap => applyCaptfishLogo(snap.val()));
 
 // ── Chargement dynamique du hero depuis Firebase ──
 db.ref('site_config/captfish/hero').on('value', snap => {
@@ -2131,11 +2145,18 @@ function _lg(key, fallback){ const x = (fbLegal && fbLegal[key]) ? String(fbLega
 // Suffixe telephone commande — numero parametre dans l'admin (infos legales). Vide si non renseigne.
 function noteTelCommande(){ const t = _lg('tel'); return t ? ' ☎ Commandez par téléphone au ' + t : ''; }
 function renderEventContact(){
-  const tel=_lg('tel'), mail=_lg('email');
+  const tel=_lg('tel'), mail=_lg('email'), insta=_lg('instagram');
   const tEl=document.getElementById('ev-contact-tel');
   const mEl=document.getElementById('ev-contact-mail');
+  const iEl=document.getElementById('ev-contact-insta');
   if(tEl){ if(tel){ tEl.href='tel:'+tel.replace(/\s+/g,''); tEl.textContent='📞 '+tel; tEl.style.display=''; } else { tEl.style.display='none'; } }
   if(mEl){ if(mail){ mEl.href='mailto:'+mail; mEl.style.display=''; } else { mEl.style.display='none'; } }
+  if(iEl && insta){
+    const isUrl=/^https?:\/\//i.test(insta);
+    const handle=insta.replace(/^@/,'');
+    iEl.href = isUrl ? insta : 'https://instagram.com/'+handle;
+    iEl.textContent = isUrl ? '📸 Instagram' : '📸 @'+handle;
+  }
 }
 function _todo(label){ return '<span class="legal-pending">à compléter dans l\'admin</span>'; }
 function _val(key){ const x = _lg(key); return x ? esc(x) : _todo(); }
