@@ -271,20 +271,15 @@
   <div class="form-sub">Crée ton compte en 20 secondes</div>
   <div class="field"><label class="label">Ton prénom</label><input class="input" type="text" id="reg-prenom" placeholder="Prénom" autocomplete="off"></div>
   <div class="field"><label class="label">Date de naissance <span style="color:#666;font-weight:400">(pour ton cadeau d'anniv 🎂)</span></label><input class="input" type="date" id="reg-naissance"></div>
-  <div class="field">
-    <label class="label">Tu es…</label>
-    <div class="seg" id="reg-sexe">
-      <button onclick="selSexe(this,'F')">Femme</button>
-      <button onclick="selSexe(this,'H')">Homme</button>
-      <button onclick="selSexe(this,'A')">Autre</button>
-    </div>
-  </div>
   <div class="consent-box">
     <div class="consent-text">Pour récompenser nos meilleurs clients, on envoie de temps en temps des cadeaux et des promos par SMS. Ça te dit ?</div>
     <div class="consent-btns">
       <button class="consent-yes" id="cons-yes" onclick="selConsent(true)">Oui, avec plaisir</button>
       <button class="consent-no" id="cons-no" onclick="selConsent(false)">Non merci</button>
     </div>
+  </div>
+  <div style="font-size:12px;color:#9a9a9a;line-height:1.5;background:var(--g1);border:1px solid var(--g3);border-radius:12px;padding:12px 14px;margin-top:4px">
+    🔒 Tes infos (prénom, téléphone, date de naissance) servent uniquement à gérer ta carte de fidélité Pok&amp;Ben. Elles ne sont jamais revendues. Tu peux les consulter ou demander leur suppression à tout moment : <strong>contact@pokeben.fr</strong>.
   </div>
   <button class="btn-primary" onclick="registerClient()">Créer mon compte 🎉</button>
   <button class="btn-ghost" onclick="goVeille()">← Retour</button>
@@ -579,7 +574,7 @@ window.registerClient=async()=>{
   const tel=telKey();
   const _cam=getCamion();
   const c={
-    prenom, telephone:tel, sexe:regSexe||null, date_naissance:naissance||null,
+    prenom, telephone:tel, date_naissance:naissance||null,
     points:0, visites:0, rewards_used:0,
     consent_marketing:regConsent,
     date_inscription:todayKey(), derniere_visite:null,
