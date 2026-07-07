@@ -1,6 +1,38 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
+<script>
+/* ============================================================
+   GARDE DE VERSION — force la mise à jour sur iOS (raccourcis écran d'accueil inclus)
+   À chaque déploiement, incrémenter SITE_VERSION ci-dessous.
+   Au chargement : si la version locale diffère, on purge les caches et on recharge
+   une seule fois. Invisible pour l'utilisateur, garantit toujours la dernière version.
+   ============================================================ */
+(function(){
+  var SITE_VERSION = '2026-07-07-3';   // <-- incrémenter à CHAQUE mise en ligne
+  try {
+    var stored = localStorage.getItem('cf_site_version');
+    if (stored !== SITE_VERSION) {
+      localStorage.setItem('cf_site_version', SITE_VERSION);
+      // Purge des caches éventuels (Service Worker / Cache Storage iOS)
+      if (window.caches && caches.keys) {
+        caches.keys().then(function(keys){ keys.forEach(function(k){ caches.delete(k); }); });
+      }
+      // Recharge une seule fois si on n'a pas déjà rechargé dans cette session
+      if (!sessionStorage.getItem('cf_reloaded_once')) {
+        sessionStorage.setItem('cf_reloaded_once', '1');
+        // location.reload(true) est déprécié mais toléré ; sinon on force via un paramètre anti-cache
+        var u = new URL(window.location.href);
+        u.searchParams.set('v', SITE_VERSION);
+        window.location.replace(u.toString());
+      }
+    } else {
+      // Version à jour : on nettoie le drapeau de rechargement pour la prochaine fois
+      sessionStorage.removeItem('cf_reloaded_once');
+    }
+  } catch(e) { /* localStorage indisponible : on ne bloque rien */ }
+})();
+</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <!-- Anti-cache : force le rechargement de la page à chaque ouverture (raccourcis écran d'accueil iOS inclus) -->
