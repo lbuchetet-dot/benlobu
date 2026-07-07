@@ -256,6 +256,24 @@
   @media (max-width: 768px) {
     section { padding: 2rem 1rem; }
   }
+
+  /* BURGER DU MOMENT — carte responsive */
+  .bdm-card {
+    display: grid; grid-template-columns: 1fr 1.3fr; gap: 0;
+    background: var(--bg3); border-radius: var(--radius);
+    border: 1px solid var(--border); overflow: hidden; max-width: 860px;
+  }
+  .bdm-media {
+    min-height: 280px; background: var(--navy);
+    display: flex; align-items: center; justify-content: center; overflow: hidden;
+  }
+  .bdm-body { padding: 2rem; }
+  .bdm-hidden { display: none !important; }
+  @media (max-width: 720px) {
+    .bdm-card { grid-template-columns: 1fr; max-width: 100%; }
+    .bdm-media { min-height: 220px; }
+    .bdm-body { padding: 1.5rem; }
+  }
   .section-label {
     font-size: 0.75rem; letter-spacing: 2px; text-transform: uppercase;
     font-weight: 600; color: var(--gold); margin-bottom: 0.5rem;
@@ -1165,7 +1183,7 @@
     </div>
   </div>
 
-  <section id="burger-moment-section" style="display:none">
+  <section id="burger-moment-section" class="bdm-hidden">
     <p class="section-label">À la une</p>
     <h2 class="section-title">Le Burger du Moment</h2>
     <div id="burger-moment-display"></div>
@@ -1781,7 +1799,10 @@ db.ref('site_config/captfish/burger_moment').on('value', snap => {
   }
   // Masqué si : rien de configuré (nom vide) OU explicitement masqué dans l'admin
   const sec = document.getElementById('burger-moment-section');
-  if (sec) sec.style.display = (!burgerDuMoment.name || burgerDuMoment.actif === false) ? 'none' : '';
+  if (sec) {
+    const hide = (!burgerDuMoment.name || burgerDuMoment.actif === false);
+    sec.classList.toggle('bdm-hidden', hide);
+  }
   renderBurgerDuMoment();
   if (typeof renderBDMAdmin === 'function') renderBDMAdmin();
 });
@@ -1827,9 +1848,9 @@ function renderBurgerDuMoment(){
   const el=document.getElementById('burger-moment-display');if(!el)return;
   const b=burgerDuMoment;
   const photoEl=b.photo?`<img src="${b.photo}" style="width:100%;height:100%;object-fit:cover;display:block;" alt="${b.name}">`:`<span style="font-size:7rem;">${b.emoji}</span>`;
-  el.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1.3fr;gap:0;background:var(--bg3);border-radius:var(--radius);border:1px solid var(--border);overflow:hidden;max-width:860px;">
-    <div style="min-height:280px;background:var(--navy);display:flex;align-items:center;justify-content:center;overflow:hidden;">${photoEl}</div>
-    <div style="padding:2rem;">
+  el.innerHTML=`<div class="bdm-card">
+    <div class="bdm-media">${photoEl}</div>
+    <div class="bdm-body">
       ${b.badge?`<span style="display:inline-block;background:var(--red);color:var(--cream);font-size:0.72rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;padding:0.3rem 0.9rem;border-radius:20px;margin-bottom:1rem;">${b.badge}</span>`:''}
       <h3 style="font-family:'Syne',sans-serif;font-size:1.7rem;font-weight:800;color:var(--gold);margin-bottom:0.75rem;line-height:1.1;">${b.name}</h3>
       <p style="font-size:0.9rem;color:rgba(245,237,214,0.55);line-height:1.65;margin-bottom:1.75rem;">${b.desc}</p>
