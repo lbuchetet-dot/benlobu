@@ -1607,6 +1607,7 @@
               </div>
               <div><label>URL photo (optionnel)</label><input type="url" id="bdm-photo" placeholder="https://..."></div>
               <div><label>Badge / étiquette</label><input type="text" id="bdm-badge" placeholder="Nouveau · Spécial été..."></div>
+              <div><label>Affichage sur le site</label><select id="bdm-actif"><option value="1">Affiché — mis en avant</option><option value="0">Masqué</option></select></div>
               <button class="btn-save" onclick="saveBurgerDuMoment()">Mettre en avant</button>
             </div>
           </div>
@@ -1762,6 +1763,26 @@ db.ref('site_config/captfish/hero').on('value', snap => {
   document.body.classList.add('hero-ready'); // révèle le hero une fois le vrai contenu chargé (anti-flash)
 });
 setTimeout(function(){ document.body.classList.add('hero-ready'); }, 3000); // filet si Firebase lent/indispo
+
+// ── Chargement dynamique du Burger du Moment depuis Firebase ──
+// Fallback : tant qu'aucune valeur n'existe dans site_config/captfish/burger_moment,
+// l'objet burgerDuMoment codé plus bas (défaut) reste utilisé.
+db.ref('site_config/captfish/burger_moment').on('value', snap => {
+  const v = snap.val();
+  if (v) {
+    if (v.name  !== undefined) burgerDuMoment.name  = v.name;
+    if (v.desc  !== undefined) burgerDuMoment.desc  = v.desc;
+    if (v.price !== undefined) burgerDuMoment.price = Number(v.price) || 0;
+    if (v.emoji !== undefined) burgerDuMoment.emoji = v.emoji;
+    if (v.photo !== undefined) burgerDuMoment.photo = v.photo;
+    if (v.badge !== undefined) burgerDuMoment.badge = v.badge;
+    if (v.actif !== undefined) burgerDuMoment.actif = v.actif;
+  }
+  const sec = document.getElementById('burger-moment-section');
+  if (sec) sec.style.display = (burgerDuMoment.actif === false) ? 'none' : '';
+  renderBurgerDuMoment();
+  if (typeof renderBDMAdmin === 'function') renderBDMAdmin();
+});
 
 const ETAB_ID = 'captfish';
 const CARTE = 'burger';
@@ -3382,6 +3403,7 @@ function renderBDMAdmin(){
   const em=document.getElementById('bdm-emoji');if(em)em.value=b.emoji;
   const ph=document.getElementById('bdm-photo');if(ph)ph.value=b.photo||'';
   const ba=document.getElementById('bdm-badge');if(ba)ba.value=b.badge||'';
+  const ac=document.getElementById('bdm-actif');if(ac)ac.value=(b.actif===false)?'0':'1';
   const pv=document.getElementById('bdm-preview-admin');
   if(pv){
     const pe=b.photo?`<img src="${b.photo}" style="width:100%;height:100%;object-fit:cover;" alt="">`:`<span style="font-size:2.5rem;">${b.emoji}</span>`;
@@ -3403,10 +3425,19 @@ function saveBurgerDuMoment(){
   const emoji=document.getElementById('bdm-emoji').value.trim()||'🍔';
   const photo=document.getElementById('bdm-photo').value.trim();
   const badge=document.getElementById('bdm-badge').value.trim();
+  const actif=(document.getElementById('bdm-actif')||{}).value!=='0';
   if(!name||!price){showToast('Nom et prix requis','⚠');return;}
-  burgerDuMoment={name,desc,price,emoji,photo,badge};
+  const obj={name,desc,price,emoji,photo,badge,actif};
+  // Persistance Firebase (partagée à tous les visiteurs) — le listener re-render ensuite.
+  db.ref('site_config/captfish/burger_moment').set(obj)
+    .then(()=>{ showToast('Burger du Moment mis à jour !','🌟'); })
+    .catch(err=>{
+      console.error('saveBurgerDuMoment',err);
+      showToast('Écriture refusée — vérifier les droits Firebase (site_config)','⚠');
+    });
+  // Rendu local immédiat (feedback instantané, confirmé par le listener)
+  burgerDuMoment=Object.assign({},burgerDuMoment,obj);
   renderBDMAdmin();renderBurgerDuMoment();
-  showToast('Burger du Moment mis à jour !','🌟');
 }
 
 

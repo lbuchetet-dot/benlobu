@@ -1187,6 +1187,8 @@ tr:hover td{background:var(--bg)}
               style="padding:9px 22px;font-size:13px;font-weight:600;border:none;background:var(--green);color:#fff;cursor:pointer">Hero</button>
             <button id="tab-captfish-contact-btn" onclick="switchSiteTab('captfish','contact')"
               style="padding:9px 22px;font-size:13px;font-weight:600;border:none;border-left:1.5px solid var(--border-strong);background:var(--white);color:var(--text-muted);cursor:pointer">Contact &amp; Logo</button>
+            <button id="tab-captfish-moment-btn" onclick="switchSiteTab('captfish','moment')"
+              style="padding:9px 22px;font-size:13px;font-weight:600;border:none;border-left:1.5px solid var(--border-strong);background:var(--white);color:var(--text-muted);cursor:pointer">Burger du moment</button>
           </div>
         </div>
 
@@ -1254,6 +1256,36 @@ tr:hover td{background:var(--bg)}
             </div>
           </div>
         </div>
+
+        <div id="panel-captfish-moment" style="display:none;grid-template-columns:1fr 360px;gap:24px;align-items:start">
+          <!-- COL GAUCHE : formulaire -->
+          <div class="card">
+            <div class="card-title">Burger du moment</div>
+            <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px">Produit mis en avant en page d'accueil du site. « Masqué » retire la section du site. Pense à <strong>Enregistrer</strong> pour publier.</p>
+            <div class="form-field"><label class="form-label">Nom du burger</label><input class="form-input" id="captfish-moment-name" type="text" placeholder="Burger Capitaine"></div>
+            <div class="form-field"><label class="form-label">Description</label><textarea class="form-input" id="captfish-moment-desc" rows="3" style="resize:vertical" placeholder="Décris les ingrédients…"></textarea></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+              <div class="form-field"><label class="form-label">Prix (€)</label><input class="form-input" id="captfish-moment-price" type="number" step="0.5" min="0" placeholder="13.50"></div>
+              <div class="form-field"><label class="form-label">Emoji <span style="font-weight:400;text-transform:none;color:var(--text-muted)">— si pas de photo</span></label><input class="form-input" id="captfish-moment-emoji" type="text" placeholder="🍔"></div>
+            </div>
+            <div class="form-field"><label class="form-label">Badge / étiquette <span style="font-weight:400;text-transform:none;color:var(--text-muted)">— optionnel</span></label><input class="form-input" id="captfish-moment-badge" type="text" placeholder="Nouveauté · Édition limitée…"></div>
+            <div class="form-field" style="margin-bottom:0"><label class="form-label">Affichage sur le site</label>
+              <select class="form-input" id="captfish-moment-actif"><option value="1">Affiché — mis en avant</option><option value="0">Masqué</option></select>
+            </div>
+          </div>
+          <!-- COL DROITE : preview + photo + save -->
+          <div style="position:sticky;top:76px">
+            <div id="captfish-moment-preview" style="margin-bottom:12px"></div>
+            <input type="hidden" id="captfish-moment-photo">
+            <input type="file" id="captfish-moment-file" accept="image/png,image/jpeg,image/webp" style="display:none" onchange="uploaderMomentPhoto('captfish', this)">
+            <div style="display:flex;gap:10px;margin-bottom:10px">
+              <button class="btn-action btn-primary-action" onclick="document.getElementById('captfish-moment-file').click()" style="flex:1">📤 Photo</button>
+              <button class="btn-action" id="captfish-moment-photo-remove" onclick="retirerMomentPhoto('captfish')" style="background:var(--bg);border:1px solid var(--border);display:none">🗑️ Retirer</button>
+            </div>
+            <button class="btn-action btn-primary-action" onclick="sauvegarderMoment('captfish')" style="width:100%;padding:11px 0">💾 Enregistrer</button>
+            <a href="https://captainfish.fr" target="_blank" style="display:block;margin-top:10px;text-align:center;font-size:12px;color:var(--text-muted);text-decoration:none">↗ Ouvrir le site</a>
+          </div>
+        </div>
       </div>
 
       <div class="view" id="view-site-pokeben">
@@ -1267,6 +1299,8 @@ tr:hover td{background:var(--bg)}
               style="padding:9px 22px;font-size:13px;font-weight:600;border:none;background:var(--green);color:#fff;cursor:pointer">Hero</button>
             <button id="tab-pokeben-contact-btn" onclick="switchSiteTab('pokeben','contact')"
               style="padding:9px 22px;font-size:13px;font-weight:600;border:none;border-left:1.5px solid var(--border-strong);background:var(--white);color:var(--text-muted);cursor:pointer">Contact &amp; Logo</button>
+            <button id="tab-pokeben-moment-btn" onclick="switchSiteTab('pokeben','moment')"
+              style="padding:9px 22px;font-size:13px;font-weight:600;border:none;border-left:1.5px solid var(--border-strong);background:var(--white);color:var(--text-muted);cursor:pointer">Poke du moment</button>
           </div>
         </div>
 
@@ -1333,6 +1367,36 @@ tr:hover td{background:var(--bg)}
               <div class="form-field"><label class="form-label">📘 Facebook <span style="font-weight:400;text-transform:none;color:var(--text-muted)">— page ou lien complet</span></label><input class="form-input" id="pokeben-contact-facebook" type="text" placeholder="foodtruckpokeben"></div>
               <button class="btn-action btn-primary-action" onclick="sauvegarderContact('pokeben')" style="margin-top:4px">💾 Enregistrer le contact</button>
             </div>
+          </div>
+        </div>
+
+        <div id="panel-pokeben-moment" style="display:none;grid-template-columns:1fr 360px;gap:24px;align-items:start">
+          <!-- COL GAUCHE : formulaire -->
+          <div class="card">
+            <div class="card-title">Poke du moment</div>
+            <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px">Produit mis en avant en page d'accueil du site. « Masqué » retire la section du site. Pense à <strong>Enregistrer</strong> pour publier.</p>
+            <div class="form-field"><label class="form-label">Nom du poke</label><input class="form-input" id="pokeben-moment-name" type="text" placeholder="Poke Saumon Teriyaki"></div>
+            <div class="form-field"><label class="form-label">Description</label><textarea class="form-input" id="pokeben-moment-desc" rows="3" style="resize:vertical" placeholder="Décris les ingrédients…"></textarea></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+              <div class="form-field"><label class="form-label">Prix (€)</label><input class="form-input" id="pokeben-moment-price" type="number" step="0.5" min="0" placeholder="12.90"></div>
+              <div class="form-field"><label class="form-label">Emoji <span style="font-weight:400;text-transform:none;color:var(--text-muted)">— si pas de photo</span></label><input class="form-input" id="pokeben-moment-emoji" type="text" placeholder="🥗"></div>
+            </div>
+            <div class="form-field"><label class="form-label">Badge / étiquette <span style="font-weight:400;text-transform:none;color:var(--text-muted)">— optionnel</span></label><input class="form-input" id="pokeben-moment-badge" type="text" placeholder="Nouveauté · Édition limitée…"></div>
+            <div class="form-field" style="margin-bottom:0"><label class="form-label">Affichage sur le site</label>
+              <select class="form-input" id="pokeben-moment-actif"><option value="1">Affiché — mis en avant</option><option value="0">Masqué</option></select>
+            </div>
+          </div>
+          <!-- COL DROITE : preview + photo + save -->
+          <div style="position:sticky;top:76px">
+            <div id="pokeben-moment-preview" style="margin-bottom:12px"></div>
+            <input type="hidden" id="pokeben-moment-photo">
+            <input type="file" id="pokeben-moment-file" accept="image/png,image/jpeg,image/webp" style="display:none" onchange="uploaderMomentPhoto('pokeben', this)">
+            <div style="display:flex;gap:10px;margin-bottom:10px">
+              <button class="btn-action btn-primary-action" onclick="document.getElementById('pokeben-moment-file').click()" style="flex:1">📤 Photo</button>
+              <button class="btn-action" id="pokeben-moment-photo-remove" onclick="retirerMomentPhoto('pokeben')" style="background:var(--bg);border:1px solid var(--border);display:none">🗑️ Retirer</button>
+            </div>
+            <button class="btn-action btn-primary-action" onclick="sauvegarderMoment('pokeben')" style="width:100%;padding:11px 0">💾 Enregistrer</button>
+            <a href="https://pokeben.fr" target="_blank" style="display:block;margin-top:10px;text-align:center;font-size:12px;color:var(--text-muted);text-decoration:none">↗ Ouvrir le site</a>
           </div>
         </div>
       </div>
@@ -6183,14 +6247,128 @@ const HERO_DEFAULTS = {
   pokeben:  { eyebrow:'🌿 Cuisine fusion · Loire', title:'Pok&amp;Ben,<br><em>le goût du large</em>', kicker:'Poké bowls & burger de poisson.', desc:'Des recettes généreuses, des produits de la mer, une cuisine ouverte.' }
 };
 function switchSiteTab(brand, tab) {
-  ['hero','contact'].forEach(t => {
+  ['hero','contact','moment'].forEach(t => {
     const btn = document.getElementById('tab-'+brand+'-'+t+'-btn');
     const panel = document.getElementById('panel-'+brand+'-'+t);
     const active = t===tab;
     if(btn){ btn.style.background=active?'var(--green)':'var(--white)'; btn.style.color=active?'#fff':'var(--text-muted)'; }
-    if(panel) panel.style.display = active ? (t==='hero' ? 'grid' : 'block') : 'none';
+    if(panel) panel.style.display = active ? ((t==='hero'||t==='moment') ? 'grid' : 'block') : 'none';
   });
   if(tab==='contact') chargerContactLogo(brand);
+  if(tab==='moment') chargerMoment(brand);
+}
+
+// ─────────── Produit du moment (burger Capt&Fish / poke Pok&Ben) ───────────
+// Écrit dans site_config/captfish/burger_moment et site_config/pokeben/poke_moment.
+const MOMENT = {
+  captfish:{ node:'burger_moment', emoji:'🍔', bg:'#0D1B2A', bg2:'#0a1520', gold:'#C8A96E', accent:'#E8533A', cream:'#F5EDD6' },
+  pokeben: { node:'poke_moment',   emoji:'🥗', bg:'#1a2e1a', bg2:'#111e11', gold:'#a8c97a', accent:'#e1512d', cream:'#f0eedd' }
+};
+function _momEsc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function momentRef(brand){ return db.ref('site_config/'+brand+'/'+MOMENT[brand].node); }
+
+function chargerMoment(brand){
+  momentRef(brand).once('value').then(s=>{
+    const m=s.val()||{};
+    const g=id=>document.getElementById(brand+'-moment-'+id);
+    if(g('name'))  g('name').value  = m.name||'';
+    if(g('desc'))  g('desc').value  = m.desc||'';
+    if(g('price')) g('price').value = (m.price!=null?m.price:'');
+    if(g('emoji')) g('emoji').value = m.emoji||MOMENT[brand].emoji;
+    if(g('badge')) g('badge').value = m.badge||'';
+    if(g('photo')) g('photo').value = m.photo||'';
+    if(g('actif')) g('actif').value = (m.actif===false)?'0':'1';
+    renderMomentPhotoBtn(brand);
+    mettreAJourMomentPreview(brand, lireMomentForm(brand));
+  });
+  ['name','desc','price','badge','emoji','actif'].forEach(f=>{
+    const el=document.getElementById(brand+'-moment-'+f);
+    if(el && !el._ml){ const ev=(el.tagName==='SELECT')?'change':'input'; el.addEventListener(ev,()=>mettreAJourMomentPreview(brand,lireMomentForm(brand))); el._ml=true; }
+  });
+}
+
+function lireMomentForm(brand){
+  const g=id=>{ const el=document.getElementById(brand+'-moment-'+id); return el?el.value:''; };
+  return {
+    name:(g('name')||'').trim(),
+    desc:(g('desc')||'').trim(),
+    price:parseFloat(g('price'))||0,
+    emoji:(g('emoji')||'').trim()||MOMENT[brand].emoji,
+    badge:(g('badge')||'').trim(),
+    photo:(g('photo')||'').trim(),
+    actif:(g('actif')!=='0')
+  };
+}
+
+function renderMomentPhotoBtn(brand){
+  const has=(document.getElementById(brand+'-moment-photo')||{}).value;
+  const rm=document.getElementById(brand+'-moment-photo-remove');
+  if(rm) rm.style.display=has?'':'none';
+}
+
+function mettreAJourMomentPreview(brand, m){
+  const box=document.getElementById(brand+'-moment-preview'); if(!box) return;
+  const t=MOMENT[brand];
+  const media=m.photo
+    ? '<img src="'+m.photo+'" alt="" style="width:100%;height:100%;object-fit:cover;display:block">'
+    : '<span style="font-size:3.4rem">'+_momEsc(m.emoji||t.emoji)+'</span>';
+  const badge=m.badge
+    ? '<span style="display:inline-block;background:'+t.accent+';color:'+t.cream+';font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:3px 10px;border-radius:20px;margin-bottom:8px">'+_momEsc(m.badge)+'</span><br>'
+    : '';
+  const price=(m.price?Number(m.price).toFixed(2).replace('.',','):'0,00')+' €';
+  const dim=(m.actif===false)?'opacity:.45;' : '';
+  const off=(m.actif===false)?'<div style="background:'+t.bg2+';padding:5px 12px;font-size:11px;color:'+t.accent+';font-weight:600">Masqué — non affiché sur le site</div>':'';
+  box.innerHTML=
+    '<div style="'+dim+'border-radius:var(--radius-lg);overflow:hidden;border:1px solid var(--border)">'
+    +'<div style="height:150px;background:'+t.bg2+';display:flex;align-items:center;justify-content:center;overflow:hidden">'+media+'</div>'
+    +'<div style="background:'+t.bg+';padding:16px 18px">'
+    +badge
+    +'<div style="font-family:\'Syne\',sans-serif;font-size:1.15rem;font-weight:800;color:'+t.gold+';line-height:1.15;margin-bottom:5px">'+(_momEsc(m.name)||'Nom du produit')+'</div>'
+    +'<div style="font-size:.8rem;color:rgba(245,237,214,.55);line-height:1.5;margin-bottom:10px">'+(_momEsc(m.desc).slice(0,120)||'Description…')+(m.desc&&m.desc.length>120?'…':'')+'</div>'
+    +'<div style="font-family:\'Syne\',sans-serif;font-size:1.25rem;font-weight:800;color:'+t.gold+'">'+price+'</div>'
+    +'</div></div>'
+    + off
+    +'<div style="padding:6px 2px 0;font-size:11px;color:var(--text-muted)">Aperçu — rendu sur le site</div>';
+}
+
+function uploaderMomentPhoto(brand, input){
+  const file=input.files && input.files[0];
+  if(!file){ return; }
+  if(file.size > 6*1024*1024){ showNotif('Image trop lourde (max 6 Mo)','error'); input.value=''; return; }
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const img=new Image();
+    img.onload=()=>{
+      const maxW=900; let w=img.width, h=img.height;
+      if(w>maxW){ h=Math.round(h*maxW/w); w=maxW; }
+      const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+      cv.getContext('2d').drawImage(img,0,0,w,h);
+      const dataUrl=cv.toDataURL('image/jpeg',0.82);
+      const holder=document.getElementById(brand+'-moment-photo'); if(holder) holder.value=dataUrl;
+      renderMomentPhotoBtn(brand);
+      mettreAJourMomentPreview(brand, lireMomentForm(brand));
+      showNotif('Photo prête — pense à Enregistrer','success');
+    };
+    img.onerror=()=>showNotif('Image illisible','error');
+    img.src=e.target.result;
+  };
+  reader.onerror=()=>showNotif('Lecture du fichier impossible','error');
+  reader.readAsDataURL(file);
+  input.value='';
+}
+
+function retirerMomentPhoto(brand){
+  const holder=document.getElementById(brand+'-moment-photo'); if(holder) holder.value='';
+  renderMomentPhotoBtn(brand);
+  mettreAJourMomentPreview(brand, lireMomentForm(brand));
+}
+
+function sauvegarderMoment(brand){
+  const m=lireMomentForm(brand);
+  if(!m.name || !m.price){ showNotif('Nom et prix requis','error'); return; }
+  momentRef(brand).set(m)
+    .then(()=>showNotif('Produit du moment mis à jour ✅','success'))
+    .catch(()=>showNotif('Erreur Firebase','error'));
 }
 
 function chargerSiteConfig(brand) {
