@@ -1,9 +1,7 @@
-# Netlify — En-têtes HTTP personnalisés
-# Force chaque navigateur (y compris les raccourcis écran d'accueil iOS) à revérifier
-# la page auprès du serveur avant d'utiliser sa copie locale.
-# "no-cache" n'interdit pas de garder une copie : il oblige à la REVALIDER à chaque
-# ouverture. Si rien n'a changé, le serveur répond 304 (rapide). Si le site a été
-# mis à jour, la nouvelle version est téléchargée. Plus jamais de vieille page figée.
-
+# Netlify — En-têtes HTTP anti-cache
+# Le chemin (/*) doit etre en debut de ligne, les en-tetes indentes par 2 espaces.
+# no-cache = le navigateur DOIT revalider aupres du serveur avant de servir sa copie.
 /*
-  Cache-Control: no-cache, must-revalidate
+  Cache-Control: no-cache, no-store, must-revalidate
+  Pragma: no-cache
+  Expires: 0
