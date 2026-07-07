@@ -184,6 +184,7 @@ tr:hover td{background:var(--bg)}
 .spinner{width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--green);border-radius:50%;animation:spin .6s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .pe-cell-sel{outline:3px solid var(--coral) !important;outline-offset:-3px;box-shadow:0 0 0 2px var(--coral-light) inset}
+@media(max-width:980px){.av-two-col{grid-template-columns:1fr !important}}
 </style>
 </head>
 <body>
@@ -234,6 +235,8 @@ tr:hover td{background:var(--bg)}
       <div class="nav-item" onclick="showView('rapport-paiements')" id="nav-rapport-paiements"><span>💳</span>Rapport paiements</div>
       <div class="nav-item" onclick="showView('rapport-comptable')" id="nav-rapport-comptable"><span>🧾</span>Rapport comptable</div>
       <div class="nav-item" onclick="showView('fidelite')" id="nav-fidelite"><span>⭐</span>Fidélité</div>
+      <div class="nav-section">E-réputation</div>
+      <div class="nav-item" onclick="showView('avis')" id="nav-avis"><span>💬</span>Avis Google <span id="nav-avis-badge" style="display:none;margin-left:auto;background:var(--coral);color:#fff;font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px"></span></div>
       <div class="nav-section">Configuration</div>
       <div class="nav-item" onclick="showView('parametres')" id="nav-parametres"><span>⚙️</span>Paramètres</div>
       <div class="nav-item" onclick="showView('manuel')" id="nav-manuel"><span>📖</span>Manuel &amp; maintenance</div>
@@ -275,6 +278,7 @@ tr:hover td{background:var(--bg)}
           <div class="stat-card"><div class="stat-label">Couverts</div><div class="stat-value" id="d-cvt">—</div><div class="stat-delta" id="d-cvt-lbl">aujourd'hui</div></div>
           <div class="stat-card"><div class="stat-label">Panier moyen</div><div class="stat-value" id="d-pm">—</div><div class="stat-delta" id="d-pm-lbl">aujourd'hui</div></div>
         </div>
+        <div id="dash-live-banner" style="display:none;margin:4px 0 14px;padding:10px 14px;background:#fff4f2;border:1px solid #f3c6bf;border-radius:10px;font-size:13px;color:#c0392b"></div>
         <div class="etab-grid" id="dash-etabs"></div>
       </div>
 
@@ -1181,8 +1185,8 @@ tr:hover td{background:var(--bg)}
           <div style="display:flex;border:1.5px solid var(--border-strong);border-radius:var(--radius);overflow:hidden">
             <button id="tab-captfish-hero-btn" onclick="switchSiteTab('captfish','hero')"
               style="padding:9px 22px;font-size:13px;font-weight:600;border:none;background:var(--green);color:#fff;cursor:pointer">Hero</button>
-            <button id="tab-captfish-events-btn" onclick="switchSiteTab('captfish','events')"
-              style="padding:9px 22px;font-size:13px;font-weight:600;border:none;border-left:1.5px solid var(--border-strong);background:var(--white);color:var(--text-muted);cursor:pointer">Events</button>
+            <button id="tab-captfish-contact-btn" onclick="switchSiteTab('captfish','contact')"
+              style="padding:9px 22px;font-size:13px;font-weight:600;border:none;border-left:1.5px solid var(--border-strong);background:var(--white);color:var(--text-muted);cursor:pointer">Contact &amp; Logo</button>
           </div>
         </div>
 
@@ -1226,54 +1230,27 @@ tr:hover td{background:var(--bg)}
           </div>
         </div>
 
-        <div id="panel-captfish-events" style="display:none">
-          <details style="margin-bottom:16px">
-            <summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--text-muted);padding:6px 0;user-select:none">▸ En-tête de la page Events (optionnel)</summary>
-            <div class="card" style="margin-top:10px">
-              <div class="form-grid">
-                <div class="form-field">
-                  <label class="form-label">Eyebrow</label>
-                  <input class="form-input" id="captfish-ev-eyebrow" type="text" placeholder="🎉 Upcoming Events">
-                </div>
-                <div class="form-field">
-                  <label class="form-label">Titre (HTML)</label>
-                  <input class="form-input" id="captfish-ev-title" type="text">
-                </div>
+        <div id="panel-captfish-contact" style="display:none">
+          <div class="site-contact-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start">
+            <!-- LOGO -->
+            <div class="card">
+              <div class="card-title">Logo du site</div>
+              <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px">Image affichée dans l'en-tête et le pied de page du site public. PNG (fond transparent conseillé) ou JPG. Elle est redimensionnée automatiquement (largeur max 360&nbsp;px) puis stockée — modifiable à tout moment.</p>
+              <div id="captfish-logo-preview" style="display:flex;align-items:center;justify-content:center;min-height:96px;background:#0D1B2A;border-radius:12px;padding:18px;margin-bottom:14px;overflow:hidden"><span style="color:rgba(255,255,255,.6);font-size:13px">Chargement…</span></div>
+              <input type="file" id="captfish-logo-file" accept="image/png,image/jpeg,image/webp" style="display:none" onchange="uploaderLogo('captfish', this)">
+              <div style="display:flex;gap:10px;flex-wrap:wrap">
+                <button class="btn-action btn-primary-action" onclick="document.getElementById('captfish-logo-file').click()">📤 Choisir une image</button>
+                <button class="btn-action" id="captfish-logo-remove" onclick="retirerLogo('captfish')" style="background:var(--bg);border:1px solid var(--border);display:none">🗑️ Retirer (logo texte)</button>
               </div>
-              <div class="form-field" style="margin-bottom:12px">
-                <label class="form-label">Intro</label>
-                <input class="form-input" id="captfish-ev-intro" type="text">
-              </div>
-              <button class="btn-action btn-primary-action" onclick="sauvegarderEventsHero('captfish')">💾 Enregistrer l'en-tête</button>
             </div>
-          </details>
-          <div class="card">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-              <div style="font-size:15px;font-weight:600">Liste des événements</div>
-              <button class="btn-action btn-primary-action" onclick="ouvrirModalEvent('captfish',null)">+ Ajouter</button>
-            </div>
-            <div id="captfish-events-list"><div style="color:var(--text-muted);font-size:14px;padding:8px 0">Chargement…</div></div>
-          </div>
-        </div>
-
-        <div id="event-modal-captfish" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.5);align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)fermerModalEvent('captfish')">
-          <div style="background:var(--white);border-radius:var(--radius-xl);max-width:460px;width:100%;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.2);max-height:90vh;overflow-y:auto">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
-              <div style="font-size:16px;font-weight:700" id="event-modal-title-captfish">Nouvel événement</div>
-              <button onclick="fermerModalEvent('captfish')" style="background:none;border:none;font-size:20px;color:var(--text-muted);cursor:pointer">✕</button>
-            </div>
-            <input type="hidden" id="ev-modal-key-captfish">
-            <div class="form-grid">
-              <div class="form-field"><label class="form-label">Date</label><input class="form-input" id="ev-modal-date-captfish" type="date"></div>
-              <div class="form-field"><label class="form-label">Horaires</label><input class="form-input" id="ev-modal-hours-captfish" type="text" placeholder="11h – 19h"></div>
-            </div>
-            <div class="form-field"><label class="form-label">Titre *</label><input class="form-input" id="ev-modal-name-captfish" type="text"></div>
-            <div class="form-field"><label class="form-label">Lieu</label><input class="form-input" id="ev-modal-location-captfish" type="text"></div>
-            <div class="form-field"><label class="form-label">Badge</label><input class="form-input" id="ev-modal-badge-captfish" type="text" placeholder="Nouveau, Complet…"></div>
-            <div class="form-field" style="margin-bottom:20px"><label class="form-label">Description</label><textarea class="form-input" id="ev-modal-desc-captfish" rows="3" style="resize:vertical"></textarea></div>
-            <div style="display:flex;gap:10px">
-              <button class="btn-action btn-primary-action" onclick="sauvegarderEvent('captfish')" style="flex:1;padding:12px">💾 Enregistrer</button>
-              <button class="btn-action" onclick="fermerModalEvent('captfish')" style="padding:12px 20px;background:var(--bg);border:1px solid var(--border)">Annuler</button>
+            <!-- CONTACT -->
+            <div class="card">
+              <div class="card-title">Bloc contact « Parlons de votre projet »</div>
+              <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px">Ces coordonnées alimentent le bloc contact de la page Events du site. Laisse vide ce qui ne s'applique pas — un bouton n'apparaît que si le champ est rempli.</p>
+              <div class="form-field"><label class="form-label">📞 Téléphone</label><input class="form-input" id="captfish-contact-tel" type="tel" placeholder="06 12 34 56 78"></div>
+              <div class="form-field"><label class="form-label">✉️ Email</label><input class="form-input" id="captfish-contact-email" type="email" placeholder="contact@captainfish.fr"></div>
+              <div class="form-field" style="margin-bottom:16px"><label class="form-label">📸 Instagram <span style="font-weight:400;text-transform:none;color:var(--text-muted)">— pseudo ou lien complet</span></label><input class="form-input" id="captfish-contact-instagram" type="text" placeholder="captn_fish"></div>
+              <button class="btn-action btn-primary-action" onclick="sauvegarderContact('captfish')" style="margin-top:4px">💾 Enregistrer le contact</button>
             </div>
           </div>
         </div>
@@ -1288,8 +1265,8 @@ tr:hover td{background:var(--bg)}
           <div style="display:flex;border:1.5px solid var(--border-strong);border-radius:var(--radius);overflow:hidden">
             <button id="tab-pokeben-hero-btn" onclick="switchSiteTab('pokeben','hero')"
               style="padding:9px 22px;font-size:13px;font-weight:600;border:none;background:var(--green);color:#fff;cursor:pointer">Hero</button>
-            <button id="tab-pokeben-events-btn" onclick="switchSiteTab('pokeben','events')"
-              style="padding:9px 22px;font-size:13px;font-weight:600;border:none;border-left:1.5px solid var(--border-strong);background:var(--white);color:var(--text-muted);cursor:pointer">Events</button>
+            <button id="tab-pokeben-contact-btn" onclick="switchSiteTab('pokeben','contact')"
+              style="padding:9px 22px;font-size:13px;font-weight:600;border:none;border-left:1.5px solid var(--border-strong);background:var(--white);color:var(--text-muted);cursor:pointer">Contact &amp; Logo</button>
           </div>
         </div>
 
@@ -1333,57 +1310,89 @@ tr:hover td{background:var(--bg)}
           </div>
         </div>
 
-        <div id="panel-pokeben-events" style="display:none">
-          <details style="margin-bottom:16px">
-            <summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--text-muted);padding:6px 0;user-select:none">▸ En-tête de la page Events (optionnel)</summary>
-            <div class="card" style="margin-top:10px">
-              <div class="form-grid">
-                <div class="form-field">
-                  <label class="form-label">Eyebrow</label>
-                  <input class="form-input" id="pokeben-ev-eyebrow" type="text" placeholder="🎉 Upcoming Events">
-                </div>
-                <div class="form-field">
-                  <label class="form-label">Titre (HTML)</label>
-                  <input class="form-input" id="pokeben-ev-title" type="text">
-                </div>
+        <div id="panel-pokeben-contact" style="display:none">
+          <div class="site-contact-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start">
+            <!-- LOGO -->
+            <div class="card">
+              <div class="card-title">Logo du site</div>
+              <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px">Image affichée dans l'en-tête et le pied de page du site public. PNG (fond transparent conseillé) ou JPG. Elle est redimensionnée automatiquement (largeur max 360&nbsp;px) puis stockée — modifiable à tout moment.</p>
+              <div id="pokeben-logo-preview" style="display:flex;align-items:center;justify-content:center;min-height:96px;background:#1a2e1a;border-radius:12px;padding:18px;margin-bottom:14px;overflow:hidden"><span style="color:rgba(255,255,255,.6);font-size:13px">Chargement…</span></div>
+              <input type="file" id="pokeben-logo-file" accept="image/png,image/jpeg,image/webp" style="display:none" onchange="uploaderLogo('pokeben', this)">
+              <div style="display:flex;gap:10px;flex-wrap:wrap">
+                <button class="btn-action btn-primary-action" onclick="document.getElementById('pokeben-logo-file').click()">📤 Choisir une image</button>
+                <button class="btn-action" id="pokeben-logo-remove" onclick="retirerLogo('pokeben')" style="background:var(--bg);border:1px solid var(--border);display:none">🗑️ Retirer (logo texte)</button>
               </div>
-              <div class="form-field" style="margin-bottom:12px">
-                <label class="form-label">Intro</label>
-                <input class="form-input" id="pokeben-ev-intro" type="text">
-              </div>
-              <button class="btn-action btn-primary-action" onclick="sauvegarderEventsHero('pokeben')">💾 Enregistrer l'en-tête</button>
             </div>
-          </details>
-          <div class="card">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-              <div style="font-size:15px;font-weight:600">Liste des événements</div>
-              <button class="btn-action btn-primary-action" onclick="ouvrirModalEvent('pokeben',null)">+ Ajouter</button>
+            <!-- CONTACT -->
+            <div class="card">
+              <div class="card-title">Bloc contact « Parlons de votre projet »</div>
+              <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px">Ces coordonnées alimentent le bloc contact de la page Events du site. Laisse vide ce qui ne s'applique pas — un bouton n'apparaît que si le champ est rempli.</p>
+              <div class="form-field"><label class="form-label">📞 Téléphone</label><input class="form-input" id="pokeben-contact-tel" type="tel" placeholder="06 12 34 56 78"></div>
+              <div class="form-field"><label class="form-label">✉️ Email</label><input class="form-input" id="pokeben-contact-email" type="email" placeholder="contact@pokeben.fr"></div>
+              <div class="form-field" style="margin-bottom:16px"><label class="form-label">📸 Instagram <span style="font-weight:400;text-transform:none;color:var(--text-muted)">— pseudo ou lien complet</span></label><input class="form-input" id="pokeben-contact-instagram" type="text" placeholder="foodtruckpokeben"></div>
+              <div class="form-field"><label class="form-label">📘 Facebook <span style="font-weight:400;text-transform:none;color:var(--text-muted)">— page ou lien complet</span></label><input class="form-input" id="pokeben-contact-facebook" type="text" placeholder="foodtruckpokeben"></div>
+              <button class="btn-action btn-primary-action" onclick="sauvegarderContact('pokeben')" style="margin-top:4px">💾 Enregistrer le contact</button>
             </div>
-            <div id="pokeben-events-list"><div style="color:var(--text-muted);font-size:14px;padding:8px 0">Chargement…</div></div>
+          </div>
+        </div>
+      </div>
+
+
+      <!-- AVIS GOOGLE -->
+      <div class="view" id="view-avis">
+        <div class="page-header">
+          <div class="page-header-left">
+            <div class="page-title">💬 Avis Google</div>
+            <div class="page-sub">E-réputation centralisée — toutes les fiches</div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <select class="form-select" id="av-fiche" style="max-width:190px" onchange="renderAvis()">
+              <option value="all">Toutes les fiches</option>
+              <option value="pokeben">🌿 Pok&Ben</option>
+              <option value="captfish">🐟 Capt&Fish</option>
+            </select>
+            <select class="form-select" id="av-periode" style="max-width:150px" onchange="renderAvis()">
+              <option value="30">30 jours</option>
+              <option value="90">3 mois</option>
+              <option value="180" selected>6 mois</option>
+              <option value="365">12 mois</option>
+              <option value="all">Tout</option>
+            </select>
           </div>
         </div>
 
-        <div id="event-modal-pokeben" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.5);align-items:center;justify-content:center;padding:20px" onclick="if(event.target===this)fermerModalEvent('pokeben')">
-          <div style="background:var(--white);border-radius:var(--radius-xl);max-width:460px;width:100%;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,.2);max-height:90vh;overflow-y:auto">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
-              <div style="font-size:16px;font-weight:700" id="event-modal-title-pokeben">Nouvel événement</div>
-              <button onclick="fermerModalEvent('pokeben')" style="background:none;border:none;font-size:20px;color:var(--text-muted);cursor:pointer">✕</button>
-            </div>
-            <input type="hidden" id="ev-modal-key-pokeben">
-            <div class="form-grid">
-              <div class="form-field"><label class="form-label">Date</label><input class="form-input" id="ev-modal-date-pokeben" type="date"></div>
-              <div class="form-field"><label class="form-label">Horaires</label><input class="form-input" id="ev-modal-hours-pokeben" type="text" placeholder="11h – 19h"></div>
-            </div>
-            <div class="form-field"><label class="form-label">Titre *</label><input class="form-input" id="ev-modal-name-pokeben" type="text"></div>
-            <div class="form-field"><label class="form-label">Lieu</label><input class="form-input" id="ev-modal-location-pokeben" type="text"></div>
-            <div class="form-field"><label class="form-label">Badge</label><input class="form-input" id="ev-modal-badge-pokeben" type="text" placeholder="Nouveau, Complet…"></div>
-            <div class="form-field" style="margin-bottom:20px"><label class="form-label">Description</label><textarea class="form-input" id="ev-modal-desc-pokeben" rows="3" style="resize:vertical"></textarea></div>
-            <div style="display:flex;gap:10px">
-              <button class="btn-action btn-primary-action" onclick="sauvegarderEvent('pokeben')" style="flex:1;padding:12px">💾 Enregistrer</button>
-              <button class="btn-action" onclick="fermerModalEvent('pokeben')" style="padding:12px 20px;background:var(--bg);border:1px solid var(--border)">Annuler</button>
-            </div>
+        <div id="av-demo-banner" style="display:none;margin-bottom:16px;padding:12px 16px;background:#fffbeb;border:1px solid var(--amber);border-radius:10px;font-size:13px">
+          🔌 <strong>Pas encore connecté à Google.</strong> Le module tourne — la synchronisation des vrais avis arrive dès que l'accès à l'API Business Profile est approuvé (voir guide). En attendant tu peux tester avec des avis de démonstration :
+          <button class="btn btn-sm btn-primary" style="margin-left:10px" onclick="seedAvisDemo()">Charger des avis de démo</button>
+        </div>
+
+        <div class="stats-grid" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr));margin-bottom:18px">
+          <div class="stat-card"><div class="stat-label">Note moyenne globale</div><div class="stat-value" id="av-note" style="color:#b7791f">—</div><div class="stat-delta" id="av-note-stars"></div></div>
+          <div class="stat-card"><div class="stat-label">Avis reçus</div><div class="stat-value" id="av-count">—</div><div class="stat-delta" id="av-count-lbl">sur la période</div></div>
+          <div class="stat-card"><div class="stat-label">Taux de réponse</div><div class="stat-value green" id="av-taux">—</div><div class="stat-delta">avis répondus</div></div>
+          <div class="stat-card"><div class="stat-label">Délai de réponse moyen</div><div class="stat-value" id="av-delai">—</div><div class="stat-delta">entre avis et réponse</div></div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 340px;gap:18px;align-items:start;margin-bottom:18px" class="av-two-col">
+          <div class="card">
+            <div class="card-title">Avis reçus par mois <small style="font-weight:500;color:var(--text-muted)">par fiche</small></div>
+            <div id="av-chart" style="display:flex;align-items:flex-end;gap:10px;height:150px;padding-top:10px"></div>
+            <div id="av-chart-legend" style="display:flex;gap:16px;margin-top:10px;font-size:12px;color:var(--text-muted)"></div>
+          </div>
+          <div class="card">
+            <div class="card-title">Répartition des notes</div>
+            <div id="av-repartition"></div>
+            <div id="av-par-fiche" style="margin-top:16px;border-top:1px solid var(--border);padding-top:12px"></div>
           </div>
         </div>
+
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+          <button class="btn btn-sm" id="av-tab-a_traiter" onclick="setAvisTab('a_traiter')">À traiter <span id="av-n-a_traiter"></span></button>
+          <button class="btn btn-sm" id="av-tab-repondu" onclick="setAvisTab('repondu')">Répondus <span id="av-n-repondu"></span></button>
+          <button class="btn btn-sm" id="av-tab-archive" onclick="setAvisTab('archive')">Archivés <span id="av-n-archive"></span></button>
+          <button class="btn btn-sm" id="av-tab-tous" onclick="setAvisTab('tous')">Tous</button>
+        </div>
+        <div id="av-list"></div>
       </div>
 
     </div><!-- /content -->
@@ -1408,6 +1417,17 @@ tr:hover td{background:var(--bg)}
 </div>
 
 <!-- MODAL PRODUIT -->
+<div class="modal-overlay" id="modal-dash-detail">
+  <div class="modal" style="max-width:640px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+      <div class="modal-title" id="dash-detail-title">Détail</div>
+      <button class="btn btn-secondary btn-sm" onclick="document.getElementById('modal-dash-detail').classList.remove('open')">Fermer</button>
+    </div>
+    <div id="dash-detail-sub" style="font-size:12px;color:var(--text-muted);margin-bottom:14px"></div>
+    <div id="dash-detail-body"></div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="modal-ingredient"><div class="modal">
   <h2 id="modal-ingredient-title" style="font-size:18px;font-weight:700;margin-bottom:16px">Nouvel ingrédient</h2>
   <input type="hidden" id="ing-edit-id">
@@ -1611,6 +1631,7 @@ function lancerApp(email){
   chargerParametres();
   ecouter_etablissements();
   chargerDashboardPeriode();
+  chargerAvis(); // badge « à traiter » vivant dès l'ouverture
 }
 
 auth.onAuthStateChanged(u => { if(u) lancerApp(u.email); });
@@ -1618,7 +1639,7 @@ auth.onAuthStateChanged(u => { if(u) lancerApp(u.email); });
 // ============================================================
 // NAVIGATION
 // ============================================================
-const viewTitles = {dashboard:'Tableau de bord',etablissements:'Établissements',planning:'Emplacements',import:'Import de commandes','commandes-captn':'Commandes Capt&Fish',controle:'Contrôle de caisse',produits:'Produits & Cartes',marge:'Recettes & contrôle de marge',rapports:'Rapports',clotures:'Clôtures','perf-emplacements':'Performance par emplacement','conso':'Conso théorique & écarts','rapport-paiements':'Rapport de paiements','rapport-comptable':'Rapport comptable',fidelite:'Fidélité',parametres:'Paramètres',manuel:'Manuel & maintenance','site-captfish':'Capt&Fish — Site web','site-pokeben':'Pok&Ben — Site web'};
+const viewTitles = {dashboard:'Tableau de bord',etablissements:'Établissements',planning:'Emplacements',import:'Import de commandes','commandes-captn':'Commandes Capt&Fish',controle:'Contrôle de caisse',produits:'Produits & Cartes',marge:'Recettes & contrôle de marge',rapports:'Rapports',clotures:'Clôtures','perf-emplacements':'Performance par emplacement','conso':'Conso théorique & écarts','rapport-paiements':'Rapport de paiements','rapport-comptable':'Rapport comptable',fidelite:'Fidélité',avis:'Avis Google',parametres:'Paramètres',manuel:'Manuel & maintenance','site-captfish':'Capt&Fish — Site web','site-pokeben':'Pok&Ben — Site web'};
 
 function manGo(id){ const el=document.getElementById(id); if(el){ el.open=true; el.scrollIntoView({behavior:'smooth',block:'start'}); } return false; }
 
@@ -1648,6 +1669,7 @@ function showView(v){
   if(v==='perf-emplacements') chargerPerfEmplacements();
   if(v==='conso') chargerConso();
   if(v==='fidelite') chargerFidelite();
+  if(v==='avis') chargerAvis();
   if(v==='parametres') afficherParametres();
   if(v==='site-captfish') chargerSiteConfig('captfish');
   if(v==='site-pokeben') chargerSiteConfig('pokeben');
@@ -1683,7 +1705,7 @@ function _chargerProdTaux(cb){
     db.ref('parametres/tva').once('value', st=>{
       const tva=st.val()||{sur_place:10,a_emporter:5.5};
       const tauxSP=(tva.sur_place||10)/100, tauxAE=(tva.a_emporter||5.5)/100;
-      const map={_default:tauxAE};
+      const map={_default:tauxAE, _sp:tauxSP, _ae:tauxAE};
       const cartes=sc.val()||{};
       Object.values(cartes).forEach(carte=>{
         const prods=(carte&&carte.produits)||{};
@@ -1706,40 +1728,131 @@ function _htCommande(c, taux){
   }
   return (c.total||0)/(1+taux._default);
 }
+let _dashAgg={}; // cache pour le détail au clic
+function _dashServiceFromCmd(c){
+  if(c.service==='midi'||c.service==='soir') return c.service;
+  return _serviceFromHeureImport(c.heure||c.h||c.heure_retrait||'')||'midi';
+}
+function _dashFrDate(iso){
+  const p=String(iso).split('-'); if(p.length!==3) return iso;
+  const d=new Date(+p[0], +p[1]-1, +p[2]);
+  return d.toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'});
+}
+function _dashEmptyDay(){ return {midi:{ca:0,cvt:0,cmd:0,closed:false}, soir:{ca:0,cvt:0,cmd:0,closed:false}}; }
+
 function chargerDashboardPeriode(){
   ['jour','semaine','mois','annee'].forEach(p=>{ const b=document.getElementById('dash-p-'+p); if(b) b.className='btn btn-sm '+(_dashPeriode===p?'btn-primary':'btn-secondary'); });
   const lbl=_dashLabel(_dashPeriode);
   ['d-ca-lbl','d-cmd-lbl','d-cvt-lbl','d-pm-lbl'].forEach(id=>{ const e=document.getElementById(id); if(e) e.textContent=lbl; });
   const ch=document.getElementById('d-caht-lbl'); if(ch) ch.textContent=lbl+' · estimé';
   const {startIso,endIso}=_dashRange(_dashPeriode);
+  const todayIso=_dashIso(new Date());
   const run=(taux)=>{
-    db.ref('commandes').once('value', snap=>{
-      const all=snap.val()||{};
-      const perEtab={}; let totCa=0,totHt=0,totCmd=0,totCvt=0;
-      Object.entries(all).forEach(([etabId,dates])=>{
-        let ca=0,ht=0,cmd=0,cvt=0;
+    const tauxSP=(taux&&taux._sp!=null)?taux._sp:(taux._default||0.1);
+    // clotures = services clôturés (ventes caisse des camions) ; commandes = encours non encore clôturé
+    Promise.all([db.ref('clotures').once('value'), db.ref('commandes').once('value')]).then(([cloSnap,cmdSnap])=>{
+      const clo=cloSnap.val()||{}, cmds=cmdSnap.val()||{};
+      const agg={};
+      const ensure=id=>agg[id]||(agg[id]={ca:0,ht:0,cmd:0,cvt:0,encCa:0,encCvt:0,encCmd:0,byDate:{}});
+      // ---- 1) Historique : clôtures (déjà splitté midi/soir) ----
+      Object.entries(clo).forEach(([etabId,dates])=>{
+        Object.entries(dates||{}).forEach(([date,svcs])=>{
+          if(date<startIso||date>endIso) return;
+          Object.entries(svcs||{}).forEach(([svc,cl])=>{
+            if(svc!=='midi'&&svc!=='soir') return;
+            const ca=(cl.ca_total||cl.ca||0), cvt=(cl.nb_couverts||0), cmd=(cl.nb_commandes||0);
+            const a=ensure(etabId);
+            a.ca+=ca; a.cvt+=cvt; a.cmd+=cmd; a.ht+=ca/(1+tauxSP);
+            const bd=a.byDate[date]||(a.byDate[date]=_dashEmptyDay());
+            bd[svc].ca+=ca; bd[svc].cvt+=cvt; bd[svc].cmd+=cmd; bd[svc].closed=true;
+          });
+        });
+      });
+      // ---- 2) Live : commandes payées non encore clôturées (encours) ----
+      Object.entries(cmds).forEach(([etabId,dates])=>{
         Object.entries(dates||{}).forEach(([date,jour])=>{
           if(date<startIso||date>endIso) return;
           Object.values(jour||{}).forEach(c=>{
-            if(c.statut==='payee'){ ca+=c.total||0; ht+=_htCommande(c,taux); cmd++; cvt+=c.couverts||0; }
+            if(c.statut!=='payee') return;
+            const svc=_dashServiceFromCmd(c);
+            const ex=agg[etabId];
+            if(ex && ex.byDate[date] && ex.byDate[date][svc] && ex.byDate[date][svc].closed) return; // service déjà clôturé → pas de double comptage
+            const ca=c.total||0, cvt=c.couverts||0, ht=_htCommande(c,taux);
+            const a=ensure(etabId);
+            a.ca+=ca; a.cvt+=cvt; a.cmd+=1; a.ht+=ht;
+            const bd=a.byDate[date]||(a.byDate[date]=_dashEmptyDay());
+            bd[svc].ca+=ca; bd[svc].cvt+=cvt; bd[svc].cmd+=1;
+            if(date===todayIso){ a.encCa+=ca; a.encCvt+=cvt; a.encCmd+=1; }
           });
         });
-        perEtab[etabId]={ca,ht,cmd,cvt};
-        totCa+=ca; totHt+=ht; totCmd+=cmd; totCvt+=cvt;
       });
+      _dashAgg=agg;
       const set=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
-      set('d-ca',fmtPrix(totCa)); set('d-ca-ht',fmtPrix(totHt));
-      set('d-cmd',totCmd); set('d-cvt',totCvt);
-      set('d-pm',totCvt>0?fmtPrix(totCa/totCvt):'—');
+      let tCa=0,tHt=0,tCmd=0,tCvt=0,tEncCa=0,tEncCvt=0;
+      Object.values(agg).forEach(a=>{ tCa+=a.ca; tHt+=a.ht; tCmd+=a.cmd; tCvt+=a.cvt; tEncCa+=a.encCa; tEncCvt+=a.encCvt; });
+      set('d-ca',fmtPrix(tCa)); set('d-ca-ht',fmtPrix(tHt));
+      set('d-cmd',tCmd); set('d-cvt',tCvt);
+      set('d-pm',tCvt>0?fmtPrix(tCa/tCvt):'—');
+      // Bandeau encours global (live)
+      const banner=document.getElementById('dash-live-banner');
+      if(banner){
+        if(tEncCa>0||tEncCvt>0){ banner.style.display=''; banner.innerHTML='🔴 En cours aujourd\'hui — <strong>'+fmtPrix(tEncCa)+'</strong> · <strong>'+tEncCvt+'</strong> couverts (services non encore clôturés)'; }
+        else banner.style.display='none';
+      }
+      // Cartes par camion
       Object.keys(etabsData).forEach(id=>{
-        const d=perEtab[id]||{ca:0,ht:0,cmd:0,cvt:0};
-        set('dash-ca-'+id,fmtPrix(d.ca)); set('dash-caht-'+id,fmtPrix(d.ht));
-        set('dash-cmd-'+id,d.cmd); set('dash-cvt-'+id,d.cvt);
+        const a=agg[id]||{ca:0,ht:0,cmd:0,cvt:0,encCa:0,encCvt:0};
+        set('dash-ca-'+id,fmtPrix(a.ca)); set('dash-caht-'+id,fmtPrix(a.ht));
+        set('dash-cmd-'+id,a.cmd); set('dash-cvt-'+id,a.cvt);
+        const encRow=document.getElementById('dash-enc-row-'+id);
+        const encVal=document.getElementById('dash-enc-'+id);
+        if(encRow&&encVal){
+          if(a.encCa>0||a.encCvt>0){ encRow.style.display=''; encVal.textContent=fmtPrix(a.encCa)+' · '+a.encCvt+' couv.'; }
+          else encRow.style.display='none';
+        }
       });
     });
   };
   if(_prodTaux) run(_prodTaux); else _chargerProdTaux(run);
 }
+
+function openDashDetail(id){
+  const e=etabsData[id]||{}; const a=_dashAgg[id];
+  const t=document.getElementById('dash-detail-title'); if(t) t.textContent=(e.nom||'Camion')+' — détail';
+  const sub=document.getElementById('dash-detail-sub'); if(sub) sub.textContent='Période : '+_dashLabel(_dashPeriode)+((a&&(a.encCa>0))?' · 🔴 encours du jour inclus':'');
+  const body=document.getElementById('dash-detail-body');
+  if(!a || !Object.keys(a.byDate||{}).length){ body.innerHTML='<p style="color:var(--text-muted);font-size:13px">Aucune vente sur la période.</p>'; }
+  else {
+    const today=_dashIso(new Date());
+    const dates=Object.keys(a.byDate).sort().reverse();
+    let rows='';
+    dates.forEach(date=>{
+      const bd=a.byDate[date];
+      ['midi','soir'].forEach(svc=>{
+        const s=bd[svc]; if(!s||(!s.ca&&!s.cvt&&!s.cmd)) return;
+        const live=(date===today)&&!s.closed;
+        const pm=s.cvt?fmtPrix(s.ca/s.cvt):'—';
+        rows+='<tr'+(live?' style="background:#fff4f2"':'')+'>'
+          +'<td>'+_dashFrDate(date)+'</td>'
+          +'<td>'+(svc==='midi'?'🌞 Midi':'🌙 Soir')+(live?' <span style="color:#c0392b;font-size:11px;font-weight:700">live</span>':'')+'</td>'
+          +'<td style="text-align:right">'+fmtPrix(s.ca)+'</td>'
+          +'<td style="text-align:right">'+s.cvt+'</td>'
+          +'<td style="text-align:right">'+s.cmd+'</td>'
+          +'<td style="text-align:right;font-weight:600">'+pm+'</td></tr>';
+      });
+    });
+    const pmTot=a.cvt?fmtPrix(a.ca/a.cvt):'—';
+    body.innerHTML='<div class="table-wrap"><table><thead><tr><th>Date</th><th>Service</th><th style="text-align:right">CA TTC</th><th style="text-align:right">Couv.</th><th style="text-align:right">Cmd</th><th style="text-align:right">Panier moy.</th></tr></thead><tbody>'+rows+'</tbody>'
+      +'<tfoot><tr style="font-weight:700;border-top:2px solid var(--border-strong)"><td colspan="2">Total</td><td style="text-align:right">'+fmtPrix(a.ca)+'</td><td style="text-align:right">'+a.cvt+'</td><td style="text-align:right">'+a.cmd+'</td><td style="text-align:right">'+pmTot+'</td></tr></tfoot></table></div>';
+  }
+  document.getElementById('modal-dash-detail').classList.add('open');
+}
+
+// Rafraîchissement « live » : recharge le TdB toutes les 60 s tant qu'il est affiché
+setInterval(function(){
+  const dv=document.getElementById('view-dashboard');
+  if(dv && dv.classList.contains('active') && Object.keys(etabsData||{}).length){ chargerDashboardPeriode(); }
+}, 60000);
 
 function populerSelectsEtabs(){
   ['rp-etab','cl-etab','rp2-etab','rc-etab','pe-etab','ic-etab'].forEach(id => {
@@ -1767,6 +1880,8 @@ function renderEtabsDashboard(){
     const ctrlOn=(cfg && cfg.mode) ? (cfg.mode!=='off') : !!e.controle_caisse_actif;
     const card = document.createElement('div');
     card.className = 'etab-card' + (e.service_actif ? ' en-service' : '');
+    card.style.cursor='pointer';
+    card.onclick=()=>openDashDetail(id);
     card.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
         <div>
@@ -1779,7 +1894,9 @@ function renderEtabsDashboard(){
       <div class="etab-stat"><span class="etab-stat-label">CA HT</span><span id="dash-caht-${id}">—</span></div>
       <div class="etab-stat"><span class="etab-stat-label">Commandes</span><span id="dash-cmd-${id}">—</span></div>
       <div class="etab-stat"><span class="etab-stat-label">Couverts</span><span id="dash-cvt-${id}">—</span></div>
+      <div class="etab-stat" id="dash-enc-row-${id}" style="display:none;border-top:1px dashed var(--border);margin-top:6px;padding-top:8px"><span class="etab-stat-label" style="color:#c0392b">🔴 En cours</span><span id="dash-enc-${id}" style="color:#c0392b;font-weight:600">—</span></div>
       ${ctrlOn?'<div style="margin-top:10px;padding:8px 10px;background:var(--amber-light);border-radius:6px;font-size:12px;color:var(--amber)">⚠️ Contrôle caisse actif</div>':''}
+      <div style="margin-top:10px;font-size:11px;color:var(--text-muted);text-align:right">Détail midi / soir →</div>
     `;
     grid.appendChild(card);
   });
@@ -3253,83 +3370,88 @@ let _peEventsOpen = true;
 
 function chargerPerfEmplacements(){
   _perfOffset = 0;
-  const etab = document.getElementById('pe-etab').value;
-  const cloRef = etab==='all' ? db.ref('clotures') : db.ref('clotures/'+etab);
-  const ovRef  = etab==='all' ? db.ref('overrides') : db.ref('overrides/'+etab);
-  const vaRef  = etab==='all' ? db.ref('ventes_archive') : db.ref('ventes_archive/'+etab);
+  // On charge TOUJOURS tous les camions (taggés par etab) — le filtre/mode comparaison se fait au rendu
   document.getElementById('pe-content').innerHTML='<div class="loading"><div class="spinner"></div>Chargement…</div>';
   document.getElementById('pe-detail').innerHTML='';
-  Promise.all([cloRef.once('value'), ovRef.once('value'), vaRef.once('value')]).then(([cloSnap, ovSnap, vaSnap])=>{
+  Promise.all([db.ref('clotures').once('value'), db.ref('overrides').once('value'), db.ref('ventes_archive').once('value')]).then(([cloSnap, ovSnap, vaSnap])=>{
     const all = cloSnap.val()||{};
     const rows=[];
-    const traiter=(data)=>{
+    Object.entries(all).forEach(([eid,data])=>{
       Object.entries(data||{}).forEach(([date,services])=>{
         Object.entries(services||{}).forEach(([service,cl])=>{
           if(service!=='midi'&&service!=='soir') return;
-          rows.push({date, service, emplacement:cl.emplacement||'—',
+          rows.push({etab:eid, date, service, emplacement:cl.emplacement||'—',
             ca:(cl.ca_total||cl.ca||0), cvt:(cl.nb_couverts||0), cmd:(cl.nb_commandes||0),
-            capacite:(cl.capacite!=null?cl.capacite:null), evenement:!!cl.evenement});
+            capacite:(cl.capacite!=null?cl.capacite:null), evenement:!!cl.evenement,
+            ferme:(cl.ferme===true || cl.emplacement==='Fermé')});
         });
       });
-    };
-    if(etab==='all') Object.values(all).forEach(d=>traiter(d));
-    else traiter(all);
+    });
     _perfRows = rows;
-    // Événements (overrides)
+    // Événements (overrides) — taggés par camion
     const ov=ovSnap.val()||{};
     const evs=[];
-    const traiterOv=(data)=>{
+    Object.entries(ov).forEach(([eid,data])=>{
       Object.values(data||{}).forEach(o=>{
         if(!o||!o.date||!o.service) return;
         if(o.ferme) return; // service fermé/annulé → hors stats
         if(o.service!=='midi'&&o.service!=='soir') return;
-        evs.push({date:o.date, service:o.service, nom:o.nom||'—', type:(o.type||'service'), montant:(o.montant!=null?o.montant:null), capacite:(o.capacite!=null?o.capacite:null)});
+        evs.push({etab:eid, date:o.date, service:o.service, nom:o.nom||'—', type:(o.type||'service'), montant:(o.montant!=null?o.montant:null), capacite:(o.capacite!=null?o.capacite:null)});
       });
-    };
-    if(etab==='all') Object.values(ov).forEach(d=>traiterOv(d));
-    else traiterOv(ov);
+    });
     _perfEvents = evs;
     renderPerfGrille();
-    // ---- Analyse tailles & produits par emplacement (ventes_archive ⨝ emplacement de clôture) ----
+    // ---- Analyse tailles & produits par emplacement (ventes_archive ⨝ emplacement de clôture) — PAR CAMION ----
     const emplMap={};
-    const addClo=(eid,data)=>{ Object.entries(data||{}).forEach(([date,svcs])=>{ Object.entries(svcs||{}).forEach(([svc,cl])=>{ emplMap[eid+'|'+date+'|'+svc]=cl.emplacement||'—'; }); }); };
-    if(etab==='all') Object.entries(all).forEach(([eid,d])=>addClo(eid,d)); else addClo(etab,all);
-    const analyse={};
-    const salesByDS={};
+    Object.entries(all).forEach(([eid,data])=>{ Object.entries(data||{}).forEach(([date,svcs])=>{ Object.entries(svcs||{}).forEach(([svc,cl])=>{ emplMap[eid+'|'+date+'|'+svc]=cl.emplacement||'—'; }); }); });
+    const analyse={}; // {etab:{empl:{ca,tailles,produits}}}
     const vaAll=vaSnap.val()||{};
-    const addVa=(eid,data)=>{
+    Object.entries(vaAll).forEach(([eid,data])=>{
       Object.entries(data||{}).forEach(([date,jour])=>{
         Object.values(jour||{}).forEach(c=>{
           if(c.statut && c.statut!=='payee') return;
           const svc=c.service||'';
           const empl=emplMap[eid+'|'+date+'|'+svc] || '— (sans clôture)';
-          const dsKey=date+'|'+svc;
           (c.articles||[]).forEach(a=>{
             const lineCa=(a.prix||0)*(a.qte||1);
             const t=a.taille||'(sans taille)', p=a.nom||'?';
-            const E=analyse[empl]=analyse[empl]||{ca:0,tailles:{},produits:{}};
+            const byE=analyse[eid]=analyse[eid]||{};
+            const E=byE[empl]=byE[empl]||{ca:0,tailles:{},produits:{}};
             E.ca+=lineCa; E.tailles[t]=(E.tailles[t]||0)+lineCa;
             const P=E.produits[p]=E.produits[p]||{ca:0,tailles:{}};
             P.ca+=lineCa; P.tailles[t]=(P.tailles[t]||0)+lineCa;
-            const D=salesByDS[dsKey]=salesByDS[dsKey]||{ca:0,tailles:{},produits:{}};
-            D.ca+=lineCa; D.tailles[t]=(D.tailles[t]||0)+lineCa;
-            const DP=D.produits[p]=D.produits[p]||{ca:0,tailles:{}};
-            DP.ca+=lineCa; DP.tailles[t]=(DP.tailles[t]||0)+lineCa;
           });
         });
       });
-    };
-    if(etab==='all') Object.entries(vaAll).forEach(([eid,d])=>addVa(eid,d)); else addVa(etab,vaAll);
+    });
     _perfEmplAnalyse=analyse;
-    _perfSalesByDS=salesByDS;
   });
 }
 
-let _perfEmplAnalyse={}; let _emplList=[]; let _emplOpenIdx=null; let _perfSalesByDS={};
+let _perfEmplAnalyse={}; let _emplList=[]; let _emplOpenIdx=null;
+function _analyseFiltree(){
+  const sel=document.getElementById('pe-etab').value;
+  if(sel!=='all') return _perfEmplAnalyse[sel]||{};
+  // fusion tous camions (un emplacement est en pratique servi par un seul camion)
+  const merged={};
+  Object.values(_perfEmplAnalyse).forEach(byE=>{
+    Object.entries(byE).forEach(([empl,v])=>{
+      const M=merged[empl]=merged[empl]||{ca:0,tailles:{},produits:{}};
+      M.ca+=v.ca;
+      Object.entries(v.tailles).forEach(([t,ca])=>M.tailles[t]=(M.tailles[t]||0)+ca);
+      Object.entries(v.produits).forEach(([p,pv])=>{
+        const P=M.produits[p]=M.produits[p]||{ca:0,tailles:{}};
+        P.ca+=pv.ca;
+        Object.entries(pv.tailles).forEach(([t,ca])=>P.tailles[t]=(P.tailles[t]||0)+ca);
+      });
+    });
+  });
+  return merged;
+}
 function toggleEmplDetail(i){ _emplOpenIdx=(_emplOpenIdx===i)?null:i; renderEmplAnalyse(); }
 function renderEmplAnalyse(){
   const cont=document.getElementById('pe-tailles-analyse'); if(!cont) return;
-  _emplList=Object.entries(_perfEmplAnalyse).filter(([,v])=>v.ca>0).sort((a,b)=>b[1].ca-a[1].ca);
+  _emplList=Object.entries(_analyseFiltree()).filter(([,v])=>v.ca>0).sort((a,b)=>b[1].ca-a[1].ca);
   if(!_emplList.length){ cont.innerHTML='<p style="color:var(--text-muted);font-size:13px">Aucune vente enregistrée pour l\'instant (l\'analyse se remplira avec les ventes réelles).</p>'; return; }
   cont.innerHTML=_emplList.map(([empl,v],i)=>{
     const open=_emplOpenIdx===i;
@@ -3356,7 +3478,7 @@ function perfNav(dir){ _perfOffset += dir; renderPerfGrille(); }
 
 function _rangePeriode(type, offset){
   const now=new Date(); now.setHours(0,0,0,0);
-  const fmt=d=>d.toISOString().split('T')[0];
+  const fmt=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); // date LOCALE (toISOString décalait d'un jour)
   if(type==='semaine'){
     const d=new Date(now); const wd=(d.getDay()+6)%7; d.setDate(d.getDate()-wd+offset*7);
     const end=new Date(d); end.setDate(d.getDate()+6);
@@ -3376,10 +3498,10 @@ function _rangePeriode(type, offset){
   return {start:fmt(d),end:fmt(end),label:''+d.getFullYear()};
 }
 function _decalerAn(range,n){
-  const sh=s=>{const d=new Date(s); d.setFullYear(d.getFullYear()+n); return d.toISOString().split('T')[0];};
+  const sh=s=>{const d=new Date(s+'T12:00:00'); d.setFullYear(d.getFullYear()+n); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
   return {start:sh(range.start),end:sh(range.end)};
 }
-function _jourLundi(dateStr){ return (new Date(dateStr).getDay()+6)%7; }
+function _jourLundi(dateStr){ return (new Date(dateStr+'T12:00:00').getDay()+6)%7; }
 
 function _aggPerf(rows){
   const m={};
@@ -3396,77 +3518,117 @@ function _aggPerf(rows){
 
 function renderPerfGrille(){
   if(!_perfRows) return;
+  const sel=document.getElementById('pe-etab').value;
   const type=document.getElementById('pe-periode').value;
   const comp=document.getElementById('pe-comparable').value;
   const main=_rangePeriode(type,_perfOffset);
   document.getElementById('pe-periode-label').textContent=main.label;
   const inR=(r,rg)=>r.date>=rg.start&&r.date<=rg.end;
   const noEv=r=>!r.evenement;
-  const aMain=_aggPerf(_perfRows.filter(r=>inR(r,main)&&noEv(r)));
-  _perfAgg=aMain;
-  let aComp=null, aAll=null;
-  if(comp==='prec') aComp=_aggPerf(_perfRows.filter(r=>inR(r,_rangePeriode(type,_perfOffset-1))&&noEv(r)));
-  else if(comp==='an') aComp=_aggPerf(_perfRows.filter(r=>inR(r,_decalerAn(main,-1))&&noEv(r)));
-  else aAll=_aggPerf(_perfRows.filter(noEv));
-
-  // Événements dans la période (depuis les overrides)
-  const evRange=(_perfEvents||[]).filter(e=>e.date>=main.start&&e.date<=main.end);
-  const eventSlots=new Set(); evRange.forEach(e=>eventSlots.add(_jourLundi(e.date)+'|'+e.service));
-  const cloByDS={}; _perfRows.forEach(r=>{ cloByDS[r.date+'|'+r.service]=r; });
-  const evList=evRange.map(e=>{
-    let ca,cvt;
-    if(e.type==='forfait'){ ca=e.montant||0; cvt=e.capacite||0; }
-    else { const c=cloByDS[e.date+'|'+e.service]; ca=c?c.ca:0; cvt=c?c.cvt:0; }
-    return Object.assign({}, e, {ca, cvt});
-  }).sort((a,b)=>a.date.localeCompare(b.date));
-  _perfEvList = evList;
-
+  const noFerme=r=>!r.ferme; // un 0 « fermé » ne compte pas ; un vrai 0 en service reste compté
+  const keep=r=>noEv(r)&&noFerme(r);
   const jours=['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
   const services=[['midi','🌞 Midi'],['soir','🌙 Soir']];
-  const cellHtml=(j,service)=>{
-    const key=j+'|'+service;
-    const hasEvent=eventSlots.has(key);
-    const g=aMain[key];
-    if(!g||!g.n){
-      if(hasEvent) return `<td id="pecell-${j}-${service}" onclick="perfEventDetail(${j},'${service}')" style="padding:8px;border:1px solid var(--border);background:rgba(225,81,45,.06);text-align:center;cursor:pointer;vertical-align:top;min-width:118px"><div style="font-size:18px">🎉</div><div style="font-size:10px;color:var(--text-muted)">Événement</div></td>`;
-      return `<td style="padding:8px;border:1px solid var(--border);background:var(--bg);text-align:center;color:var(--text-muted);font-size:12px">—</td>`;
-    }
-    const order=[...g.occ].sort((a,b)=>a.date.localeCompare(b.date));
-    const noms=[...new Set(order.map(o=>o.empl))];
-    let emplLine, change=false;
-    if(noms.length<=1){ emplLine=noms[0]||'—'; }
-    else { change=true; emplLine='📍 '+noms[0]+' → '+noms[noms.length-1]; }
-    const caService=g.ca/g.n;
-    const rempl=(g.capN&&g.capSum)?((g.cvt/g.n)/(g.capSum/g.capN)):null;
-    let compVal=null;
-    if(aComp){ const c=aComp[key]; compVal=c&&c.n?c.ca/c.n:null; }
-    else if(aAll){ const c=aAll[key]; compVal=c&&c.n?c.ca/c.n:null; }
-    let deltaHtml='', tint='var(--white)';
-    if(compVal!=null && compVal>0){
-      const d=(caService-compVal)/compVal*100; const up=d>=0;
-      deltaHtml=`<div style="font-size:11px;font-weight:700;color:${up?'#16794a':'#c0392b'}">${up?'▲':'▼'} ${Math.abs(Math.round(d))}%</div>`;
-      tint = up ? 'rgba(22,121,74,.07)' : 'rgba(192,57,43,.07)';
-    }
-    return `<td id="pecell-${j}-${service}" onclick="perfDetail(${j},'${service}')" style="padding:8px;border:1px solid var(--border);background:${tint};cursor:pointer;vertical-align:top;min-width:118px;position:relative">
-      ${hasEvent?`<div onclick="event.stopPropagation();perfEventDetail(${j},'${service}')" title="Événement ce créneau" style="position:absolute;top:3px;right:4px;font-size:13px;cursor:pointer">🎉</div>`:''}
-      <div style="font-size:10px;color:${change?'var(--amber)':'var(--text-muted)'};margin-bottom:3px;${change?'font-weight:700':''}">${emplLine}</div>
-      <div style="font-size:16px;font-weight:800;color:var(--green-dark)">${fmtPrix(g.ca)}</div>
-      <div style="font-size:11px;color:var(--text-muted)">${g.cvt} cvt${rempl!=null?' · '+Math.round(rempl*100)+'%':''}</div>
-      ${deltaHtml}
-      ${g.n>1?`<div style="font-size:9px;color:var(--text-muted)">${g.n} services</div>`:''}
-    </td>`;
+
+  // Camions à afficher : un seul, ou tous (mode comparaison)
+  const etabIds = sel==='all' ? Object.keys(etabsData) : [sel];
+  _perfAgg={};
+  _perfEvList=[];
+  const cloByEDS={}; _perfRows.forEach(r=>{ cloByEDS[r.etab+'|'+r.date+'|'+r.service]=r; });
+
+  const grilleFor=(eid)=>{
+    const rowsE=_perfRows.filter(r=>r.etab===eid);
+    const aMain=_aggPerf(rowsE.filter(r=>inR(r,main)&&keep(r)));
+    _perfAgg[eid]=aMain;
+    let aComp=null, aAll=null;
+    if(comp==='prec') aComp=_aggPerf(rowsE.filter(r=>inR(r,_rangePeriode(type,_perfOffset-1))&&keep(r)));
+    else if(comp==='an') aComp=_aggPerf(rowsE.filter(r=>inR(r,_decalerAn(main,-1))&&keep(r)));
+    else aAll=_aggPerf(rowsE.filter(keep));
+    // Événements de CE camion dans la période
+    const evRange=(_perfEvents||[]).filter(e=>e.etab===eid&&e.date>=main.start&&e.date<=main.end);
+    const eventSlots=new Set(); evRange.forEach(e=>eventSlots.add(_jourLundi(e.date)+'|'+e.service));
+    evRange.forEach(e=>{
+      let ca,cvt;
+      if(e.type==='forfait'){ ca=e.montant||0; cvt=e.capacite||0; }
+      else { const c=cloByEDS[eid+'|'+e.date+'|'+e.service]; ca=c?c.ca:0; cvt=c?c.cvt:0; }
+      _perfEvList.push(Object.assign({}, e, {ca, cvt}));
+    });
+    const cellHtml=(j,service)=>{
+      const key=j+'|'+service;
+      const hasEvent=eventSlots.has(key);
+      const g=aMain[key];
+      if(!g||!g.n){
+        if(hasEvent) return `<td id="pecell-${eid}-${j}-${service}" onclick="perfEventDetail('${eid}',${j},'${service}')" style="padding:8px;border:1px solid var(--border);background:rgba(225,81,45,.06);text-align:center;cursor:pointer;vertical-align:top;min-width:118px"><div style="font-size:18px">🎉</div><div style="font-size:10px;color:var(--text-muted)">Événement</div></td>`;
+        return `<td style="padding:8px;border:1px solid var(--border);background:var(--bg);text-align:center;color:var(--text-muted);font-size:12px">—</td>`;
+      }
+      const order=[...g.occ].sort((a,b)=>a.date.localeCompare(b.date));
+      const noms=[...new Set(order.map(o=>o.empl))];
+      let emplLine, change=false;
+      if(noms.length<=1){ emplLine=noms[0]||'—'; }
+      else { change=true; emplLine='📍 '+noms[0]+' → '+noms[noms.length-1]; }
+      const caService=g.ca/g.n;
+      const rempl=(g.capN&&g.capSum)?((g.cvt/g.n)/(g.capSum/g.capN)):null;
+      let compVal=null;
+      if(aComp){ const c=aComp[key]; compVal=c&&c.n?c.ca/c.n:null; }
+      else if(aAll){ const c=aAll[key]; compVal=c&&c.n?c.ca/c.n:null; }
+      let deltaHtml='', tint='var(--white)';
+      if(compVal!=null && compVal>0){
+        const d=(caService-compVal)/compVal*100; const up=d>=0;
+        deltaHtml=`<div style="font-size:11px;font-weight:700;color:${up?'#16794a':'#c0392b'}">${up?'▲':'▼'} ${Math.abs(Math.round(d))}%</div>`;
+        tint = up ? 'rgba(22,121,74,.07)' : 'rgba(192,57,43,.07)';
+      }
+      return `<td id="pecell-${eid}-${j}-${service}" onclick="perfDetail('${eid}',${j},'${service}')" style="padding:8px;border:1px solid var(--border);background:${tint};cursor:pointer;vertical-align:top;min-width:118px;position:relative">
+        ${hasEvent?`<div onclick="event.stopPropagation();perfEventDetail('${eid}',${j},'${service}')" title="Événement ce créneau" style="position:absolute;top:3px;right:4px;font-size:13px;cursor:pointer">🎉</div>`:''}
+        <div style="font-size:10px;color:${change?'var(--amber)':'var(--text-muted)'};margin-bottom:3px;${change?'font-weight:700':''}">${emplLine}</div>
+        <div style="font-size:16px;font-weight:800;color:var(--green-dark)">${fmtPrix(g.ca)}</div>
+        <div style="font-size:11px;color:var(--text-muted)">${g.cvt} cvt${rempl!=null?' · '+Math.round(rempl*100)+'%':''}</div>
+        ${deltaHtml}
+        ${g.n>1?`<div style="font-size:9px;color:var(--text-muted)">${g.n} services</div>`:''}
+      </td>`;
+    };
+    let t=`<div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;min-width:760px">
+      <thead><tr><th style="padding:6px;border:1px solid var(--border);background:var(--bg);font-size:11px;width:60px"></th>
+      ${jours.map(j=>`<th style="padding:6px;border:1px solid var(--border);background:var(--bg);font-size:11px;text-transform:uppercase">${j}</th>`).join('')}</tr></thead><tbody>`;
+    services.forEach(([sv,label])=>{
+      t+=`<tr><td style="padding:6px;border:1px solid var(--border);background:var(--bg);font-size:11px;font-weight:700;text-align:center">${label}</td>`;
+      for(let j=0;j<7;j++) t+=cellHtml(j,sv);
+      t+=`</tr>`;
+    });
+    t+=`</tbody></table></div>`;
+    // Totaux camion sur la période (pour la synthèse)
+    let ca=0,cvt=0,cmd=0,n=0;
+    Object.values(aMain).forEach(g=>{ ca+=g.ca; cvt+=g.cvt; cmd+=g.cmd; n+=g.n; });
+    return {html:t, tot:{ca,cvt,cmd,n}};
   };
-  let html=`<div style="overflow-x:auto"><table style="border-collapse:collapse;width:100%;min-width:760px">
-    <thead><tr><th style="padding:6px;border:1px solid var(--border);background:var(--bg);font-size:11px;width:60px"></th>
-    ${jours.map(j=>`<th style="padding:6px;border:1px solid var(--border);background:var(--bg);font-size:11px;text-transform:uppercase">${j}</th>`).join('')}</tr></thead><tbody>`;
-  services.forEach(([sv,label])=>{
-    html+=`<tr><td style="padding:6px;border:1px solid var(--border);background:var(--bg);font-size:11px;font-weight:700;text-align:center">${label}</td>`;
-    for(let j=0;j<7;j++) html+=cellHtml(j,sv);
-    html+=`</tr>`;
-  });
-  html+=`</tbody></table></div>
-  <div style="font-size:11px;color:var(--text-muted);margin-top:8px">Couleur = évolution vs comparable · 📍 = changement d'emplacement · 🎉 = événement (hors moyenne) · clique une case pour le détail</div>`;
+
+  let html='';
+  if(sel==='all'){
+    // ---- MODE COMPARAISON : synthèse + une grille par camion ----
+    const parts=etabIds.map(eid=>({eid, nom:(etabsData[eid]||{}).nom||eid, g:grilleFor(eid)}));
+    const totRows=parts.map(p=>{
+      const t=p.g.tot; const pm=t.cvt?t.ca/t.cvt:null;
+      return `<tr style="border-top:1px solid var(--border)"><td style="padding:7px 12px;font-weight:700">${p.nom}</td><td style="padding:7px 12px;text-align:right">${t.n}</td><td style="padding:7px 12px;text-align:right;font-weight:700;color:var(--green-dark)">${fmtPrix(t.ca)}</td><td style="padding:7px 12px;text-align:right">${t.cvt}</td><td style="padding:7px 12px;text-align:right">${t.n?fmtPrix(t.ca/t.n):'—'}</td><td style="padding:7px 12px;text-align:right;font-weight:600">${pm!=null?fmtPrix(pm):'—'}</td></tr>`;
+    }).join('');
+    const T=parts.reduce((s,p)=>({ca:s.ca+p.g.tot.ca,cvt:s.cvt+p.g.tot.cvt,n:s.n+p.g.tot.n}),{ca:0,cvt:0,n:0});
+    html+=`<div style="background:var(--white);border:1px solid var(--border);border-radius:var(--radius-lg);overflow-x:auto;margin-bottom:18px">
+      <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:560px">
+        <thead><tr style="background:var(--bg);color:var(--text-muted);font-size:11px;text-transform:uppercase">
+          <th style="text-align:left;padding:8px 12px">Camion</th><th style="text-align:right;padding:8px 12px">Services</th><th style="text-align:right;padding:8px 12px">CA</th><th style="text-align:right;padding:8px 12px">Couverts</th><th style="text-align:right;padding:8px 12px">CA/service</th><th style="text-align:right;padding:8px 12px">Panier/couvert</th>
+        </tr></thead><tbody>${totRows}
+        <tr style="border-top:2px solid var(--border-strong);font-weight:800;background:var(--bg)"><td style="padding:7px 12px">Total</td><td style="padding:7px 12px;text-align:right">${T.n}</td><td style="padding:7px 12px;text-align:right;color:var(--green-dark)">${fmtPrix(T.ca)}</td><td style="padding:7px 12px;text-align:right">${T.cvt}</td><td style="padding:7px 12px;text-align:right">${T.n?fmtPrix(T.ca/T.n):'—'}</td><td style="padding:7px 12px;text-align:right">${T.cvt?fmtPrix(T.ca/T.cvt):'—'}</td></tr>
+        </tbody></table></div>`;
+    parts.forEach(p=>{
+      html+=`<div style="font-size:14px;font-weight:800;margin:14px 0 6px">${(etabsData[p.eid]||{}).carte==='burger'?'🍔':'🥗'} ${p.nom}</div>`+p.g.html;
+    });
+  } else {
+    html+=grilleFor(sel).html;
+  }
+  html+=`<div style="font-size:11px;color:var(--text-muted);margin-top:8px">Couleur = évolution vs comparable · 📍 = changement d'emplacement · 🎉 = événement (hors moyenne) · clique une case pour le détail</div>`;
+
+  // ---- Événements privés (période, tous camions affichés) ----
+  const evList=_perfEvList.sort((a,b)=>a.date.localeCompare(b.date));
   if(evList.length){
+    const multi = sel==='all';
     html+=`<div id="pe-events" style="margin-top:24px">
       <h3 onclick="togglePeEvents()" style="font-size:15px;font-weight:700;margin-bottom:10px;cursor:pointer;display:flex;justify-content:space-between;align-items:center">
         <span>🎉 Événements privés <span style="font-weight:500;color:var(--text-muted)">(${evList.length})</span></span>
@@ -3476,6 +3638,7 @@ function renderPerfGrille(){
         <table style="width:100%;border-collapse:collapse;font-size:13px;min-width:560px">
           <thead><tr style="background:var(--bg);color:var(--text-muted);font-size:11px;text-transform:uppercase">
             <th style="text-align:left;padding:8px 12px">Date</th>
+            ${multi?'<th style="text-align:left;padding:8px 12px">Camion</th>':''}
             <th style="text-align:left;padding:8px 12px">Événement</th>
             <th style="text-align:left;padding:8px 12px">Service</th>
             <th style="text-align:left;padding:8px 12px">Type</th>
@@ -3483,7 +3646,8 @@ function renderPerfGrille(){
             <th style="text-align:right;padding:8px 12px">Couverts</th>
           </tr></thead><tbody>
           ${evList.map(e=>`<tr style="border-top:1px solid var(--border)">
-            <td style="padding:8px 12px">${new Date(e.date).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})}</td>
+            <td style="padding:8px 12px">${new Date(e.date+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})}</td>
+            ${multi?`<td style="padding:8px 12px">${(etabsData[e.etab]||{}).nom||e.etab}</td>`:''}
             <td style="padding:8px 12px;font-weight:600">${e.nom}</td>
             <td style="padding:8px 12px;text-transform:capitalize">${e.service}</td>
             <td style="padding:8px 12px"><span class="badge ${e.type==='forfait'?'badge-gray':'badge-green'}">${e.type==='forfait'?'B2B forfait':'Service facturé'}</span></td>
@@ -3498,9 +3662,9 @@ function renderPerfGrille(){
   document.getElementById('pe-content').innerHTML=html;
   document.getElementById('pe-detail').innerHTML='';
 }
-function _highlightCell(j,service){
+function _highlightCell(eid,j,service){
   document.querySelectorAll('[id^="pecell-"]').forEach(c=>c.classList.remove('pe-cell-sel'));
-  const c=document.getElementById('pecell-'+j+'-'+service); if(c) c.classList.add('pe-cell-sel');
+  const c=document.getElementById('pecell-'+eid+'-'+j+'-'+service); if(c) c.classList.add('pe-cell-sel');
 }
 function toggleEmplOverview(){
   const b=document.getElementById('pe-tailles-analyse'); if(!b) return;
@@ -3516,16 +3680,17 @@ function togglePeEvents(){
   if(b) b.style.display=_peEventsOpen?'block':'none';
   if(ch) ch.textContent=_peEventsOpen?'▲ replier':'▼ déplier';
 }
-function perfEventDetail(j,service){
-  _highlightCell(j,service);
+function perfEventDetail(eid,j,service){
+  _highlightCell(eid,j,service);
   const jours=['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'];
-  const evs=(_perfEvList||[]).filter(e=>_jourLundi(e.date)===j && e.service===service);
+  const evs=(_perfEvList||[]).filter(e=>e.etab===eid && _jourLundi(e.date)===j && e.service===service);
   const el=document.getElementById('pe-detail'); if(!el) return;
   if(!evs.length){ el.innerHTML=''; return; }
-  el.innerHTML=`<div class="card"><div class="card-title">🎉 Événement${evs.length>1?'s':''} — ${jours[j]} ${service}</div>`
+  const nomCamion=(etabsData[eid]||{}).nom||eid;
+  el.innerHTML=`<div class="card"><div class="card-title">🎉 Événement${evs.length>1?'s':''} — ${nomCamion} · ${jours[j]} ${service}</div>`
     + evs.map(e=>`<div style="border:1px solid var(--border);border-radius:10px;padding:13px;margin-bottom:8px">
         <div style="font-weight:700;font-size:15px">${e.nom}</div>
-        <div style="font-size:13px;color:var(--text-muted);margin-top:2px;text-transform:capitalize">${new Date(e.date).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})} · ${e.service}</div>
+        <div style="font-size:13px;color:var(--text-muted);margin-top:2px;text-transform:capitalize">${new Date(e.date+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'})} · ${e.service}</div>
         <div style="display:flex;gap:22px;margin-top:10px;flex-wrap:wrap">
           <div><div style="font-size:11px;color:var(--text-muted);text-transform:uppercase">Type</div><div style="font-weight:600">${e.type==='forfait'?'B2B forfait':'Service facturé'}</div></div>
           <div><div style="font-size:11px;color:var(--text-muted);text-transform:uppercase">CA</div><div style="font-weight:700;color:var(--green-dark)">${fmtPrix(e.ca)}</div></div>
@@ -3536,9 +3701,11 @@ function perfEventDetail(j,service){
   el.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 
-function perfDetail(j,service){
-  _highlightCell(j,service);
-  const g=_perfAgg[j+'|'+service];
+function perfDetail(eid,j,service){
+  _highlightCell(eid,j,service);
+  const g=(_perfAgg[eid]||{})[j+'|'+service];
+  const nomCamion=(etabsData[eid]||{}).nom||eid;
+  const analyseE=_perfEmplAnalyse[eid]||{};
   const jours=['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
   const svLabel=service==='midi'?'Midi':'Soir';
   const det=document.getElementById('pe-detail');
@@ -3546,7 +3713,7 @@ function perfDetail(j,service){
   const order=[...g.occ].sort((a,b)=>a.date.localeCompare(b.date));
   const occRows=order.map(o=>{
     const r=(o.capacite&&o.cvt)?Math.round(o.cvt/o.capacite*100)+'%':'—';
-    return `<tr style="border-top:1px solid var(--border)"><td style="padding:6px 10px">${new Date(o.date).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})}</td><td style="padding:6px 10px">${o.empl}</td><td style="padding:6px 10px;text-align:right;font-weight:600">${fmtPrix(o.ca)}</td><td style="padding:6px 10px;text-align:right">${o.cvt}</td><td style="padding:6px 10px;text-align:right">${r}</td></tr>`;
+    return `<tr style="border-top:1px solid var(--border)"><td style="padding:6px 10px">${new Date(o.date+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'})}</td><td style="padding:6px 10px">${o.empl}</td><td style="padding:6px 10px;text-align:right;font-weight:600">${fmtPrix(o.ca)}</td><td style="padding:6px 10px;text-align:right">${o.cvt}</td><td style="padding:6px 10px;text-align:right">${r}</td></tr>`;
   }).join('');
   const noms=[...new Set(order.map(o=>o.empl))];
   let changeBlock='';
@@ -3588,14 +3755,14 @@ function perfDetail(j,service){
   } else {
     venteBlock=`<div style="margin-top:16px;padding-top:14px;border-top:1px dashed var(--border)"><div style="font-size:13px;font-weight:700">🍽️ Tailles &amp; produits par emplacement</div>`
       + nomsReels.map(nom=>{
-          const E=_perfEmplAnalyse[nom];
+          const E=analyseE[nom];
           if(!E||!E.ca) return `<div style="margin-top:10px;font-size:13px;color:var(--text-muted)">📍 <strong>${nom}</strong> — aucune vente détaillée (article par article) ; clôtures globales uniquement, rien à ventiler.</div>`;
           return renderMixEmpl(E,nom);
         }).join('')
       + `</div>`;
   }
   det.innerHTML=`<div style="background:var(--white);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px">
-    <div style="font-size:15px;font-weight:700;margin-bottom:4px">${jours[j]} · ${svLabel}</div>
+    <div style="font-size:15px;font-weight:700;margin-bottom:4px">${nomCamion} — ${jours[j]} · ${svLabel}</div>
     <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">${g.n} service${g.n>1?'s':''} · CA total ${fmtPrix(g.ca)} · CA/service ${fmtPrix(g.ca/g.n)} · ${g.cvt} couverts</div>
     ${changeBlock}
     <table style="width:100%;border-collapse:collapse;font-size:13px">
@@ -3606,6 +3773,270 @@ function perfDetail(j,service){
     ${venteBlock}
   </div>`;
   det.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+// ============================================================
+// AVIS GOOGLE — E-RÉPUTATION (module ; sync API via Netlify Functions à venir)
+// ============================================================
+const AVIS_FICHES = {
+  pokeben:  { nom:'Pok&Ben',   emoji:'🌿', couleur:'#2e7d4f' },
+  captfish: { nom:'Capt&Fish', emoji:'🐟', couleur:'#EF7159' }
+};
+let _avisData = {};
+let _avisTab = 'a_traiter';
+let _avisListener = false;
+let _avisPropIdx = {};
+
+function chargerAvis(){
+  if(!_avisListener){
+    _avisListener = true;
+    db.ref('avis_google').on('value', snap=>{
+      _avisData = snap.val()||{};
+      majBadgeAvis();
+      if(document.getElementById('view-avis').classList.contains('active')) renderAvis();
+    });
+  } else { renderAvis(); }
+}
+
+function majBadgeAvis(){
+  const n=Object.values(_avisData).filter(a=>a && (a.statut||'a_traiter')==='a_traiter').length;
+  const b=document.getElementById('nav-avis-badge');
+  if(b){ if(n>0){ b.style.display='inline-block'; b.textContent=n; } else b.style.display='none'; }
+}
+
+function _avStars(note){ return '★'.repeat(note)+'<span style="color:#ddd">'+'★'.repeat(5-note)+'</span>'; }
+function _avRelDate(ts){
+  const d=Math.floor((Date.now()-ts)/86400000);
+  if(d<=0) return "aujourd'hui";
+  if(d===1) return 'hier';
+  if(d<30) return 'il y a '+d+' jours';
+  if(d<365) return 'il y a '+Math.floor(d/30)+' mois';
+  return 'il y a '+Math.floor(d/365)+' an'+(d>=730?'s':'');
+}
+function _avInitiales(nom){ return (nom||'?').split(/\s+/).map(x=>x[0]).join('').substring(0,2).toUpperCase(); }
+function _avFiltre(){
+  const fiche=document.getElementById('av-fiche').value;
+  const p=document.getElementById('av-periode').value;
+  const minTs = p==='all' ? 0 : Date.now()-parseInt(p)*86400000;
+  return Object.entries(_avisData)
+    .map(([id,a])=>Object.assign({id},a))
+    .filter(a=>a && a.date && a.date>=minTs && (fiche==='all'||a.fiche===fiche))
+    .sort((a,b)=>b.date-a.date);
+}
+
+function setAvisTab(t){ _avisTab=t; renderAvis(); }
+
+function renderAvis(){
+  const banner=document.getElementById('av-demo-banner');
+  const hasData=Object.keys(_avisData).length>0;
+  const isDemo=hasData && Object.values(_avisData).every(a=>a && a.source==='demo');
+  banner.style.display = hasData && !isDemo ? 'none' : '';
+  if(hasData && isDemo) banner.innerHTML='🧪 <strong>Mode démo.</strong> Ces avis sont fictifs — la synchronisation des vrais avis Google arrive avec la connexion API. <button class="btn btn-sm" style="margin-left:10px;border:1px solid var(--coral);color:var(--coral);background:#fff" onclick="viderAvisDemo()">Supprimer les avis de démo</button>';
+
+  const avis=_avFiltre();
+  // ---- KPIs ----
+  const set=(id,v)=>{const e=document.getElementById(id);if(e)e.innerHTML=v;};
+  const notes=avis.map(a=>a.note);
+  const moy=notes.length?notes.reduce((s,n)=>s+n,0)/notes.length:null;
+  set('av-note', moy!=null?moy.toFixed(1):'—');
+  set('av-note-stars', moy!=null?'<span style="color:#f5a623;font-size:14px">'+_avStars(Math.round(moy))+'</span>':'');
+  set('av-count', avis.length);
+  const repondus=avis.filter(a=>a.statut==='repondu'||a.reponse);
+  set('av-taux', avis.length?Math.round(repondus.length/avis.length*100)+'%':'—');
+  const delais=repondus.filter(a=>a.reponse_date&&a.date).map(a=>a.reponse_date-a.date);
+  if(delais.length){
+    const mh=(delais.reduce((s,d)=>s+d,0)/delais.length)/3600000;
+    set('av-delai', mh<48 ? Math.round(mh)+' h' : Math.round(mh/24)+' j');
+  } else set('av-delai','—');
+
+  // ---- Graphe barres par mois / par fiche ----
+  const nbMois = document.getElementById('av-periode').value==='30'?3:6;
+  const mois=[]; const now=new Date();
+  for(let i=nbMois-1;i>=0;i--){ const d=new Date(now.getFullYear(),now.getMonth()-i,1); mois.push({key:d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'), lbl:d.toLocaleDateString('fr-FR',{month:'short'})}); }
+  const parMois={};
+  avis.forEach(a=>{
+    const d=new Date(a.date); const k=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    parMois[k]=parMois[k]||{}; parMois[k][a.fiche]=(parMois[k][a.fiche]||0)+1;
+  });
+  const maxM=Math.max(1,...mois.map(m=>Object.values(parMois[m.key]||{}).reduce((s,x)=>s+x,0)));
+  document.getElementById('av-chart').innerHTML=mois.map(m=>{
+    const data=parMois[m.key]||{};
+    const bars=Object.entries(AVIS_FICHES).map(([fid,f])=>{
+      const n=data[fid]||0; const h=Math.round(n/maxM*110);
+      return `<div title="${f.nom} : ${n}" style="width:16px;height:${Math.max(h,n?4:0)}px;background:${f.couleur};border-radius:4px 4px 0 0"></div>`;
+    }).join('');
+    return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;justify-content:flex-end">
+      <div style="display:flex;gap:3px;align-items:flex-end">${bars}</div>
+      <div style="font-size:11px;color:var(--text-muted)">${m.lbl}</div></div>`;
+  }).join('');
+  document.getElementById('av-chart-legend').innerHTML=Object.values(AVIS_FICHES).map(f=>`<span><span style="display:inline-block;width:10px;height:10px;background:${f.couleur};border-radius:3px;margin-right:5px"></span>${f.nom}</span>`).join('');
+
+  // ---- Répartition des notes ----
+  const rep=[0,0,0,0,0]; avis.forEach(a=>rep[a.note-1]++);
+  document.getElementById('av-repartition').innerHTML=[5,4,3,2,1].map(n=>{
+    const c=rep[n-1]; const pct=avis.length?Math.round(c/avis.length*100):0;
+    const col=n>=4?'#2e7d4f':n===3?'#f5a623':'#c0392b';
+    return `<div style="display:flex;align-items:center;gap:8px;margin:5px 0">
+      <div style="min-width:26px;font-size:13px;font-weight:600">${n} ★</div>
+      <div style="flex:1;height:9px;background:#f0ede8;border-radius:5px;overflow:hidden"><div style="width:${pct}%;height:100%;background:${col}"></div></div>
+      <div style="min-width:64px;font-size:12px;color:var(--text-muted);text-align:right">${pct}% (${c})</div></div>`;
+  }).join('');
+
+  // ---- Note par fiche ----
+  document.getElementById('av-par-fiche').innerHTML=Object.entries(AVIS_FICHES).map(([fid,f])=>{
+    const av=avis.filter(a=>a.fiche===fid);
+    const m=av.length?av.reduce((s,a)=>s+a.note,0)/av.length:null;
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;font-size:13px">
+      <span>${f.emoji} ${f.nom}</span>
+      <span>${m!=null?`<strong style="color:#b7791f">${m.toFixed(1)}</strong> <span style="color:#f5a623">★</span> <span style="color:var(--text-muted)">· ${av.length} avis</span>`:'<span style="color:var(--text-muted)">aucun avis</span>'}</span></div>`;
+  }).join('');
+
+  // ---- Onglets + liste ----
+  const byTab=t=>avis.filter(a=>t==='tous'?true:(a.statut||'a_traiter')===t);
+  ['a_traiter','repondu','archive'].forEach(t=>{ const e=document.getElementById('av-n-'+t); if(e) e.textContent='('+byTab(t).length+')'; });
+  ['a_traiter','repondu','archive','tous'].forEach(t=>{ const b=document.getElementById('av-tab-'+t); if(b) b.className='btn btn-sm '+(_avisTab===t?'btn-primary':'btn-secondary'); });
+  const list=byTab(_avisTab);
+  const cont=document.getElementById('av-list');
+  if(!list.length){ cont.innerHTML='<p style="color:var(--text-muted);font-size:13px;padding:10px 0">Aucun avis dans cette catégorie sur la période.</p>'; return; }
+  cont.innerHTML=list.map(a=>{
+    const f=AVIS_FICHES[a.fiche]||{nom:a.fiche,emoji:'📍',couleur:'#999'};
+    const st=a.statut||'a_traiter';
+    const stBadge = st==='a_traiter' ? (a.note<=2?'<span class="badge" style="background:#fdecea;color:#c0392b">Négatif</span>':a.note===3?'<span class="badge" style="background:#fff8e6;color:#b7791f">Neutre</span>':'<span class="badge badge-green">Positif</span>')
+      : st==='repondu' ? '<span class="badge badge-green">Répondu</span>' : '<span class="badge badge-gray">Archivé</span>';
+    const repBlock = a.reponse ? `<div style="margin-top:10px;padding:10px 12px;background:#f4f9f4;border-left:3px solid #2e7d4f;border-radius:6px;font-size:13px"><div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">↩️ Votre réponse${a.reponse_date?' · '+_avRelDate(a.reponse_date):''}</div>${a.reponse}</div>` : '';
+    const zone = st!=='repondu' ? `
+      <div id="av-zone-${a.id}" style="display:none;margin-top:10px">
+        <textarea class="form-input" id="av-rep-${a.id}" rows="4" style="resize:vertical;font-size:13px" placeholder="Ta réponse…"></textarea>
+        <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+          <button class="btn btn-sm btn-secondary" onclick="proposerReponse('${a.id}')">🔄 Autre proposition</button>
+          <button class="btn btn-sm btn-primary" onclick="marquerRepondu('${a.id}')">✓ Publier & marquer répondu</button>
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:6px">ℹ️ Tant que l'API n'est pas branchée, « publier » enregistre la réponse ici — pense à la coller aussi sur la fiche Google.</div>
+      </div>` : '';
+    const actions = `<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+      ${st!=='repondu'?`<button class="btn btn-sm btn-primary" onclick="proposerReponse('${a.id}')">✨ Proposer une réponse</button>`:''}
+      ${st!=='archive'?`<button class="btn btn-sm btn-secondary" onclick="setAvisStatut('${a.id}','archive')">📥 Archiver</button>`:`<button class="btn btn-sm btn-secondary" onclick="setAvisStatut('${a.id}','a_traiter')">↩︎ Restaurer</button>`}
+    </div>`;
+    return `<div class="card" style="margin-bottom:12px">
+      <div style="display:flex;gap:12px;align-items:flex-start">
+        <div style="min-width:40px;height:40px;border-radius:50%;background:${f.couleur}22;color:${f.couleur};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px">${_avInitiales(a.auteur)}</div>
+        <div style="flex:1">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap">
+            <div>
+              <span style="font-weight:700">${a.auteur}</span>
+              <span style="color:#f5a623;font-size:14px;margin-left:8px">${_avStars(a.note)}</span>
+              <div style="font-size:12px;color:var(--text-muted);margin-top:2px">${_avRelDate(a.date)} · ${f.emoji} ${f.nom}</div>
+            </div>
+            ${stBadge}
+          </div>
+          <div style="font-size:14px;margin-top:8px;line-height:1.5">${a.texte||'<em style="color:var(--text-muted)">Note sans commentaire</em>'}</div>
+          ${repBlock}${zone}${actions}
+        </div>
+      </div></div>`;
+  }).join('');
+}
+
+// ---- Générateur de réponses (ton par marque) ----
+function _avPrenom(a){ return (a.auteur||'').split(/\s+/)[0]; }
+function _avContact(fiche, cb){
+  if(fiche==='pokeben') db.ref('site_config/pokeben/contact').once('value',s=>{const c=s.val()||{};cb({tel:c.tel||'04 82 32 95 36',email:c.email||'contact@pokeben.fr'});});
+  else db.ref('parametres/legal_captn').once('value',s=>{const c=s.val()||{};cb({tel:c.tel||'',email:c.email||''});});
+}
+function _avTemplates(a, contact){
+  const p=_avPrenom(a), txt=(a.texte||'').toLowerCase();
+  const produit = /pok[eé]|bowl/.test(txt)?'nos pokés':/burger/.test(txt)?'nos burgers':/frite/.test(txt)?'nos frites maison':/tartare/.test(txt)?'nos tartares':'';
+  const isPB = a.fiche==='pokeben';
+  const sig = isPB ? "L'équipe Pok&Ben 🌿" : "L'équipage Capt&Fish ⚓";
+  const cnt = contact.tel ? `au ${contact.tel}`+(contact.email?` ou par email (${contact.email})`:'') : (contact.email?`par email (${contact.email})`:'directement au camion');
+  if(a.note>=4){
+    return isPB ? [
+      `Merci ${p} pour ce super retour ! 😊 ${produit?`Ravi que ${produit} t'aient plu — `:''}tout est frais et préparé le matin même, alors ça nous touche vraiment. À très vite au camion !\n— ${sig}`,
+      `Oh merci ${p}, ça fait chaud au cœur ! ${produit?`${produit.charAt(0).toUpperCase()+produit.slice(1)}, c'est notre fierté — `:''}on met beaucoup de soin dans chaque bowl. Au plaisir de te régaler à nouveau !\n— ${sig}`,
+      `Merci beaucoup ${p} ! Des clients comme toi, c'est le meilleur carburant du camion 🚚 À bientôt !\n— ${sig}`
+    ] : [
+      `Merci ${p} pour ce bel avis ! ${produit?`Content que ${produit} vous aient embarqué — `:''}tout est fait maison, à bord, avec du poisson qu'on choisit nous-mêmes. Bon vent et à bientôt au camion !\n— ${sig}`,
+      `Un grand merci ${p} ! ${produit?`${produit.charAt(0).toUpperCase()+produit.slice(1)}, c'est notre bataille de tous les jours — `:''}votre message fait plaisir à tout l'équipage. À très vite !\n— ${sig}`,
+      `Merci ${p}, message reçu 5 sur 5 ! On vous garde une place à la coupée pour la prochaine fois ⚓\n— ${sig}`
+    ];
+  }
+  if(a.note===3){
+    return isPB ? [
+      `Merci ${p} pour ton retour honnête. On veut faire mieux — si tu nous dis ce qui t'a manqué (${cnt}), on s'en occupe. La prochaine est pour nous d'être à la hauteur !\n— ${sig}`,
+      `Merci ${p} d'avoir pris le temps. Un 3 étoiles, pour nous, c'est un « peut mieux faire » qu'on prend au sérieux. Dis-nous ce qui a pêché (${cnt}) et on rectifie. À bientôt !\n— ${sig}`
+    ] : [
+      `Merci ${p} pour votre franchise. On préfère un retour direct à un silence — dites-nous ce qui n'a pas navigué droit (${cnt}), on veut corriger le tir. Au plaisir de vous reconquérir !\n— ${sig}`,
+      `Merci ${p}. Trois étoiles, c'est mer calme mais pas grand soleil — on aimerait comprendre ce qu'on peut améliorer (${cnt}). À bientôt au camion !\n— ${sig}`
+    ];
+  }
+  return isPB ? [
+    `${p}, on est sincèrement désolés — ce que tu décris n'est pas le niveau qu'on s'impose. On aimerait vraiment comprendre ce qui s'est passé et se rattraper : contacte-nous ${cnt}. Merci d'avoir pris le temps de nous le dire.\n— ${sig}`,
+    `Merci ${p} d'avoir signalé ça, et désolés pour cette expérience. Ce n'est ni notre standard ni notre envie. Écris-nous ${cnt} : on veut arranger ça, concrètement.\n— ${sig}`
+  ] : [
+    `${p}, toutes nos excuses — là, on a clairement pris l'eau. Ce n'est pas l'expérience qu'on veut offrir. Contactez-nous ${cnt} pour qu'on comprenne et qu'on se rattrape. Merci de nous l'avoir dit.\n— ${sig}`,
+    `Merci ${p} pour ce retour, même s'il pique. On préfère le savoir pour corriger. Écrivez-nous ${cnt} : on tient à faire mieux, et à vous le prouver.\n— ${sig}`
+  ];
+}
+function proposerReponse(id){
+  const a=Object.assign({id},_avisData[id]); if(!a) return;
+  _avContact(a.fiche, contact=>{
+    const tpls=_avTemplates(a, contact);
+    const idx=(_avisPropIdx[id]||0)%tpls.length;
+    _avisPropIdx[id]=idx+1;
+    const zone=document.getElementById('av-zone-'+id);
+    const ta=document.getElementById('av-rep-'+id);
+    if(zone) zone.style.display='block';
+    if(ta){ ta.value=tpls[idx]; ta.focus(); }
+  });
+}
+function marquerRepondu(id){
+  const ta=document.getElementById('av-rep-'+id);
+  const rep=ta?ta.value.trim():'';
+  if(!rep){ showNotif('Écris ou génère une réponse d\'abord','error'); return; }
+  db.ref('avis_google/'+id).update({statut:'repondu', reponse:rep, reponse_date:Date.now()})
+    .then(()=>showNotif('Réponse enregistrée ✓','success'))
+    .catch(()=>showNotif('Erreur Firebase','error'));
+}
+function setAvisStatut(id,st){
+  db.ref('avis_google/'+id).update({statut:st}).catch(()=>showNotif('Erreur Firebase','error'));
+}
+
+// ---- Démo ----
+function seedAvisDemo(){
+  const now=Date.now(), J=86400000;
+  const demo=[
+    {fiche:'pokeben',auteur:'Laura M.',note:5,d:2,texte:"Le nouveau thé glacé est vraiment incroyable, bien dosé, pas trop sucré et super rafraîchissant ! Et le poké saumon toujours au top."},
+    {fiche:'pokeben',auteur:'Thomas H.',note:5,d:4,texte:"Poké ultra frais, équipe très accueillante et ambiance agréable. Je recommande !"},
+    {fiche:'captfish',auteur:'Sophie P.',note:5,d:5,texte:"Le burger de poisson est une tuerie, pain moelleux, service rapide et souriant 😊"},
+    {fiche:'captfish',auteur:'Hugo K.',note:2,d:1,texte:"20 minutes d'attente pour un burger tiède. Déçu, d'habitude c'est mieux."},
+    {fiche:'pokeben',auteur:'Camille L.',note:3,d:1,texte:"Bon mais portion un peu juste sur le bowl crevettes par rapport au prix."},
+    {fiche:'captfish',auteur:'Pierre L.',note:1,d:2,texte:"Commande oubliée, j'ai dû redemander deux fois. Pas de geste commercial."},
+    {fiche:'pokeben',auteur:'Nadia B.',note:5,d:12,texte:"Les meilleurs pokés de la Drôme, produits frais, on sent le fait maison."},
+    {fiche:'captfish',auteur:'Julien R.',note:4,d:18,texte:"Très bon fish burger, frites maison excellentes. Juste un peu d'attente le midi."},
+    {fiche:'pokeben',auteur:'Emma D.',note:4,d:35,texte:"Super découverte au marché, le tartare de saumon était parfait."},
+    {fiche:'captfish',auteur:'Marc T.',note:5,d:50,texte:"Concept génial, on voit la mer dans l'assiette ! L'équipe est adorable."},
+    {fiche:'pokeben',auteur:'Léa F.',note:5,d:75,texte:"Toujours frais, toujours bon. Le camion de La Talaudière est devenu mon QG du jeudi."},
+    {fiche:'captfish',auteur:'Antoine G.',note:3,d:95,texte:"Bien mais un peu cher pour un foodtruck je trouve."},
+    {fiche:'pokeben',auteur:'Chloé V.',note:5,d:120,texte:"Bowl végétarien délicieux, enfin un foodtruck qui pense à nous !"},
+    {fiche:'captfish',auteur:'Yann M.',note:4,d:150,texte:"Burger généreux et bien assaisonné. Je reviendrai."}
+  ];
+  const upd={};
+  demo.forEach((a,i)=>{
+    const id='demo_'+String(i).padStart(2,'0');
+    const rec={fiche:a.fiche,auteur:a.auteur,note:a.note,texte:a.texte,date:now-a.d*J,statut:'a_traiter',source:'demo'};
+    if(a.d>30){ // les plus anciens : déjà répondus pour alimenter taux + délai
+      rec.statut='repondu';
+      rec.reponse='Merci beaucoup pour votre retour ! Au plaisir de vous revoir au camion.';
+      rec.reponse_date=rec.date+(5+i)*3600000;
+    }
+    upd[id]=rec;
+  });
+  db.ref('avis_google').update(upd).then(()=>showNotif('14 avis de démo chargés','success')).catch(()=>showNotif('Erreur Firebase','error'));
+}
+function viderAvisDemo(){
+  if(!confirm('Supprimer tous les avis de démonstration ?')) return;
+  const upd={};
+  Object.entries(_avisData).forEach(([id,a])=>{ if(a&&a.source==='demo') upd[id]=null; });
+  db.ref('avis_google').update(upd).then(()=>showNotif('Avis de démo supprimés','success'));
 }
 
 // ============================================================
@@ -4214,9 +4645,23 @@ function chargerClotures(){
       btnPrint.textContent='🖨 Imprimer cette clôture';
       btnPrint.onclick=()=>imprimerClotureAdmin(r);
       card.appendChild(btnPrint);
+      const btnDel = document.createElement('button');
+      btnDel.className='btn btn-sm';
+      btnDel.style.cssText='margin-top:10px;margin-left:8px;color:var(--coral);border:1px solid var(--coral);background:#fff';
+      btnDel.textContent='🗑 Supprimer';
+      btnDel.onclick=()=>supprimerCloture(r.etabId, r.date, r.service, r.etab);
+      card.appendChild(btnDel);
       cards.appendChild(card);
     });
   });
+}
+
+function supprimerCloture(etabId, date, service, etabNom){
+  const jolie=new Date(date+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+  if(!confirm('Supprimer définitivement la clôture :\n\n'+(etabNom||etabId)+' — '+service+'\n'+jolie+' ?\n\n(Le détail des ventes reste archivé dans ventes_archive ; seul le récap de clôture est retiré.)')) return;
+  db.ref('clotures/'+etabId+'/'+date+'/'+service).remove()
+    .then(()=>{ showNotif('Clôture supprimée','success'); chargerClotures(); })
+    .catch(()=>showNotif('Erreur lors de la suppression','error'));
 }
 
 function imprimerClotureAdmin(cl){
@@ -4925,8 +5370,8 @@ function sauvegarderLegalCaptn(){
     directeur:v('cfl-directeur'), heb_nom:v('cfl-heb-nom'), heb_adr:v('cfl-heb-adr'),
     heb_contact:v('cfl-heb-contact'), rgpd_duree:v('cfl-rgpd-duree'), allerg_note:v('cfl-allerg-note')
   };
-  parametresData.legal_captn=data;
-  db.ref('parametres/legal_captn').set(data)
+  parametresData.legal_captn=Object.assign({}, parametresData.legal_captn||{}, data);
+  db.ref('parametres/legal_captn').update(data)
     .then(()=>showNotif('Infos légales du site enregistrées ✓','success'))
     .catch(()=>showNotif('Erreur Firebase','error'));
 }
@@ -5737,17 +6182,15 @@ const HERO_DEFAULTS = {
   captfish: { eyebrow:'🚚 Foodtruck · Valence & alentours', title:'Le <em>Véritable</em><br>Burger de Poisson', kicker:'…mais pas que.', desc:'Tartares, bocaux, accompagnements — toute une carte de la mer, préparée à bord.' },
   pokeben:  { eyebrow:'🌿 Cuisine fusion · Loire', title:'Pok&amp;Ben,<br><em>le goût du large</em>', kicker:'Poké bowls & burger de poisson.', desc:'Des recettes généreuses, des produits de la mer, une cuisine ouverte.' }
 };
-let _eventsData = {captfish:{}, pokeben:{}};
-
 function switchSiteTab(brand, tab) {
-  ['hero','events'].forEach(t => {
+  ['hero','contact'].forEach(t => {
     const btn = document.getElementById('tab-'+brand+'-'+t+'-btn');
     const panel = document.getElementById('panel-'+brand+'-'+t);
     const active = t===tab;
     if(btn){ btn.style.background=active?'var(--green)':'var(--white)'; btn.style.color=active?'#fff':'var(--text-muted)'; }
-    if(panel) panel.style.display=active?'block':'none';
+    if(panel) panel.style.display = active ? (t==='hero' ? 'grid' : 'block') : 'none';
   });
-  if(tab==='events') chargerEvents(brand);
+  if(tab==='contact') chargerContactLogo(brand);
 }
 
 function chargerSiteConfig(brand) {
@@ -5789,68 +6232,79 @@ function reinitialiserHero(brand) {
   db.ref('site_config/'+brand+'/hero').set(HERO_DEFAULTS[brand]).then(()=>{ chargerSiteConfig(brand); showNotif('Valeurs par défaut restaurées','success'); }).catch(()=>showNotif('Erreur Firebase','error'));
 }
 
-function chargerEvents(brand) {
-  db.ref('site_config/'+brand+'/events').once('value', snap => {
-    const d=snap.val()||{}; _eventsData[brand]=d.items||{};
-    if(d.eyebrow) document.getElementById(brand+'-ev-eyebrow').value=d.eyebrow;
-    if(d.title)   document.getElementById(brand+'-ev-title').value=d.title;
-    if(d.intro)   document.getElementById(brand+'-ev-intro').value=d.intro;
-    renderEventsAdminList(brand);
+// Contact & Logo (remplace l'ancien éditeur d'événements)
+// captfish : le contact vit dans parametres/legal_captn (partagé avec mentions/CGV) ; pokeben : site_config/pokeben/contact
+function contactRef(brand){ return brand==='captfish' ? db.ref('parametres/legal_captn') : db.ref('site_config/'+brand+'/contact'); }
+
+const CONTACT_DEFAULTS={ pokeben:{tel:'04 82 32 95 36', email:'contact@pokeben.fr', instagram:'foodtruckpokeben', facebook:'foodtruckpokeben'} };
+function chargerContactLogo(brand){
+  db.ref('site_config/'+brand+'/logo').once('value').then(s=>renderLogoPreview(brand, (s.val()||'')));
+  contactRef(brand).once('value').then(s=>{
+    const c=Object.assign({}, CONTACT_DEFAULTS[brand]||{}, s.val()||{});
+    const g=id=>document.getElementById(brand+'-contact-'+id);
+    if(g('tel'))       g('tel').value=c.tel||'';
+    if(g('email'))     g('email').value=c.email||'';
+    if(g('instagram')) g('instagram').value=c.instagram||'';
+    if(g('facebook'))  g('facebook').value=c.facebook||'';
   });
 }
 
-function renderEventsAdminList(brand) {
-  const el=document.getElementById(brand+'-events-list');
-  const items=Object.entries(_eventsData[brand]||{});
-  if(!items.length){ el.innerHTML='<div style="color:var(--text-muted);font-size:14px;padding:8px 0">Aucun événement. Cliquez sur « + Ajouter ».</div>'; return; }
-  items.sort((a,b)=>(a[1].date||'').localeCompare(b[1].date||''));
-  el.innerHTML=items.map(([key,ev])=>{
-    const d=ev.date?new Date(ev.date+'T12:00:00').toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short',year:'numeric'}):'—';
-    return `<div style="display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--border)">
-      <div style="min-width:120px;font-size:12px;color:var(--text-muted)">${d}</div>
-      <div style="flex:1"><div style="font-weight:600;font-size:14px">${ev.title||'Sans titre'}</div>${ev.location?`<div style="font-size:12px;color:var(--text-muted)">${ev.location}</div>`:''}</div>
-      ${ev.badge?`<span style="background:var(--green-light);color:var(--green-dark);font-size:11px;font-weight:700;padding:2px 8px;border-radius:8px">${ev.badge}</span>`:''}
-      <button class="btn-action" onclick="ouvrirModalEvent('${brand}','${key}')" style="padding:6px 14px;font-size:12px">✏️ Modifier</button>
-      <button class="btn-action" onclick="supprimerEvent('${brand}','${key}')" style="padding:6px 10px;font-size:12px;color:var(--coral)">🗑️</button>
-    </div>`;
-  }).join('');
+function renderLogoPreview(brand, url){
+  const box=document.getElementById(brand+'-logo-preview');
+  const rm=document.getElementById(brand+'-logo-remove');
+  if(!box) return;
+  if(url){
+    box.innerHTML='<img src="'+url+'" alt="logo" style="max-height:64px;max-width:100%;object-fit:contain">';
+    if(rm) rm.style.display='';
+  } else {
+    const wm = brand==='captfish'
+      ? 'Capt<span style="color:#EF7159">&amp;Fish</span>'
+      : 'Pok<span style="color:#e1512d">&amp;</span>Ben';
+    box.innerHTML='<span style="color:#fff;font-family:\'Syne\',\'Playfair Display\',sans-serif;font-weight:800;font-size:1.3rem">'+wm+'</span>'
+      +'<span style="color:rgba(255,255,255,.4);font-size:12px;margin-left:10px">logo texte par défaut</span>';
+    if(rm) rm.style.display='none';
+  }
 }
 
-function sauvegarderEventsHero(brand) {
-  const data={eyebrow:document.getElementById(brand+'-ev-eyebrow').value.trim(),title:document.getElementById(brand+'-ev-title').value.trim(),intro:document.getElementById(brand+'-ev-intro').value.trim()};
-  db.ref('site_config/'+brand+'/events').update(data).then(()=>showNotif('En-tête mis à jour ✅','success')).catch(()=>showNotif('Erreur Firebase','error'));
+function uploaderLogo(brand, input){
+  const file=input.files && input.files[0];
+  if(!file){ return; }
+  if(file.size > 4*1024*1024){ showNotif('Image trop lourde (max 4 Mo)','error'); input.value=''; return; }
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const img=new Image();
+    img.onload=()=>{
+      const maxW=360;
+      let w=img.width, h=img.height;
+      if(w>maxW){ h=Math.round(h*maxW/w); w=maxW; }
+      const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+      cv.getContext('2d').drawImage(img,0,0,w,h);
+      const dataUrl=cv.toDataURL('image/png');
+      db.ref('site_config/'+brand+'/logo').set(dataUrl)
+        .then(()=>{ renderLogoPreview(brand, dataUrl); showNotif('Logo mis à jour \u2705','success'); })
+        .catch(()=>showNotif('Erreur Firebase','error'));
+    };
+    img.onerror=()=>showNotif('Image illisible','error');
+    img.src=e.target.result;
+  };
+  reader.onerror=()=>showNotif('Lecture du fichier impossible','error');
+  reader.readAsDataURL(file);
+  input.value='';
 }
 
-function ouvrirModalEvent(brand, key) {
-  document.getElementById('event-modal-title-'+brand).textContent=key?'Modifier':'Nouvel événement';
-  document.getElementById('ev-modal-key-'+brand).value=key||'';
-  const ev=key?((_eventsData[brand]||{})[key]||{}):{};
-  document.getElementById('ev-modal-date-'+brand).value=ev.date||'';
-  document.getElementById('ev-modal-hours-'+brand).value=ev.hours||'';
-  document.getElementById('ev-modal-name-'+brand).value=ev.title||'';
-  document.getElementById('ev-modal-location-'+brand).value=ev.location||'';
-  document.getElementById('ev-modal-badge-'+brand).value=ev.badge||'';
-  document.getElementById('ev-modal-desc-'+brand).value=ev.desc||'';
-  document.getElementById('event-modal-'+brand).style.display='flex';
-}
-
-function fermerModalEvent(brand) { document.getElementById('event-modal-'+brand).style.display='none'; }
-
-function sauvegarderEvent(brand) {
-  const name=document.getElementById('ev-modal-name-'+brand).value.trim();
-  if(!name){ showNotif('Le titre est requis','error'); return; }
-  const key=document.getElementById('ev-modal-key-'+brand).value||db.ref('site_config/'+brand+'/events/items').push().key;
-  const ev={title:name,date:document.getElementById('ev-modal-date-'+brand).value||'',hours:document.getElementById('ev-modal-hours-'+brand).value||'',location:document.getElementById('ev-modal-location-'+brand).value||'',badge:document.getElementById('ev-modal-badge-'+brand).value||'',desc:document.getElementById('ev-modal-desc-'+brand).value||''};
-  Object.keys(ev).forEach(k=>{ if(!ev[k]) delete ev[k]; });
-  db.ref('site_config/'+brand+'/events/items/'+key).set(ev)
-    .then(()=>{ if(!_eventsData[brand]) _eventsData[brand]={}; _eventsData[brand][key]=ev; renderEventsAdminList(brand); fermerModalEvent(brand); showNotif('Événement enregistré ✅','success'); })
+function retirerLogo(brand){
+  if(!confirm('Retirer le logo image et revenir au logo texte ?')) return;
+  db.ref('site_config/'+brand+'/logo').remove()
+    .then(()=>{ renderLogoPreview(brand,''); showNotif('Logo retiré','success'); })
     .catch(()=>showNotif('Erreur Firebase','error'));
 }
 
-function supprimerEvent(brand, key) {
-  if(!confirm('Supprimer cet événement ?')) return;
-  db.ref('site_config/'+brand+'/events/items/'+key).remove()
-    .then(()=>{ delete _eventsData[brand][key]; renderEventsAdminList(brand); showNotif('Supprimé','success'); })
+function sauvegarderContact(brand){
+  const g=id=>{ const el=document.getElementById(brand+'-contact-'+id); return el?el.value.trim():''; };
+  const data={ tel:g('tel'), email:g('email'), instagram:g('instagram') };
+  if(brand==='pokeben') data.facebook=g('facebook');
+  contactRef(brand).update(data)
+    .then(()=>{ if(brand==='captfish'){ parametresData.legal_captn=Object.assign({}, parametresData.legal_captn||{}, data); } showNotif('Contact mis à jour \u2705','success'); })
     .catch(()=>showNotif('Erreur Firebase','error'));
 }
 </script>
