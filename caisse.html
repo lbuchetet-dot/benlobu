@@ -4674,7 +4674,7 @@ function renderWebOrdersAccueil(){
   const svc = detectService(new Date());
   document.getElementById('acc-web-preparer-count').textContent = prep.length;
   document.getElementById('acc-web-preparer-sub').textContent = 'Service '+_webServiceLbl(svc)+' · confirmées';
-  cardP.style.display = prep.length ? 'block' : 'none';
+  cardP.style.display = 'none'; // caisse fermée : pas d'impression ici, seulement après ouverture de caisse
   // Alerte annulations client
   if(cardA){
     const annul = _webAnnulClient();
@@ -4750,7 +4750,8 @@ function renderWebValiderSheet(){
     el.innerHTML = '<p style="color:#888;font-size:14px;padding:18px 0;text-align:center">Aucune commande en attente. 🎣</p>';
     return;
   }
-  el.innerHTML = list.map(o => _webCarte(o,
+  el.innerHTML = '<button onclick="validerToutWebCaptn()" style="width:100%;margin-bottom:14px;padding:14px;background:#0F6E56;color:#fff;border:none;border-radius:12px;font-weight:800;font-size:15px;cursor:pointer">✓ Tout valider ('+list.length+')</button>'
+    + list.map(o => _webCarte(o,
     `<div style="display:flex;gap:8px">
        <button onclick="validerWebCaptn('${o.id}')" style="flex:1;padding:12px;background:#0F6E56;color:#fff;border-radius:10px;font-weight:700;font-size:14px">✓ Valider &amp; confirmer</button>
        <button onclick="refuserWebCaptn('${o.id}')" style="padding:12px 16px;background:#fbeaea;color:#c0392b;border-radius:10px;font-weight:700;font-size:14px">✕ Refuser</button>
@@ -4758,17 +4759,39 @@ function renderWebValiderSheet(){
      </div>`
   )).join('');
 }
+// Validation groupée : confirme toutes les commandes en attente d'un coup (caisse fermée)
+function validerToutWebCaptn(){
+  const list = _webPending();
+  if(!list.length){ showNotif('Aucune commande à valider','info'); return; }
+  const node = (_webEtabNode||CAPTN_WEB_ETAB);
+  const nbMail = list.filter(o=>o.email).length;
+  if(!confirm('Valider et confirmer les '+list.length+' commande(s) en attente ?'
+    + (nbMail? '\n\n✉️ '+nbMail+' email(s) de confirmation seront envoyés.' : ''))) return;
+  const _u = {};
+  list.forEach(o=>{
+    _u['commandes_web/'+node+'/'+o.id+'/status'] = 'confirmed';
+    _u['commandes_web/'+node+'/'+o.id+'/validee_le'] = firebase.database.ServerValue.TIMESTAMP;
+    _u['commandes_web/'+node+'/'+o.id+'/validee_par'] = 'Caisse';
+    _u['commandes_web/'+node+'/'+o.id+'/email_statut'] = o.email ? 'en_attente' : 'sans_email';
+    if(node==='captfish') _u['creneaux_web/'+node+'/'+o.id+'/status'] = 'confirmed';
+  });
+  db.ref().update(_u)
+    .then(()=>{ showNotif('✅ '+list.length+' commande(s) confirmée(s)','success'); renderWebValiderSheet(); renderWebOrdersAccueil(); })
+    .catch(()=>showNotif('Erreur réseau — réessayez','error'));
+}
 function validerWebCaptn(id){
   const o = _webOrders[id]; if(!o) return;
   const dest = o.email ? ('\n\n✉️ Un email de confirmation sera envoyé à : '+o.email) : '\n\n⚠️ Aucune adresse email — pas d\'email envoyé.';
   if(!confirm('Confirmer la commande '+(o.num||'')+' de '+((o.fname||'')+' '+(o.lname||'')).trim()+' ?'
     + dest + '\n\nElle passera en préparation.')) return;
-  db.ref('commandes_web/'+(_webEtabNode||CAPTN_WEB_ETAB)+'/'+id).update({
-    status:'confirmed',
-    validee_le: firebase.database.ServerValue.TIMESTAMP,
-    validee_par: 'Caisse',
-    email_statut: o.email ? 'en_attente' : 'sans_email'
-  })
+  const _node = (_webEtabNode||CAPTN_WEB_ETAB);
+  const _u = {};
+  _u['commandes_web/'+_node+'/'+id+'/status'] = 'confirmed';
+  _u['commandes_web/'+_node+'/'+id+'/validee_le'] = firebase.database.ServerValue.TIMESTAMP;
+  _u['commandes_web/'+_node+'/'+id+'/validee_par'] = 'Caisse';
+  _u['commandes_web/'+_node+'/'+id+'/email_statut'] = o.email ? 'en_attente' : 'sans_email';
+  if(_node==='captfish') _u['creneaux_web/'+_node+'/'+id+'/status'] = 'confirmed'; // sync suivi client (site)
+  db.ref().update(_u)
     .then(()=>{
       showNotif('✓ '+(o.num||'')+' confirmée'+(o.email?' · email en cours d\'envoi':''),'success');
       renderWebValiderSheet();
@@ -4796,7 +4819,12 @@ function remettreEnAttenteWebCaptn(id){
   const o = _webOrders[id]; if(!o) return;
   if(!confirm('Remettre la commande '+(o.num||'')+' en attente de validation ?'
     + (o.email_statut==='envoye' ? '\n\n⚠️ L\'email est déjà parti au client.' : ''))) return;
-  db.ref('commandes_web/'+(_webEtabNode||CAPTN_WEB_ETAB)+'/'+id).update({ status:'pending', email_statut:null })
+  const _node = (_webEtabNode||CAPTN_WEB_ETAB);
+  const _u = {};
+  _u['commandes_web/'+_node+'/'+id+'/status'] = 'pending';
+  _u['commandes_web/'+_node+'/'+id+'/email_statut'] = null;
+  if(_node==='captfish') _u['creneaux_web/'+_node+'/'+id+'/status'] = 'pending'; // sync suivi client (site)
+  db.ref().update(_u)
     .then(()=>{ showNotif('Remise en attente','success'); renderWebPreparerSheet(); renderWebOrdersAccueil(); })
     .catch(()=>showNotif('Erreur réseau','error'));
 }
@@ -4935,6 +4963,7 @@ function imprimerEtEnvoyerService(){
         webUpdates['commandes_web/'+node+'/'+o.id+'/status'] = 'printed';
         webUpdates['commandes_web/'+node+'/'+o.id+'/service_cmd_key'] = cmdKey;
         webUpdates['commandes_web/'+node+'/'+o.id+'/envoye_service_le'] = firebase.database.ServerValue.TIMESTAMP;
+        if(node==='captfish') webUpdates['creneaux_web/'+node+'/'+o.id+'/status'] = 'printed'; // sync suivi client (site)
         cmdsCrees.push(cmd);
       });
       db.ref().update(updates)
@@ -4942,7 +4971,8 @@ function imprimerEtEnvoyerService(){
         .then(()=>{
           const printed = _imprimerLotBons(cmdsCrees);
           renderWebPreparerSheet(); renderWebOrdersAccueil(); renderServiceEnCours();
-          showNotif(list.length+' commande(s) en service'+(printed?' · bons imprimés':' · imprimante indispo (envoi OK)'),'success');
+          fermerModal('modal-web-preparer');
+          showNotif('✅ '+list.length+' commande(s) envoyée(s) en service'+(printed?' · bons imprimés':' · imprimante indispo (envoi OK)'),'success');
         })
         .catch(()=>showNotif('Erreur réseau — réessayez','error'));
     }

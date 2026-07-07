@@ -3063,6 +3063,7 @@ function _mesCommandes(){
 }
 function _statutLbl(st){
   if(st==='confirmed') return { txt:'Confirmée ✓', cls:'mc-ok' };
+  if(st==='printed') return { txt:'En préparation 🍳', cls:'mc-ok' };
   if(st==='cancelled') return { txt:'Annulée', cls:'mc-cancel' };
   return { txt:'En attente de validation', cls:'mc-wait' };
 }
