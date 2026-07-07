@@ -5080,7 +5080,12 @@ function renderPkbPlanning(){
     const k = (o.jour||'?')+'_'+(o.service||'?')+'_'+(o.camion||'?');
     (tiroirs[k]=tiroirs[k]||[]).push(o);
   });
-  el.innerHTML = Object.keys(tiroirs).sort().map(k=>{
+  el.innerHTML = Object.keys(tiroirs).sort((a,b)=>{
+    const pa=a.split('_'), pb=b.split('_');
+    if(pa[0]!==pb[0]) return pb[0].localeCompare(pa[0]);            // jour recent en haut
+    if((pa[1]||'')!==(pb[1]||'')) return (pa[1]||'').localeCompare(pb[1]||''); // midi avant soir
+    return (pa[2]||'').localeCompare(pb[2]||'');                     // camion
+  }).map(k=>{
     const [jour,service,camion] = k.split('_');
     const orders = tiroirs[k].sort((a,b)=>_pkbHeure(a).localeCompare(_pkbHeure(b)));
     const camBadge = camion==='Camion 1' ? '🟢 Camion 1' : '🟠 Camion 2';
@@ -5493,7 +5498,11 @@ function renderCaptnPlanning(){
     const k = (o.jour||'?')+'_'+(o.service||'?');
     (tiroirs[k] = tiroirs[k] || []).push(o);
   });
-  const keys = Object.keys(tiroirs).sort();
+  const keys = Object.keys(tiroirs).sort((a,b)=>{
+    const pa=a.split('_'), pb=b.split('_');
+    if(pa[0]!==pb[0]) return pb[0].localeCompare(pa[0]); // jour recent en haut
+    return (pa[1]||'').localeCompare(pb[1]||'');          // meme jour : midi avant soir
+  });
   el.innerHTML = keys.map(k=>{
     const [jour,service] = k.split('_');
     const orders = tiroirs[k].sort((a,b)=> _captnHeure(a).localeCompare(_captnHeure(b)));
@@ -5582,7 +5591,11 @@ function fermerModal(id){ document.getElementById(id).classList.remove('open'); 
 function showNotif(msg,type='success'){ const n=document.getElementById('notif'); n.textContent=msg; n.className='notif show '+(type||''); setTimeout(()=>n.className='notif',2800); }
 
 document.querySelectorAll('.modal-overlay').forEach(el=>{
-  el.addEventListener('click',e=>{ if(e.target===el) el.classList.remove('open'); });
+  // Ne fermer QUE si le clic a COMMENCE sur le fond (pas une selection de texte
+  // dans un champ qui se termine hors du cadre) -> evite la perte de saisie.
+  let _downOnBackdrop=false;
+  el.addEventListener('mousedown',e=>{ _downOnBackdrop=(e.target===el); });
+  el.addEventListener('click',e=>{ if(e.target===el && _downOnBackdrop) el.classList.remove('open'); });
 });
 </script>
 <!-- ═══════════ BANDEAU RGPD / COOKIES (CNIL) ═══════════ -->
