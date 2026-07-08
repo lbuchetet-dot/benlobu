@@ -1873,32 +1873,9 @@ function renderPilotage(){
 }
 
 function imprimerCloture(cl){
-  const ent = parametresData.entreprise || {};
-  const lignes = [];
-  lignes.push('<div class="pr-logo">'+(ent.raison_sociale||'Pok&Ben')+'</div>');
-  lignes.push('<div class="pr-center" style="font-size:11px;font-weight:700">RAPPORT DE CLÔTURE</div>');
-  lignes.push('<div class="pr-sep"></div>');
-  lignes.push('<div class="pr-line"><span>Service</span><span>'+(cl.service||'')+'</span></div>');
-  lignes.push('<div class="pr-line"><span>Date</span><span>'+(cl.date||document.getElementById('pilot-cloture-date').value||'')+'</span></div>');
-  lignes.push('<div class="pr-line"><span>Emplacement</span><span>'+(cl.emplacement||'—')+'</span></div>');
-  lignes.push('<div class="pr-line"><span>Heure clôture</span><span>'+(cl.heure_cloture||'')+'</span></div>');
-  lignes.push('<div class="pr-sep"></div>');
-  lignes.push('<div class="pr-total"><span>CA Total</span><span>'+fmtPrix(cl.ca||0)+'</span></div>');
-  lignes.push('<div class="pr-line"><span>Commandes</span><span>'+(cl.nb_commandes||0)+'</span></div>');
-  lignes.push('<div class="pr-line"><span>Couverts</span><span>'+(cl.nb_couverts||0)+'</span></div>');
-  lignes.push('<div class="pr-line"><span>Panier moyen</span><span>'+fmtPrix(cl.panier_moyen||0)+'</span></div>');
-  lignes.push('<div class="pr-sep"></div>');
-  Object.entries(cl.detail_paiements||{}).forEach(([m,v])=>{
-    lignes.push('<div class="pr-line"><span>'+m+'</span><span>'+fmtPrix(v)+'</span></div>');
-  });
-  if(cl.ecart_caisse!=null){
-    lignes.push('<div class="pr-sep"></div>');
-    lignes.push('<div class="pr-line"><span>Écart caisse</span><span>'+(cl.ecart_caisse>0?'+':'')+fmtPrix(cl.ecart_caisse)+'</span></div>');
-  }
-  lignes.push('<div class="pr-sep"></div>');
-  lignes.push('<div class="pr-center" style="font-size:10px">Signé le '+new Date().toLocaleDateString('fr-FR')+' à '+new Date().toTimeString().substring(0,5)+'</div>');
-  document.getElementById('print-area').innerHTML = lignes.join('');
-  window.print();
+  // Fallback date depuis le sélecteur Pilotage si absente
+  if(!cl.date){ const d=document.getElementById('pilot-cloture-date'); if(d&&d.value) cl.date=d.value; }
+  imprimerRapportCloture(cl);
 }
 
 function chargerClotures(){
@@ -4305,8 +4282,7 @@ function confirmerCloture(service, ca, nbCmd, nbCvt, pm, parPmt, controleActif){
           if(etabInfo.controle_caisse_config) etabInfo.controle_caisse_config.mode='off';
         }
         fermerModal('modal-cloture');
-        document.getElementById('print-area').innerHTML = buildRapportCloture(cloture);
-        window.print();
+        imprimerRapportCloture(cloture);
         // Afficher écran post-clôture
         afficherPostCloture(cloture);
       })
@@ -5101,6 +5077,57 @@ function buildRapportCloture(cl){
     <div class="pr-sep"></div>
     <div class="pr-center" style="font-size:10px">Signé le ${cl.date} à ${cl.heure_cloture}</div>
     <div class="pr-center" style="font-size:10px">___________________________</div>`;
+}
+
+// Lignes structurées ePOS d'un rapport de clôture (tolérant aux 2 formats de champs)
+function eposLignesCloture(cl){
+  const ent = (parametresData && parametresData.entreprise) || {};
+  const ca = (cl.ca_total!=null ? cl.ca_total : (cl.ca||0));
+  const L = [];
+  L.push({v:(ent.raison_sociale||'Pok&Ben'), align:'center', bold:true, dw:true, dh:true});
+  L.push({v:'RAPPORT DE CLOTURE', align:'center', bold:true});
+  L.push({sep:true});
+  L.push({v:'Service        '+(cl.service||''), align:'left'});
+  L.push({v:'Date           '+(cl.date||''), align:'left'});
+  L.push({v:'Emplacement    '+(cl.emplacement||'-'), align:'left'});
+  L.push({v:'Heure cloture  '+(cl.heure_cloture||''), align:'left'});
+  L.push({sep:true});
+  L.push({v:'CA TOTAL : '+fmtPrix(ca), align:'left', bold:true, dh:true});
+  L.push({v:'Commandes      '+(cl.nb_commandes||0), align:'left'});
+  L.push({v:'Couverts       '+(cl.nb_couverts||0), align:'left'});
+  L.push({v:'Panier moyen   '+fmtPrix(cl.panier_moyen||0), align:'left'});
+  const detail = cl.detail_paiements||{};
+  if(Object.keys(detail).length){
+    L.push({sep:true});
+    Object.entries(detail).forEach(([m,v])=>{ L.push({v:m+' : '+fmtPrix(v), align:'left'}); });
+  }
+  if(cl.controle_caisse){
+    L.push({sep:true});
+    L.push({v:'CONTROLE CAISSE', align:'left', bold:true});
+    L.push({v:'Theorique esp. '+fmtPrix(cl.controle_caisse.theorique_especes||0), align:'left'});
+    L.push({v:'Compte         '+fmtPrix(cl.controle_caisse.compte_especes||0), align:'left'});
+    const e = cl.controle_caisse.ecart||0;
+    L.push({v:'Ecart : '+(e>=0?'+':'')+fmtPrix(e), align:'left', bold:true});
+  } else if(cl.ecart_caisse!=null){
+    L.push({sep:true});
+    L.push({v:'Ecart caisse : '+(cl.ecart_caisse>0?'+':'')+fmtPrix(cl.ecart_caisse), align:'left', bold:true});
+  }
+  L.push({sep:true});
+  L.push({v:'Signe le '+(cl.date||'')+' a '+(cl.heure_cloture||''), align:'center'});
+  return L;
+}
+
+// Impression centralisée du rapport de clôture : Bluetooth/Réseau si actif, sinon AirPrint
+async function imprimerRapportCloture(cl){
+  if(eposActif()){
+    const body = eposBuildBody(eposLignesCloture(cl), false);
+    const r = await eposEnvoyer(body);
+    if(!r.success && !r.async) showNotif('⚠️ Imprimante : '+r.code+' — vérifier réglages', 'error');
+    return;
+  }
+  // Repli AirPrint (aucune imprimante Epson configurée)
+  document.getElementById('print-area').innerHTML = buildRapportCloture(cl);
+  window.print();
 }
 
 // ══════════════════════════════════════════════════════════
