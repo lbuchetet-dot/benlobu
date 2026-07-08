@@ -9,7 +9,7 @@
    une seule fois. Invisible pour l'utilisateur, garantit toujours la dernière version.
    ============================================================ */
 (function(){
-  var SITE_VERSION = '2026-07-07-5';   // <-- incrémenter à CHAQUE mise en ligne
+  var SITE_VERSION = '2026-07-08-1';   // <-- incrémenter à CHAQUE mise en ligne
   try {
     var stored = localStorage.getItem('cf_site_version');
     if (stored !== SITE_VERSION) {
@@ -768,6 +768,29 @@
     font-size: .72rem; color: rgba(245,237,214,0.5);
     margin-top: .7rem; letter-spacing: .02em;
   }
+  /* Bloc « commande web fermée → téléphone » dans le popup emplacement */
+  .emp-popup-tel { margin-top: .2rem; }
+  .emp-popup-tel-lead {
+    font-size: .78rem; color: rgba(245,237,214,0.7);
+    margin-bottom: .6rem; line-height: 1.35;
+  }
+  .emp-popup-tel-lead strong { color: var(--gold-lt); }
+  a.emp-popup-tel-btn {
+    display: flex; align-items: center; justify-content: center; gap: .5rem;
+    width: 100%; text-decoration: none; box-sizing: border-box;
+    background: var(--coral); color: #fff;
+    font-weight: 700; font-size: 1.02rem; padding: .9rem;
+    border-radius: 12px; transition: background .15s;
+  }
+  a.emp-popup-tel-btn:hover { background: var(--coral-light); }
+  .emp-popup-warn {
+    margin-top: .8rem; padding: .7rem .85rem; text-align: left;
+    background: rgba(200,169,110,0.08);
+    border: 1px solid rgba(200,169,110,0.28);
+    border-radius: 12px;
+    font-size: .74rem; color: rgba(245,237,214,0.82); line-height: 1.4;
+  }
+  .emp-popup-warn b { color: var(--gold-lt); }
 
   /* NOTE PAIEMENT (tunnel) */
   .order-pay-note {
@@ -1093,6 +1116,23 @@
     font-size: 0.6rem; color: rgba(245,237,214,0.5);
     margin-top: 0.3rem; font-weight: 600;
   }
+
+  /* Commande web fermée aujourd'hui → invite à commander par téléphone */
+  .wgrid-cell.phone {
+    background: rgba(232,83,58,0.08);
+    border-color: rgba(232,83,58,0.35);
+  }
+  .wgrid-cell.phone .cell-name { color: rgba(245,237,214,0.85); }
+  .wgrid-cell .cell-phone {
+    font-size: 0.62rem; color: var(--coral-light);
+    margin-top: 0.28rem; font-weight: 700; letter-spacing: 0.02em;
+    display: flex; align-items: center; gap: 3px;
+  }
+  .wgrid-cell.phone.clickable:hover {
+    border-color: var(--coral-light);
+    background: rgba(232,83,58,0.16);
+  }
+  .wgrid-cell.phone.clickable:hover .cell-phone { color: var(--cream); }
 
   .wgrid-cell.empty {
     border-style: dashed;
@@ -1769,7 +1809,12 @@
       <span>📍</span> Voir l'itinéraire
     </a>
     <button class="emp-popup-cta" id="emp-popup-cta">Commander ici →</button>
-    <div class="emp-popup-note">Paiement sur place au retrait</div>
+    <div class="emp-popup-tel" id="emp-popup-tel" style="display:none">
+      <div class="emp-popup-tel-lead" id="emp-popup-tel-lead"></div>
+      <a class="emp-popup-tel-btn" id="emp-popup-tel-btn" href="#"><span>📞</span> <span id="emp-popup-tel-num">Nous appeler</span></a>
+      <div class="emp-popup-warn" id="emp-popup-warn"></div>
+    </div>
+    <div class="emp-popup-note" id="emp-popup-note">Paiement sur place au retrait</div>
   </div>
 </div>
 
@@ -2574,6 +2619,15 @@ function nextOrderableSpot(wd, service){
 // Spot à afficher dans une case de la grille : le plus proche ouvrable, sinon
 // le plus proche « pas encore ouvert » (pour afficher « Ouvre le … »).
 function prochainSpotGrille(wd, service){
+  const todayWd  = (new Date().getDay() + 6) % 7;
+  const todayIso = isoDate(new Date());
+  // Colonne du jour : si le camion est là AUJOURD'HUI mais que la commande web
+  // est fermée (heure limite passée), on affiche ce créneau tel quel pour
+  // proposer la commande par téléphone, plutôt que de sauter à la semaine suivante.
+  if(wd === todayWd){
+    const auj = spots.find(s => s.service === service && s.iso === todayIso);
+    if(auj && !auj.ouvrable && auj.raison === 'cutoff') return auj;
+  }
   let firstPasOuvert = null;
   for(const s of spots){
     if(s.service !== service) continue;
@@ -2602,6 +2656,15 @@ function renderGridCell(spot, name, isToday, mode){
   // Emplacement planifié mais aucune date à venir trouvée → grisé
   if(!spot){
     return '<div class="wgrid-cell closed'+tc+'"><div class="cell-name">'+name+'</div><div class="cell-closed">Bientôt</div></div>';
+  }
+  // Commande web fermée aujourd'hui (heure limite passée) → invite au téléphone
+  if(spot.raison === 'cutoff'){
+    const tel = _lg('tel');
+    return '<div class="wgrid-cell phone clickable'+tc+'" onclick="ouvrirPopupEmplacement(\''+spot.id+'\')">'
+         + '<div class="cell-name">'+name+'</div>'
+         + '<div class="cell-date">'+courtDate(spot.iso)+'</div>'
+         + '<div class="cell-phone">'+(tel ? '📞 Par téléphone' : 'Web fermé')+'</div>'
+         + '</div>';
   }
   // Pas encore ouvert (règle des 6 jours) → case verrouillée avec date d'ouverture
   if(spot.raison === 'pas_ouvert'){
@@ -2709,6 +2772,41 @@ function ouvrirPopupEmplacement(spotId){
   itin.href = mapsUrl;
   itin.style.display = adresse ? 'inline-flex' : 'none';
   document.getElementById('emp-popup-cta').onclick = function(){ fermerPopupEmplacement(); goToOrderWithSpot(spotId); };
+
+  // Bascule commande en ligne / commande par téléphone selon l'état du créneau
+  const cta   = document.getElementById('emp-popup-cta');
+  const note  = document.getElementById('emp-popup-note');
+  const telBx = document.getElementById('emp-popup-tel');
+  const tel   = _lg('tel');
+  if(s.ouvrable){
+    // Créneau ouvert : parcours de commande classique
+    cta.style.display = '';
+    note.style.display = '';
+    telBx.style.display = 'none';
+  } else {
+    // Commande en ligne fermée → on propose le téléphone
+    cta.style.display = 'none';
+    note.style.display = 'none';
+    telBx.style.display = '';
+    const lead = document.getElementById('emp-popup-tel-lead');
+    const btn  = document.getElementById('emp-popup-tel-btn');
+    const num  = document.getElementById('emp-popup-tel-num');
+    const warn = document.getElementById('emp-popup-warn');
+    if(tel){
+      lead.innerHTML = 'La commande en ligne est <strong>fermée pour ce créneau</strong>. Mais le téléphone, lui, ne ferme (presque) jamais :';
+      btn.href = 'tel:' + tel.replace(/\s+/g,'');
+      btn.style.display = '';
+      num.textContent = tel;
+    } else {
+      lead.innerHTML = 'La commande en ligne est <strong>fermée pour ce créneau</strong>. Passez directement nous voir sur place !';
+      btn.style.display = 'none';
+    }
+    // Petit mot humoristique — pour éviter les commandes « décalées »
+    warn.innerHTML = '😅 Petit rappel maison : votre commande vaut <b>pour le jour et le service choisis</b>. '
+      + 'Commander pour jeudi midi puis débarquer le mercredi en lançant « mais j\'ai commandé ! »… '
+      + 'ça, même notre meilleur cuistot ne sait pas le faire 🐟 On compte sur vous !';
+  }
+
   overlay.classList.add('open');
 }
 function fermerPopupEmplacement(){
