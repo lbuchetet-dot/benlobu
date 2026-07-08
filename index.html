@@ -2186,7 +2186,8 @@ function buildSpots(){
         menuEvent: (ov && Array.isArray(ov.menuEvent)) ? ov.menuEvent : [],
         messageEvent: (ov && ov.messageEvent) || '',
         prixEvent: (ov && ov.prixEvent && typeof ov.prixEvent==='object') ? ov.prixEvent : {},
-        offreLabel: (ov && ov.offreLabel) || ''
+        offreLabel: (ov && ov.offreLabel) || '',
+        supplementsOfferts: (ov && Array.isArray(ov.supplementsOfferts)) ? ov.supplementsOfferts : []
       });
     });
   }
@@ -2454,11 +2455,16 @@ function openProductDetail(id){
   const sups = Object.entries(item.supplements || {}).filter(([,s]) => s && s.nom);
   const sEl = document.getElementById('pd-sups');
   if(sups.length){
-    sEl.innerHTML = '<div class="pd-sups-lbl">Suppléments</div>' + sups.map(([sid,s]) =>
-      `<div class="pd-sup-row" data-sid="${sid}" onclick="pdToggleSup('${sid}')">
+    sEl.innerHTML = '<div class="pd-sups-lbl">Suppléments</div>' + sups.map(([sid,s]) => {
+      const _off = _suppOffert(s.nom);
+      const _pxTxt = _off
+        ? `<span style="text-decoration:line-through;opacity:.45;margin-right:5px">+${(s.prix||0).toFixed(2).replace('.',',')} €</span>🎁 ${_offreLabelCreneau()}`
+        : `+${(s.prix||0).toFixed(2).replace('.',',')} €`;
+      return `<div class="pd-sup-row" data-sid="${sid}" onclick="pdToggleSup('${sid}')">
          <span class="pd-sup-name"><span class="pd-sup-check">✓</span>${s.nom}</span>
-         <span class="pd-sup-price">+${(s.prix||0).toFixed(2).replace('.',',')} €</span>
-       </div>`).join('');
+         <span class="pd-sup-price">${_pxTxt}</span>
+       </div>`;
+    }).join('');
   } else { sEl.innerHTML = ''; }
   // Vente additionnelle : « On complète avec… »
   const sugg = (item.suggestions||[]).map(sid => menu.find(m=>m.id==sid && m.available)).filter(Boolean);
@@ -2499,7 +2505,7 @@ function pdToggleSup(sid){
   const s = (item.supplements||{})[sid];
   if(!s) return;
   if(_pdSups[sid]) delete _pdSups[sid];
-  else _pdSups[sid] = { nom:s.nom, prix:s.prix||0 };
+  else _pdSups[sid] = { nom:s.nom, prix:_suppPrix(s) };
   const row = document.querySelector('#pd-sups .pd-sup-row[data-sid="'+sid+'"]');
   if(row) row.classList.toggle('selected', !!_pdSups[sid]);
   pdRefreshPrice();
@@ -3053,6 +3059,24 @@ function _supSig(sups){
 // Ajoute une ligne au panier. Fusionne si une ligne identique (même produit + mêmes suppléments) existe déjà.
 // Prix effectif d'un produit : prix soirée si un événement avec prixEvent est
 // actif sur le créneau choisi, sinon prix normal. Source unique de vérité prix.
+// Un supplément est-il offert par l'événement du créneau actif ?
+function _suppOffert(supNom){
+  if(!selectedSpot || !supNom) return false;
+  const sp = spots.find(s => s.id === selectedSpot);
+  if(!sp || !Array.isArray(sp.supplementsOfferts) || !sp.supplementsOfferts.length) return false;
+  return sp.supplementsOfferts.indexOf(String(supNom).trim().toLowerCase()) !== -1;
+}
+// Prix effectif d'un supplément (0 si offert)
+function _suppPrix(sup){
+  if(!sup) return 0;
+  return _suppOffert(sup.nom) ? 0 : (sup.prix||0);
+}
+// Libellé badge offert du créneau actif
+function _offreLabelCreneau(){
+  if(!selectedSpot) return 'OFFERT';
+  const sp = spots.find(s => s.id === selectedSpot);
+  return (sp && sp.offreLabel) ? sp.offreLabel : 'OFFERT';
+}
 function _prixEffectif(item){
   if(!item) return 0;
   const base = item.price || 0;

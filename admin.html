@@ -414,6 +414,7 @@ tr:hover td{background:var(--bg)}
               <div id="ov-event-extras" style="display:none;margin-top:12px">
                 <div class="form-field" style="grid-column:1/-1"><label class="form-label">Message affiché au client <small style="font-weight:500;color:var(--text-muted)">(ex. « Soirée foot — voici la carte de la soirée ! »)</small></label><input type="text" class="form-input" id="ov-message" placeholder="Soirée foot — carte spéciale ce soir !"></div>
                 <div class="form-field" style="grid-column:1/-1"><label class="form-label">Texte du badge Offert <small style="font-weight:500;color:var(--text-muted)">(sur les produits mis a 0 - ex. Frites incluses. Vide = OFFERT)</small></label><input type="text" class="form-input" id="ov-offre-label" placeholder="Frites incluses !"></div>
+                <div class="form-field" style="grid-column:1/-1"><label class="form-label">Suppléments offerts ce soir <small style="font-weight:500;color:var(--text-muted)">(noms separes par virgule - ex. Frites. Le supplement passe a 0 sur les burgers)</small></label><input type="text" class="form-input" id="ov-supp-offerts" placeholder="Frites"></div>
                 <label class="form-label" style="margin-top:12px;display:block">Carte de l'événement <small style="font-weight:500;color:var(--text-muted)">(coche les produits dispo ce soir-là ; vide = carte entière)</small></label>
                 <div id="ov-menu-event" style="max-height:240px;overflow-y:auto;border:1px solid var(--border);border-radius:10px;padding:12px;margin-top:6px">Active le mode événement pour charger la carte…</div>
               </div>
@@ -2309,6 +2310,7 @@ function prefillOverride(iso,service,ov){
     _ovMenuSel = Array.isArray(ov.menuEvent) ? ov.menuEvent : [];
     _ovPrixSel = (ov.prixEvent && typeof ov.prixEvent==='object') ? ov.prixEvent : {};
     var _ol=document.getElementById('ov-offre-label'); if(_ol) _ol.value = ov.offreLabel || '';
+    var _so=document.getElementById('ov-supp-offerts'); if(_so) _so.value = Array.isArray(ov.supplementsOfferts) ? ov.supplementsOfferts.join(', ') : '';
     ovEventToggle();
   }
   if(typeof ovTypeChange==='function') ovTypeChange();
@@ -2324,6 +2326,7 @@ function _resetOverrideForm(){
   const evCb2=document.getElementById('ov-event'); if(evCb2) evCb2.checked=false;
   const mEv2=document.getElementById('ov-message'); if(mEv2) mEv2.value='';
   const oL=document.getElementById('ov-offre-label'); if(oL) oL.value='';
+  const sO=document.getElementById('ov-supp-offerts'); if(sO) sO.value='';
   _ovMenuSel=[]; _ovPrixSel={};
   const eEx=document.getElementById('ov-event-extras'); if(eEx) eEx.style.display='none';
 }
@@ -2893,6 +2896,10 @@ function sauvegarderOverride(){
     // Texte du badge "Offert" personnalisable
     var offLabel = (document.getElementById('ov-offre-label')||{}).value;
     if(offLabel && offLabel.trim()) rec.offreLabel = offLabel.trim();
+    // Suppléments offerts ce soir (par nom, normalisés en minuscules)
+    var suppRaw = (document.getElementById('ov-supp-offerts')||{}).value || '';
+    var suppArr = suppRaw.split(',').map(function(x){ return x.trim().toLowerCase(); }).filter(Boolean);
+    if(suppArr.length) rec.supplementsOfferts = suppArr;
   }
   db.ref(`overrides/${etabId}/${date}_${service}`).set(rec)
     .then(()=>{
@@ -5886,7 +5893,7 @@ function renderPkbPlanning(){
         <td style="white-space:nowrap">${fmtPrix(_pkbTotal(o))}</td>
         <td style="text-align:right;white-space:nowrap">
           ${o.status==='printed'?'<span class="badge badge-green">Imprimé</span>':''}
-          <button class="btn btn-secondary btn-sm" onclick="remettreEnAttentePkb('${o.id}')" title="Remettre en attente">↩︎</button>
+          <button class="btn btn-danger btn-sm" onclick="remettreEnAttentePkb('${o.id}')" title="Renvoyer la commande dans « À valider »">↩︎ Dévalider</button>
           <button class="btn btn-secondary btn-sm" onclick="imprimerTicketPkb('${o.id}')">🖨</button>
           <button class="btn btn-secondary btn-sm" onclick="reattribuerPkb('${o.id}')" title="Réattribuer vers l'autre camion">🔄</button>
         </td>
@@ -6339,7 +6346,7 @@ function renderCaptnPlanning(){
         <td style="text-align:right;white-space:nowrap">
           <div style="margin-bottom:6px">${_captnEmailBadge(o)}${o.status==='printed'?' <span class="badge badge-green">Imprimé</span>':''}</div>
           ${o.email_statut==='echec'?`<button class="btn btn-secondary btn-sm" onclick="renvoyerEmailCaptn('${o.id}')">↻ Renvoyer l'email</button>`:''}
-          <button class="btn btn-secondary btn-sm" onclick="remettreEnAttenteCaptn('${o.id}')" title="Annuler la validation">↩︎ En attente</button>
+          <button class="btn btn-danger btn-sm" onclick="remettreEnAttenteCaptn('${o.id}')" title="Renvoyer la commande dans « À valider »">↩︎ Dévalider</button>
           <button class="btn btn-secondary btn-sm" onclick="imprimerTicketCaptn('${o.id}')">🖨</button>
         </td>
       </tr>`).join('');
