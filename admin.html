@@ -235,6 +235,7 @@ tr:hover td{background:var(--bg)}
       <div class="nav-item" onclick="showView('rapport-paiements')" id="nav-rapport-paiements"><span>💳</span>Rapport paiements</div>
       <div class="nav-item" onclick="showView('rapport-comptable')" id="nav-rapport-comptable"><span>🧾</span>Rapport comptable</div>
       <div class="nav-item" onclick="showView('fidelite')" id="nav-fidelite"><span>⭐</span>Fidélité</div>
+      <div class="nav-item" onclick="showView('param-fidelite')" id="nav-param-fidelite"><span>🎁</span>Paramétrage fidélité</div>
       <div class="nav-section">E-réputation</div>
       <div class="nav-item" onclick="showView('avis')" id="nav-avis"><span>💬</span>Avis Google <span id="nav-avis-badge" style="display:none;margin-left:auto;background:var(--coral);color:#fff;font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px"></span></div>
       <div class="nav-section">Configuration</div>
@@ -808,6 +809,33 @@ tr:hover td{background:var(--bg)}
             <button class="btn btn-secondary" onclick="rechercherClient()">Rechercher</button>
           </div>
           <div id="fid-result" style="margin-top:16px"></div>
+        </div>
+      </div>
+
+      <!-- PARAMETRAGE FIDELITE -->
+      <div class="view" id="view-param-fidelite">
+        <div class="page-header">
+          <div class="page-header-left"><div class="page-title">Paramétrage fidélité</div><div class="page-sub">Récompenses affichées sur la tablette + page d'accueil</div></div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">🏠 Page d'accueil (message affiché sur la veille de la tablette)</div>
+          <p style="font-size:12px;color:var(--text-muted);margin-bottom:8px">Ce message s'affiche sous les 2 logos. Reviens à la ligne avec Entrée.</p>
+          <textarea id="pf-home-msg" class="form-input" rows="2" style="max-width:520px" placeholder="3 camions, 1 fidélité 🎁&#10;Ça se passe juste ici 👇"></textarea>
+          <div><button class="btn btn-primary btn-sm" style="margin-top:8px" onclick="pfSaveHome()">Enregistrer le message</button></div>
+        </div>
+
+        <div class="card">
+          <div style="display:flex;gap:6px;margin-bottom:14px">
+            <button class="btn btn-sm" id="pf-tab-poke" onclick="pfSetBrand('poke')">🥗 Poké (Camions 1 & 2)</button>
+            <button class="btn btn-sm" id="pf-tab-captn" onclick="pfSetBrand('captn')">🍔 Capt&Fish</button>
+          </div>
+          <div class="card-title" id="pf-brand-title">Récompenses — Poké</div>
+          <p style="font-size:12px;color:var(--text-muted);margin-bottom:10px">Le client débloque une récompense quand son solde de points atteint le seuil. Décoche « Actif » pour masquer sans supprimer.</p>
+          <div id="pf-rewards-list"></div>
+          <button class="btn btn-secondary btn-sm" style="margin-top:10px" onclick="pfAddReward()">+ Ajouter une récompense</button>
+          <div style="margin-top:14px"><button class="btn btn-primary" onclick="pfSaveRewards()">💾 Enregistrer les récompenses</button></div>
+          <div id="pf-result" style="margin-top:10px;font-size:13px"></div>
         </div>
       </div>
 
@@ -1710,7 +1738,7 @@ auth.onAuthStateChanged(u => { if(u) lancerApp(u.email); });
 // ============================================================
 // NAVIGATION
 // ============================================================
-const viewTitles = {dashboard:'Tableau de bord',etablissements:'Établissements',planning:'Emplacements',import:'Import de commandes','commandes-captn':'Commandes Capt&Fish',controle:'Contrôle de caisse',produits:'Produits & Cartes',marge:'Recettes & contrôle de marge',rapports:'Rapports',clotures:'Clôtures','perf-emplacements':'Performance par emplacement','conso':'Conso théorique & écarts','rapport-paiements':'Rapport de paiements','rapport-comptable':'Rapport comptable',fidelite:'Fidélité',avis:'Avis Google',parametres:'Paramètres',manuel:'Manuel & maintenance','site-captfish':'Capt&Fish — Site web','site-pokeben':'Pok&Ben — Site web'};
+const viewTitles = {dashboard:'Tableau de bord',etablissements:'Établissements',planning:'Emplacements',import:'Import de commandes','commandes-captn':'Commandes Capt&Fish',controle:'Contrôle de caisse',produits:'Produits & Cartes',marge:'Recettes & contrôle de marge',rapports:'Rapports',clotures:'Clôtures','perf-emplacements':'Performance par emplacement','conso':'Conso théorique & écarts','rapport-paiements':'Rapport de paiements','rapport-comptable':'Rapport comptable',fidelite:'Fidélité','param-fidelite':'Paramétrage fidélité',avis:'Avis Google',parametres:'Paramètres',manuel:'Manuel & maintenance','site-captfish':'Capt&Fish — Site web','site-pokeben':'Pok&Ben — Site web'};
 
 function manGo(id){ const el=document.getElementById(id); if(el){ el.open=true; el.scrollIntoView({behavior:'smooth',block:'start'}); } return false; }
 
@@ -1740,6 +1768,7 @@ function showView(v){
   if(v==='perf-emplacements') chargerPerfEmplacements();
   if(v==='conso') chargerConso();
   if(v==='fidelite') chargerFidelite();
+  if(v==='param-fidelite') chargerParamFidelite();
   if(v==='avis') chargerAvis();
   if(v==='parametres') afficherParametres();
   if(v==='site-captfish') chargerSiteConfig('captfish');
@@ -2490,7 +2519,8 @@ function renderRepertoireEmplacements(etabId){
     const plan=snapP.val()||{};
     const rep=snapR.val()||{};
     const lieux=new Set();
-    Object.values(plan).forEach(j=>['midi','soir'].forEach(s=>{ if(j[s]&&j[s].nom) lieux.add(j[s].nom); }));
+    const lieuxPlanning=new Set();
+    Object.values(plan).forEach(j=>['midi','soir'].forEach(s=>{ if(j[s]&&j[s].nom){ lieux.add(j[s].nom); lieuxPlanning.add(j[s].nom); } }));
     Object.values(rep).forEach(r=>{ if(r&&r.nom) lieux.add(r.nom); });
     const noms=[...lieux].sort((a,b)=>a.localeCompare(b));
     if(!noms.length){ el.innerHTML='<p style="font-size:13px;color:var(--text-muted)">Aucun lieu pour l\'instant. Configure ton planning ou ajoute un lieu ci-dessous.</p>'; return; }
@@ -2498,13 +2528,28 @@ function renderRepertoireEmplacements(etabId){
       noms.map(nom=>{
         const slug=_slugLieu(nom);
         const adr=(rep[slug]&&rep[slug].adresse)||'';
+        const auPlanning=lieuxPlanning.has(nom);
+        const nomEsc=nom.replace(/'/g,"\\'");
         return `<tr>
-          <td style="font-weight:600;white-space:nowrap">${nom}</td>
+          <td style="font-weight:600;white-space:nowrap">${nom}${auPlanning?' <span title="Ce lieu est dans le planning" style="font-weight:400;color:var(--text-muted);font-size:11px">· planning</span>':''}</td>
           <td><input type="text" class="form-input" id="rep-adr-${slug}" value="${adr.replace(/"/g,'&quot;')}" placeholder="Adresse complète, ville" style="min-width:240px"></td>
-          <td style="text-align:right;white-space:nowrap"><button class="btn btn-primary btn-sm" onclick="enregistrerEmplacementRepertoire('${etabId}','${slug}','${nom.replace(/'/g,"\\'")}')">Enregistrer</button></td>
+          <td style="text-align:right;white-space:nowrap">
+            <button class="btn btn-primary btn-sm" onclick="enregistrerEmplacementRepertoire('${etabId}','${slug}','${nomEsc}')">Enregistrer</button>
+            <button class="btn btn-danger btn-sm" style="margin-left:6px" onclick="supprimerEmplacementRepertoire('${etabId}','${slug}','${nomEsc}',${auPlanning})">🗑</button>
+          </td>
         </tr>`;
       }).join('')+'</tbody></table>';
   });
+}
+
+function supprimerEmplacementRepertoire(etabId,slug,nom,auPlanning){
+  var msg = auPlanning
+    ? 'Supprimer l\'adresse de « '+nom+' » ?\n\n⚠️ Ce lieu est encore dans ton PLANNING : il restera affiché dans la liste (sans adresse) tant que tu ne l\'auras pas retiré du planning. Seule l\'adresse sera effacée.'
+    : 'Supprimer définitivement « '+nom+' » du répertoire ?';
+  if(!window.confirm(msg)) return;
+  db.ref('emplacements_repertoire/'+etabId+'/'+slug).remove()
+    .then(()=>{ showNotif(auPlanning?'Adresse effacée (lieu encore au planning)':'Lieu supprimé','success'); renderRepertoireEmplacements(etabId); })
+    .catch(()=>showNotif('Erreur Firebase','error'));
 }
 
 function enregistrerEmplacementRepertoire(etabId,slug,nom){
@@ -5227,6 +5272,66 @@ const _periodeLabel = { jour:"aujourd'hui", semaine:'cette semaine', mois:'ce mo
 
 window.setFidPeriode=function(p){ _fidPeriode=p; document.querySelectorAll('#fid-periode-seg button').forEach(b=>b.classList.toggle('on',b.dataset.p===p)); renderFidelite(); };
 window.setFidCamion=function(c){ _fidCamion=c; document.querySelectorAll('#fid-camion-seg button').forEach(b=>b.classList.toggle('on',b.dataset.c===c)); renderFidelite(); };
+
+// ═══════════════════ PARAMÉTRAGE FIDÉLITÉ ═══════════════════
+let _pfBrand='poke';
+let _pfRewards={ poke:[], captn:[] };
+const _pfDefaut={
+  poke:[{pts:30,nom:'Une boisson',emoji:'🥤',actif:true},{pts:50,nom:'Un cookie',emoji:'🍪',actif:true},{pts:60,nom:'Apéro à partager',emoji:'🫒',actif:true},{pts:90,nom:'Un poké moyen',emoji:'🥗',actif:true},{pts:120,nom:'Une formule offerte',emoji:'🎁',actif:true}],
+  captn:[{pts:30,nom:'Une boisson',emoji:'🥤',actif:true},{pts:50,nom:'Une portion de frites',emoji:'🍟',actif:true},{pts:90,nom:'Un burger',emoji:'🍔',actif:true},{pts:120,nom:'Une formule offerte',emoji:'🎁',actif:true}]
+};
+function chargerParamFidelite(){
+  db.ref('site_config/fidelite/home_message').once('value',s=>{
+    const el=document.getElementById('pf-home-msg'); if(el) el.value = (s.exists()&&typeof s.val()==='string') ? s.val() : '3 camions, 1 fidélité 🎁\nÇa se passe juste ici 👇';
+  });
+  Promise.all([db.ref('site_config/fidelite/poke/rewards').once('value'),db.ref('site_config/fidelite/captn/rewards').once('value')]).then(([sp,sc])=>{
+    _pfRewards.poke  = (sp.exists()&&Array.isArray(sp.val())) ? sp.val() : _pfDefaut.poke.slice();
+    _pfRewards.captn = (sc.exists()&&Array.isArray(sc.val())) ? sc.val() : _pfDefaut.captn.slice();
+    pfSetBrand(_pfBrand);
+  });
+}
+function pfSetBrand(b){
+  _pfBrand=b;
+  document.getElementById('pf-tab-poke').className='btn btn-sm '+(b==='poke'?'btn-primary':'btn-secondary');
+  document.getElementById('pf-tab-captn').className='btn btn-sm '+(b==='captn'?'btn-primary':'btn-secondary');
+  document.getElementById('pf-brand-title').textContent = 'Récompenses — '+(b==='poke'?'Poké':'Capt&Fish');
+  pfRenderRewards();
+}
+function pfRenderRewards(){
+  const list=_pfRewards[_pfBrand]||[];
+  const box=document.getElementById('pf-rewards-list');
+  if(!list.length){ box.innerHTML='<p style="color:var(--text-muted);font-size:13px">Aucune récompense. Ajoute-en une.</p>'; return; }
+  box.innerHTML=list.map((r,i)=>
+    '<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">'
+    +'<input type="text" value="'+(r.emoji||'').replace(/"/g,'&quot;')+'" oninput="pfEdit('+i+',\'emoji\',this.value)" style="width:52px;text-align:center;padding:6px;border:1px solid var(--border);border-radius:6px;font-size:16px" title="Emoji">'
+    +'<input type="text" value="'+(r.nom||'').replace(/"/g,'&quot;')+'" oninput="pfEdit('+i+',\'nom\',this.value)" placeholder="Nom de la récompense" style="flex:1;min-width:160px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:13px">'
+    +'<div style="display:flex;align-items:center;gap:4px"><input type="number" min="0" step="10" value="'+(r.pts!=null?r.pts:0)+'" oninput="pfEdit('+i+',\'pts\',this.value)" style="width:72px;padding:6px;border:1px solid var(--border);border-radius:6px;font-size:13px;text-align:right"><span style="color:var(--text-muted);font-size:12px">pts</span></div>'
+    +'<label style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer"><input type="checkbox" '+(r.actif!==false?'checked':'')+' onchange="pfEdit('+i+',\'actif\',this.checked)" style="width:auto"> Actif</label>'
+    +'<button class="btn btn-icon btn-danger" onclick="pfDelReward('+i+')" title="Supprimer">🗑</button>'
+    +'</div>'
+  ).join('');
+}
+function pfEdit(i,champ,val){
+  const r=_pfRewards[_pfBrand][i]; if(!r) return;
+  if(champ==='pts') r.pts=parseInt(val)||0;
+  else if(champ==='actif') r.actif=!!val;
+  else r[champ]=val;
+}
+function pfAddReward(){ _pfRewards[_pfBrand].push({pts:0,nom:'',emoji:'🎁',actif:true}); pfRenderRewards(); }
+function pfDelReward(i){ _pfRewards[_pfBrand].splice(i,1); pfRenderRewards(); }
+function pfSaveRewards(){
+  const clean=(_pfRewards[_pfBrand]||[]).filter(r=>r && (r.nom||'').trim()).map(r=>({pts:parseInt(r.pts)||0,nom:(r.nom||'').trim(),emoji:(r.emoji||'🎁').trim(),actif:r.actif!==false})).sort((a,b)=>a.pts-b.pts);
+  _pfRewards[_pfBrand]=clean;
+  db.ref('site_config/fidelite/'+_pfBrand+'/rewards').set(clean)
+    .then(()=>{ const el=document.getElementById('pf-result'); el.style.color='var(--green-dark)'; el.textContent='✅ Récompenses '+(_pfBrand==='poke'?'Poké':'Capt&Fish')+' enregistrées ('+clean.length+'). La tablette se met à jour au prochain chargement.'; pfRenderRewards(); })
+    .catch(()=>{ const el=document.getElementById('pf-result'); el.style.color='var(--coral)'; el.textContent='❌ Erreur Firebase'; });
+}
+function pfSaveHome(){
+  const v=(document.getElementById('pf-home-msg').value||'').trim();
+  db.ref('site_config/fidelite/home_message').set(v)
+    .then(()=>showNotif('Message d\'accueil enregistré ✓','success'))
+    .catch(()=>showNotif('Erreur Firebase','error'));
+}
 
 function chargerFidelite(){
   db.ref('clients_fidelite').once('value',snap=>{ _fidCache=snap.val()||{}; renderFidelite(); });
