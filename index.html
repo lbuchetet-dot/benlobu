@@ -2439,6 +2439,10 @@ function openProductDetail(id){
   const item = menu.find(m => m.id === id);
   if(!item) return;
   _pdId = id; _pdQ = 1; _pdSups = {};
+  // Suppléments offerts par l'événement : pré-cochés d'office (prix 0)
+  Object.entries(item.supplements || {}).forEach(([sid, s]) => {
+    if(s && s.nom && _suppOffert(s.nom)) _pdSups[sid] = { nom: s.nom, prix: 0 };
+  });
   const img = document.getElementById('pd-img');
   if(item.photo){ img.style.backgroundImage = "url('"+item.photo+"')"; img.textContent=''; }
   else { img.style.backgroundImage = 'none'; img.textContent = item.emoji || '🐟'; }
@@ -2457,10 +2461,11 @@ function openProductDetail(id){
   if(sups.length){
     sEl.innerHTML = '<div class="pd-sups-lbl">Suppléments</div>' + sups.map(([sid,s]) => {
       const _off = _suppOffert(s.nom);
+      const _sel = !!_pdSups[sid];
       const _pxTxt = _off
         ? `<span style="text-decoration:line-through;opacity:.45;margin-right:5px">+${(s.prix||0).toFixed(2).replace('.',',')} €</span>🎁 ${_offreLabelCreneau()}`
         : `+${(s.prix||0).toFixed(2).replace('.',',')} €`;
-      return `<div class="pd-sup-row" data-sid="${sid}" onclick="pdToggleSup('${sid}')">
+      return `<div class="pd-sup-row${_sel?' selected':''}" data-sid="${sid}" onclick="pdToggleSup('${sid}')">
          <span class="pd-sup-name"><span class="pd-sup-check">✓</span>${s.nom}</span>
          <span class="pd-sup-price">${_pxTxt}</span>
        </div>`;
@@ -3175,7 +3180,15 @@ function _cartAdd(prodId, sups, qte){
 }
 let _lineSeq = 1;
 function addToCart(id) {
-  _cartAdd(id, [], 1);
+  // Ajout rapide : les suppléments offerts par l'événement sont inclus d'office
+  const _it = menu.find(m => m.id == id);
+  const _supsOff = [];
+  if(_it){
+    Object.values(_it.supplements || {}).forEach(s => {
+      if(s && s.nom && _suppOffert(s.nom)) _supsOff.push({ nom:s.nom, prix:0 });
+    });
+  }
+  _cartAdd(id, _supsOff, 1);
   renderCart();
   updateCartBadge();
   showToast('✓ Ajouté au panier', '🐟');
