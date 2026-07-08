@@ -3766,7 +3766,7 @@ function imprimerTousLesBons(){
       .sort(([,a],[,b])=>{ const ra=a.retrait_souhaite||a.heure||'99:99', rb=b.retrait_souhaite||b.heure||'99:99'; return ra.localeCompare(rb); });
     if(!aImp.length){ showNotif('Aucun bon à imprimer','error'); return; }
     document.getElementById('print-area').innerHTML = aImp.map(([,c])=>bonHtmlPourImpression(c)).join('<div style="page-break-after:always"></div>');
-    window.print();
+    lancerImpressionZone();
     const updates={};
     aImp.forEach(([key,])=>{ updates['commandes/'+selectedEtabId+'/'+today+'/'+key+'/bon_imprime']=true; });
     db.ref().update(updates);
@@ -3798,7 +3798,7 @@ function imprimerBonComplement(cmd, nouveauxArticles, heuresPrec, heure){
         </div>
       </div>`).join('')}`;
   document.getElementById('print-area').innerHTML = html;
-  window.print();
+  lancerImpressionZone();
 }
 
 function imprimerNote(avecDetail){
@@ -3856,7 +3856,7 @@ function imprimerNote(avecDetail){
   lignes.push('<div class="pr-center" style="font-size:11px">'+(ent.msg_ticket||'Merci de votre visite !')+'</div>');
   if(ent.web) lignes.push('<div class="pr-center" style="font-size:10px">'+ent.web+'</div>');
   document.getElementById('print-area').innerHTML = lignes.join('');
-  window.print();
+  lancerImpressionZone();
 }
 
 
@@ -3980,7 +3980,7 @@ function imprimerNoteClient(G, avecDetail, repas){
   lignes.push('<div class="pr-center" style="font-size:11px">'+(ent.msg_ticket||'Merci de votre visite !')+'</div>');
   if(ent.web) lignes.push('<div class="pr-center" style="font-size:10px">'+ent.web+'</div>');
   document.getElementById('print-area').innerHTML = lignes.join('');
-  window.print();
+  lancerImpressionZone();
 }
 
 function imprimerNotePartielle(montant, couverts){
@@ -4021,7 +4021,7 @@ function imprimerNotePartielle(montant, couverts){
   lignes.push('<div class="pr-center" style="font-size:11px">'+(ent.msg_ticket||'Merci de votre visite !')+'</div>');
   if(ent.web) lignes.push('<div class="pr-center" style="font-size:10px">'+ent.web+'</div>');
   document.getElementById('print-area').innerHTML = lignes.join('');
-  window.print();
+  lancerImpressionZone();
 }
 
 
@@ -4231,7 +4231,7 @@ function imprimerFondCaisse(){
     <div class="pr-center" style="font-size:10px">Compté le ${dateStr} à ${heureStr}</div>
     <div class="pr-center" style="font-size:10px">Signature : ___________________</div>`;
   document.getElementById('print-area').innerHTML=html;
-  window.print();
+  lancerImpressionZone();
 }
 
 function controleCaisseRequis(){
@@ -4961,7 +4961,7 @@ function _imprimerLotBons(cmds){
     const pa = document.getElementById('print-area');
     if(pa){
       pa.innerHTML = cmds.map(bonHtmlPourImpression).join('<div style="page-break-after:always"></div>');
-      window.print();
+      lancerImpressionZone();
       return true;
     }
   }catch(e){ console.error('Impression lot:', e); }
@@ -5148,6 +5148,72 @@ function effacerDonneesTest(){
 // IMPRESSION EPSON ePOS-Print (TM-m30II réseau) + TIROIR
 // ══════════════════════════════════════════════════════════
 const EPOS_COLS = 42; // largeur ticket 80mm (Font A). Ajuster à 32 pour 58mm.
+
+// ── Convertisseur générique : zone HTML #print-area → lignes ePOS ──
+// Permet de router notes, fond de caisse, compléments, lots de bons vers l'imprimante Epson
+function _epTxt(el){ return (el.textContent||'').replace(/\s+/g,' ').trim(); }
+function _epBold(el){
+  const c = (el.className||'')+'';
+  if(/pr-bold|pr-total|pr-logo/.test(c)) return true;
+  const fw = (el.style && el.style.fontWeight)||'';
+  return fw==='bold' || parseInt(fw,10)>=600;
+}
+function _epPad2(l,r){
+  l=String(l); r=String(r);
+  const space = EPOS_COLS - l.length - r.length;
+  return space<1 ? (l+' '+r) : l+' '.repeat(space)+r;
+}
+function _epPadN(parts){
+  const n=parts.length, w=Math.floor(EPOS_COLS/n);
+  return parts.map((p,i)=>{
+    p=String(p);
+    if(p.length>=w) return p.slice(0,w);
+    return i===0 ? p+' '.repeat(w-p.length) : ' '.repeat(w-p.length)+p; // 1ère col à gauche, autres à droite
+  }).join('');
+}
+function _epWalk(el, L){
+  if(!(el instanceof Element)) return;
+  const cls = (el.className||'')+'';
+  const styleAttr = (el.getAttribute && el.getAttribute('style'))||'';
+  if(/page-break-after/.test(styleAttr)){ L.push({cut:true}); return; }
+  if(/pr-sep/.test(cls) || /border-top/.test(styleAttr)){ L.push({sep:true}); return; }
+  if(/pr-logo/.test(cls)){ const t=_epTxt(el); if(t) L.push({v:t, align:'center', bold:true, dw:true, dh:true}); return; }
+  const spans = Array.from(el.querySelectorAll(':scope > span'));
+  if(/pr-total/.test(cls)){
+    if(spans.length>=2) L.push({v:_epPad2(_epTxt(spans[0]),_epTxt(spans[spans.length-1])), bold:true, dh:true});
+    else { const t=_epTxt(el); if(t) L.push({v:t, bold:true, dh:true}); }
+    return;
+  }
+  if(/pr-line/.test(cls)){
+    if(spans.length===2) L.push({v:_epPad2(_epTxt(spans[0]),_epTxt(spans[1])), bold:_epBold(el)});
+    else if(spans.length>2) L.push({v:_epPadN(spans.map(_epTxt)), bold:_epBold(el)});
+    else { const t=_epTxt(el); if(t) L.push({v:t, bold:_epBold(el)}); }
+    return;
+  }
+  if(/pr-center/.test(cls)){ const t=_epTxt(el); if(t) L.push({v:t, align:'center', bold:_epBold(el)}); return; }
+  // Blocs génériques (bons, titres, articles flex) : on aplatit le texte
+  const t=_epTxt(el);
+  if(!t) return;
+  const centered=/text-align:\s*center/.test(styleAttr);
+  L.push({v:t, align:centered?'center':'left', bold:_epBold(el)});
+}
+function eposLignesDepuisZone(){
+  const zone = document.getElementById('print-area');
+  const L=[];
+  if(zone) Array.from(zone.children).forEach(node=>_epWalk(node, L));
+  return L;
+}
+// Router central : envoie le contenu de #print-area à l'imprimante Epson si active, sinon AirPrint
+async function lancerImpressionZone(){
+  if(eposActif()){
+    const lignes = eposLignesDepuisZone();
+    if(!lignes.length) return;
+    const r = await eposEnvoyer(eposBuildBody(lignes, false));
+    if(!r.success && !r.async) showNotif('⚠️ Imprimante : '+r.code+' — vérifier réglages', 'error');
+    return;
+  }
+  window.print();
+}
 
 function eposIp(){ return (localStorage.getItem('pb_printer_ip')||'').trim(); }
 function printMethod(){ return localStorage.getItem('pb_printer_method') || 'airprint'; }
