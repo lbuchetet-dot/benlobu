@@ -1225,6 +1225,7 @@ let etabInfo = {};
 let carteData = {};
 let parametresData = {};
 let panier = [];
+let _prixEventJour = {}; // { prodId: prixSoiree } — événement du service actif
 let commandeEnCours = null;
 let commandeEnCoursKey = null;
 let cmdCounter = 0;
@@ -1579,12 +1580,12 @@ function lireEmplacementJour(service, cb){
   // 1) Override (événement ponctuel) pour cette date + service ?
   db.ref('overrides/'+selectedEtabId+'/'+todayKey()+'_'+service).once('value', ov=>{
     const o=ov.val();
-    if(o && o.ferme){ cb({nom:'Fermé', capacite:null, evenement:false, ferme:true, motif:o.commentaire||''}); return; }
-    if(o && o.nom){ cb({nom:o.nom, capacite:(o.capacite!=null?o.capacite:null), evenement:true, type_event:(o.type||'service')}); return; }
+    if(o && o.ferme){ cb({nom:'Fermé', capacite:null, evenement:false, ferme:true, motif:o.commentaire||'', prixEvent:{}}); return; }
+    if(o && o.nom){ cb({nom:o.nom, capacite:(o.capacite!=null?o.capacite:null), evenement:true, type_event:(o.type||'service'), prixEvent:(o.prixEvent && typeof o.prixEvent==='object')?o.prixEvent:{}}); return; }
     // 2) sinon planning hebdomadaire
     db.ref('planning_emplacements/'+selectedEtabId+'/'+jour).once('value', snap=>{
       const d=emplacementDetail(snap.val(), service);
-      cb({nom:d.nom, capacite:d.capacite, evenement:false, type_event:null});
+      cb({nom:d.nom, capacite:d.capacite, evenement:false, type_event:null, prixEvent:{}});
     });
   });
 }
@@ -2093,6 +2094,7 @@ function chargerEmplacementEtStatsS1(){
   const jourSemaine = ['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'][new Date().getDay()];
   // Emplacement du jour (override prioritaire, sinon planning)
   lireEmplacementJour(detectService(new Date()), d=>{
+    _prixEventJour = d.prixEvent || {};
     const el = document.getElementById('topbar-emplacement-val');
     if(el) el.textContent = (d.evenement?'🎉 ':'') + (d.nom||'—');
     // Capacité du jour (planning/override) → jauge couverts ; sinon on garde le défaut camion
@@ -2571,7 +2573,9 @@ function renderArticles(){
     });
     articles.forEach(([id,p])=>{
       const tailles = Object.entries(p.tailles || {});
-      const premierPrix = tailles.length ? tailles[0][1].prix : 0;
+      const premierPrixNormal = tailles.length ? tailles[0][1].prix : 0;
+      const premierPrix = _prixEventProd(id, premierPrixNormal);
+      const _soiree = premierPrix !== premierPrixNormal;
       const qteTotal = panierQteProduit(id);
       const btn = document.createElement('button');
       btn.className = 'art-btn' + (qteTotal>0?' in-panier':'');
@@ -2579,7 +2583,7 @@ function renderArticles(){
       btn.style.borderColor = qteTotal>0 ? 'var(--green)' : couleur.border;
       btn.innerHTML = `
         <span class="art-btn-name">${p.nom}</span>
-        <span class="art-btn-prix">${tailles.length>1?'dès ':''} ${fmtPrix(premierPrix)}</span>
+        <span class="art-btn-prix">${tailles.length>1?'dès ':''} ${fmtPrix(premierPrix)}${_soiree?' 🎉':''}</span>
         ${qteTotal>0?`<span class="art-btn-badge">${qteTotal}</span>`:''}
       `;
       btn.onclick = () => ouvrirTaille(id, p);
@@ -2613,7 +2617,11 @@ function ouvrirTaille(prodId, prod){
   tailles.forEach(([nom, val]) => {
     const btn = document.createElement('button');
     btn.className = 'taille-btn' + (tailles.length===1?' selected':'');
-    btn.innerHTML = `<div class="taille-btn-nom">${nom}</div><div class="taille-btn-prix">${fmtPrix(val.prix)}</div>`;
+    const _pe = _prixEventProd(prodId, val.prix);
+    const _pxHTML = (_pe!==val.prix)
+      ? `<span style="text-decoration:line-through;opacity:.5;font-size:.8em;margin-right:4px">${fmtPrix(val.prix)}</span>${fmtPrix(_pe)} 🎉`
+      : fmtPrix(val.prix);
+    btn.innerHTML = `<div class="taille-btn-nom">${nom}</div><div class="taille-btn-prix">${_pxHTML}</div>`;
     btn.onclick = () => {
       document.querySelectorAll('.taille-btn').forEach(b=>b.classList.remove('selected'));
       btn.classList.add('selected');
@@ -2651,15 +2659,23 @@ function renderSups(prod){
   });
 }
 
+function _prixEventProd(prodId, prixNormal){
+  if(_prixEventJour && _prixEventJour[prodId]!=null){
+    const pe = Number(_prixEventJour[prodId]);
+    if(!isNaN(pe) && pe>0) return pe;
+  }
+  return prixNormal;
+}
 function confirmerArticle(){
   if(!tailleSelectionnee){ showNotif('Choisis une taille','error'); return; }
   const {prodId, prod} = articleEnCours;
   const taille = prod.tailles[tailleSelectionnee];
   const sups = Object.values(supsSelectionnes);
-  const prixTotal = taille.prix + sups.reduce((s,sup)=>s+sup.prix,0);
+  const prixBase = _prixEventProd(prodId, taille.prix);
+  const prixTotal = prixBase + sups.reduce((s,sup)=>s+sup.prix,0);
   const comment = document.getElementById('mt-comment').value.trim();
   // Stocker l'article en attente
-  articleEnAttente = { prodId, nom:prod.nom, taille:tailleSelectionnee, prixBase:taille.prix, supplements:sups, prixTotal, commentaire:comment, qte:1 };
+  articleEnAttente = { prodId, nom:prod.nom, taille:tailleSelectionnee, prixBase, supplements:sups, prixTotal, commentaire:comment, qte:1 };
   fermerModal('modal-taille');
   // Premier article → imposer nom + couverts
   if(panier.length === 0){

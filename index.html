@@ -2169,7 +2169,8 @@ function buildSpots(){
         active: true,
         sansLimite: !!(ov && ov.sansLimite),
         menuEvent: (ov && Array.isArray(ov.menuEvent)) ? ov.menuEvent : [],
-        messageEvent: (ov && ov.messageEvent) || ''
+        messageEvent: (ov && ov.messageEvent) || '',
+        prixEvent: (ov && ov.prixEvent && typeof ov.prixEvent==='object') ? ov.prixEvent : {}
       });
     });
   }
@@ -2469,7 +2470,7 @@ function pdAjouterSuggestion(id){
 // Prix unitaire affiché = prix de base + suppléments cochés
 function pdUnitPrice(){
   const item = menu.find(m => m.id === _pdId) || {};
-  let p = item.price || 0;
+  let p = _prixEffectif(item);
   Object.values(_pdSups).forEach(s => { p += (s.prix||0); });
   return p;
 }
@@ -2546,18 +2547,25 @@ function renderMenuGrid(containerId, cat='all', showAddBtn=true) {
   // Mode événement : carte resserrée sur le créneau choisi (page commande uniquement)
   const _sp = (containerId==='order-menu' && selectedSpot) ? spots.find(s=>s.id===selectedSpot) : null;
   const _evIds = (_sp && Array.isArray(_sp.menuEvent) && _sp.menuEvent.length) ? _sp.menuEvent : null;
-  const _cardHTML = (item, orderable) => `
+  const _cardHTML = (item, orderable) => {
+    const _pe = _prixEffectif(item);
+    const _isSoiree = orderable && _pe !== (item.price||0);
+    const _prixHTML = _isSoiree
+      ? `<span class="menu-price"><span style="text-decoration:line-through;opacity:.5;font-weight:400;margin-right:5px">${(item.price||0).toFixed(2).replace('.',',')}</span>${_pe.toFixed(2).replace('.',',')} €</span>`
+      : `<span class="menu-price">${_pe.toFixed(2).replace('.',',')} €</span>`;
+    return `
     <div class="menu-card${orderable?'':' menu-card-off'}" ${orderable && showAddBtn ? `onclick="openProductDetail('${item.id}')"` : ''}>
       <div class="menu-card-img"${item.photo ? ` style="background-image:url('${item.photo}');background-size:cover;background-position:center;font-size:0"` : ''}>${item.photo ? '' : item.emoji}</div>
       <div class="menu-card-body">
         <div class="menu-card-name">${item.name}</div>
         <div class="menu-card-desc">${item.desc}</div>
         <div class="menu-card-footer">
-          <span class="menu-price">${item.price.toFixed(2).replace('.',',')} €</span>
+          ${_prixHTML}
           ${orderable && showAddBtn ? `<button class="btn-add" onclick="event.stopPropagation();addToCart('${item.id}')" title="Ajouter">+</button>` : (orderable ? '' : `<span class="menu-off-tag">Indispo ce soir</span>`)}
         </div>
       </div>
     </div>`;
+  };
   if (_evIds) {
     const evSet = new Set(_evIds);
     const dispo = items.filter(m => evSet.has(m.id));
@@ -3007,6 +3015,21 @@ function _supSig(sups){
   return (sups||[]).map(s => s.nom+':'+(s.prix||0)).sort().join('|');
 }
 // Ajoute une ligne au panier. Fusionne si une ligne identique (même produit + mêmes suppléments) existe déjà.
+// Prix effectif d'un produit : prix soirée si un événement avec prixEvent est
+// actif sur le créneau choisi, sinon prix normal. Source unique de vérité prix.
+function _prixEffectif(item){
+  if(!item) return 0;
+  const base = item.price || 0;
+  try{
+    if(!selectedSpot) return base;
+    const sp = spots.find(s=>s.id===selectedSpot);
+    if(sp && sp.prixEvent && sp.prixEvent[item.id]!=null){
+      const pe = Number(sp.prixEvent[item.id]);
+      if(!isNaN(pe) && pe>0) return pe;
+    }
+  }catch(e){}
+  return base;
+}
 function _cartAdd(prodId, sups, qte){
   const item = menu.find(m => m.id == prodId);
   if(!item) return;
@@ -3015,14 +3038,15 @@ function _cartAdd(prodId, sups, qte){
   const sig = _supSig(sups);
   const existing = cart.find(l => l.prodId == prodId && _supSig(l.supplements) === sig);
   if(existing){ existing.qte += qte; return; }
-  const prixUnit = (item.price||0) + sups.reduce((s,x)=>s+(x.prix||0),0);
+  const _pb = _prixEffectif(item);
+  const prixUnit = _pb + sups.reduce((s,x)=>s+(x.prix||0),0);
   cart.push({
     lineId: 'l'+(_lineSeq++),
     prodId: String(prodId),
     nom: item.name || '',
     emoji: item.emoji || '🐟',
     cat: item.cat || '',
-    prixBase: item.price || 0,
+    prixBase: _pb,
     supplements: sups,
     prixUnit,
     qte

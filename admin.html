@@ -2220,6 +2220,7 @@ function prefillOverride(iso,service,ov){
     evCb.checked = !!ov.sansLimite;
     const mEv=document.getElementById('ov-message'); if(mEv) mEv.value = ov.messageEvent||'';
     _ovMenuSel = Array.isArray(ov.menuEvent) ? ov.menuEvent : [];
+    _ovPrixSel = (ov.prixEvent && typeof ov.prixEvent==='object') ? ov.prixEvent : {};
     ovEventToggle();
   }
   if(typeof ovTypeChange==='function') ovTypeChange();
@@ -2234,7 +2235,7 @@ function _resetOverrideForm(){
   const dBtn=document.getElementById('ov-delete-btn'); if(dBtn) dBtn.style.display='none';
   const evCb2=document.getElementById('ov-event'); if(evCb2) evCb2.checked=false;
   const mEv2=document.getElementById('ov-message'); if(mEv2) mEv2.value='';
-  _ovMenuSel=[];
+  _ovMenuSel=[]; _ovPrixSel={};
   const eEx=document.getElementById('ov-event-extras'); if(eEx) eEx.style.display='none';
 }
 function supprimerOverride(iso, svc){
@@ -2674,6 +2675,7 @@ function ovTypeChange(){
   if(comLabel) comLabel.textContent = ferme ? 'Motif (vacances, panne, arrêt…)' : 'Commentaire';
 }
 let _ovMenuSel = [];
+let _ovPrixSel = {};   // { produitId: prixSoiree }
 function renderOvMenuPicker(selectedIds){
   selectedIds = selectedIds || [];
   const box = document.getElementById('ov-menu-event'); if(!box) return;
@@ -2684,9 +2686,13 @@ function renderOvMenuPicker(selectedIds){
     Object.keys(data).forEach(function(id){
       const pr = data[id]; if(!pr || pr.actif===false) return;
       const c = pr.categorie || 'Autres';
-      (cats[c] = cats[c] || []).push({id:id, nom:(pr.nom||id)});
+      // prix normal = prix de la 1re taille (les burgers n'en ont qu'une)
+      var t = pr.tailles ? Object.keys(pr.tailles)[0] : null;
+      var pn = (t && pr.tailles[t] && typeof pr.tailles[t].prix==='number') ? pr.tailles[t].prix : null;
+      (cats[c] = cats[c] || []).push({id:id, nom:(pr.nom||id), prixNormal:pn});
     });
     const sel = {}; selectedIds.forEach(function(x){ sel[x]=true; });
+    const prix = _ovPrixSel || {};
     const keys = Object.keys(cats);
     if(!keys.length){ box.innerHTML = '<div style="color:var(--text-muted);font-size:13px">Aucun produit.</div>'; return; }
     box.innerHTML = keys.map(function(cat){
@@ -2697,19 +2703,34 @@ function renderOvMenuPicker(selectedIds){
         +   '<button type="button" class="btn btn-secondary" onclick="ovToggleCat(this)" data-cat="'+safe+'" style="font-size:11px;padding:3px 8px">Tout</button>'
         + '</div>'
         + cats[cat].map(function(x){
-            return '<label style="display:flex;align-items:center;gap:8px;font-size:13px;padding:3px 0;cursor:pointer">'
-              + '<input type="checkbox" class="ovme-cb" data-cat="'+safe+'" value="'+x.id+'"'+(sel[x.id]?' checked':'')+' style="width:auto">'
-              + x.nom + '</label>';
+            var isOn = !!sel[x.id];
+            var pv = (prix[x.id]!=null) ? prix[x.id] : '';
+            var ph = (x.prixNormal!=null) ? x.prixNormal.toFixed(2).replace('.',',') : 'prix';
+            return '<div style="display:flex;align-items:center;gap:8px;font-size:13px;padding:3px 0">'
+              + '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;flex:1">'
+              +   '<input type="checkbox" class="ovme-cb" data-cat="'+safe+'" value="'+x.id+'"'+(isOn?' checked':'')+' onchange="ovTogglePrixField(this)" style="width:auto">'
+              +   x.nom
+              + '</label>'
+              + '<span class="ovme-prixwrap" data-for="'+x.id+'" style="display:'+(isOn?'inline-flex':'none')+';align-items:center;gap:4px">'
+              +   '<input type="number" step="0.10" min="0" class="ovme-prix" data-id="'+x.id+'" value="'+pv+'" placeholder="'+ph+'" title="Prix soirée — laisser vide = prix normal" style="width:78px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:13px;text-align:right">'
+              +   '<span style="color:var(--text-muted)">€</span>'
+              + '</span>'
+              + '</div>';
           }).join('')
         + '</div>';
     }).join('');
   });
 }
+function ovTogglePrixField(cb){
+  var wrap = document.querySelector('.ovme-prixwrap[data-for="'+cb.value+'"]');
+  if(wrap) wrap.style.display = cb.checked ? 'inline-flex' : 'none';
+  if(!cb.checked){ var inp = wrap && wrap.querySelector('.ovme-prix'); if(inp) inp.value=''; }
+}
 function ovToggleCat(btn){
   const cat = btn.getAttribute('data-cat');
   const cbs = document.querySelectorAll('.ovme-cb[data-cat="'+cat+'"]');
   let allOn = true; cbs.forEach(function(c){ if(!c.checked) allOn=false; });
-  cbs.forEach(function(c){ c.checked = !allOn; });
+  cbs.forEach(function(c){ c.checked = !allOn; ovTogglePrixField(c); });
 }
 function ovEventToggle(){
   const cb = document.getElementById('ov-event'); if(!cb) return;
@@ -2749,6 +2770,15 @@ function sauvegarderOverride(){
     rec.sansLimite = true;
     rec.messageEvent = ((document.getElementById('ov-message')||{}).value||'').trim();
     rec.menuEvent = Array.prototype.map.call(document.querySelectorAll('.ovme-cb:checked'), function(c){ return c.value; });
+    // Prix soirée : seulement pour les produits cochés ayant une valeur > 0.
+    var prixEvent = {};
+    Array.prototype.forEach.call(document.querySelectorAll('.ovme-cb:checked'), function(c){
+      var wrap = document.querySelector('.ovme-prix[data-id="'+c.value+'"]');
+      if(!wrap) return;
+      var v = parseFloat(String(wrap.value).replace(',','.'));
+      if(!isNaN(v) && v > 0) prixEvent[c.value] = Math.round(v*100)/100;
+    });
+    if(Object.keys(prixEvent).length) rec.prixEvent = prixEvent;
   }
   db.ref(`overrides/${etabId}/${date}_${service}`).set(rec)
     .then(()=>{
