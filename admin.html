@@ -772,11 +772,12 @@ tr:hover td{background:var(--bg)}
 
         <div class="card">
           <div class="card-title">⏱️ Récence des porteurs de carte</div>
-          <div class="stats-grid" style="grid-template-columns:repeat(5,1fr)">
+          <div class="stats-grid" style="grid-template-columns:repeat(6,1fr)">
             <div class="stat-card"><div class="stat-label">≤ 30 j</div><div class="stat-value green" id="fid-r1">—</div></div>
             <div class="stat-card"><div class="stat-label">30–60 j</div><div class="stat-value" id="fid-r2">—</div></div>
             <div class="stat-card"><div class="stat-label">60–90 j</div><div class="stat-value" id="fid-r3">—</div></div>
             <div class="stat-card"><div class="stat-label">+90 j</div><div class="stat-value" style="color:#c0392b" id="fid-r4">—</div></div>
+            <div class="stat-card"><div class="stat-label">Date inconnue</div><div class="stat-value" style="color:#c0392b" id="fid-r6">—</div></div>
             <div class="stat-card"><div class="stat-label">1 seule visite</div><div class="stat-value" id="fid-r5">—</div></div>
           </div>
         </div>
@@ -5290,9 +5291,9 @@ function renderFidelite(){
   set('fid-m-poke',poke); set('fid-m-burger',burger); set('fid-m-both',both);
 
   // Récence
-  let r1=0,r2=0,r3=0,r4=0,r5=0;
-  clients.forEach(c=>{ if((c.visites||0)===1) r5++; const lv=c.derniere_visite; if(!lv) return; const d=(now-lv)/86400000; if(d<=30)r1++; else if(d<=60)r2++; else if(d<=90)r3++; else r4++; });
-  set('fid-r1',r1); set('fid-r2',r2); set('fid-r3',r3); set('fid-r4',r4); set('fid-r5',r5);
+  let r1=0,r2=0,r3=0,r4=0,r5=0,r6=0;
+  clients.forEach(c=>{ if((c.visites||0)===1) r5++; const lv=c.derniere_visite; if(!lv){ r6++; return; } const d=(now-lv)/86400000; if(d<=30)r1++; else if(d<=60)r2++; else if(d<=90)r3++; else r4++; });
+  set('fid-r1',r1); set('fid-r2',r2); set('fid-r3',r3); set('fid-r4',r4); set('fid-r5',r5); set('fid-r6',r6);
 }
 
 function _csvCell(v){ v=(v==null?'':String(v)); if(/[";\n]/.test(v)) v='"'+v.replace(/"/g,'""')+'"'; return v; }
@@ -5301,7 +5302,7 @@ function _csvCell(v){ v=(v==null?'':String(v)); if(/[";\n]/.test(v)) v='"'+v.rep
 function filtrerListe(filtre){
   const now=Date.now(); let entries=Object.entries(_fidCache);
   const mois=new Date().getMonth();
-  if(filtre==='reconquete') entries=entries.filter(([,c])=>c.derniere_visite && (now-c.derniere_visite)/86400000>=45);
+  if(filtre==='reconquete') entries=entries.filter(([,c])=>!c.derniere_visite || (now-c.derniere_visite)/86400000>=45);
   else if(filtre==='ponctuels') entries=entries.filter(([,c])=>(c.visites||0)>=1 && (c.visites||0)<=2);
   else if(filtre==='poke') entries=entries.filter(([,c])=>{const cam=c.camions||{};return (cam.pokeC1||0)+(cam.pokeC2||0)>0;});
   else if(filtre==='burger') entries=entries.filter(([,c])=>((c.camions&&c.camions.captn)||0)>0);
