@@ -413,6 +413,7 @@ tr:hover td{background:var(--bg)}
               </label>
               <div id="ov-event-extras" style="display:none;margin-top:12px">
                 <div class="form-field" style="grid-column:1/-1"><label class="form-label">Message affiché au client <small style="font-weight:500;color:var(--text-muted)">(ex. « Soirée foot — voici la carte de la soirée ! »)</small></label><input type="text" class="form-input" id="ov-message" placeholder="Soirée foot — carte spéciale ce soir !"></div>
+                <div class="form-field" style="grid-column:1/-1"><label class="form-label">Texte du badge Offert <small style="font-weight:500;color:var(--text-muted)">(sur les produits mis a 0 - ex. Frites incluses. Vide = OFFERT)</small></label><input type="text" class="form-input" id="ov-offre-label" placeholder="Frites incluses !"></div>
                 <label class="form-label" style="margin-top:12px;display:block">Carte de l'événement <small style="font-weight:500;color:var(--text-muted)">(coche les produits dispo ce soir-là ; vide = carte entière)</small></label>
                 <div id="ov-menu-event" style="max-height:240px;overflow-y:auto;border:1px solid var(--border);border-radius:10px;padding:12px;margin-top:6px">Active le mode événement pour charger la carte…</div>
               </div>
@@ -2307,6 +2308,7 @@ function prefillOverride(iso,service,ov){
     const mEv=document.getElementById('ov-message'); if(mEv) mEv.value = ov.messageEvent||'';
     _ovMenuSel = Array.isArray(ov.menuEvent) ? ov.menuEvent : [];
     _ovPrixSel = (ov.prixEvent && typeof ov.prixEvent==='object') ? ov.prixEvent : {};
+    var _ol=document.getElementById('ov-offre-label'); if(_ol) _ol.value = ov.offreLabel || '';
     ovEventToggle();
   }
   if(typeof ovTypeChange==='function') ovTypeChange();
@@ -2321,6 +2323,7 @@ function _resetOverrideForm(){
   const dBtn=document.getElementById('ov-delete-btn'); if(dBtn) dBtn.style.display='none';
   const evCb2=document.getElementById('ov-event'); if(evCb2) evCb2.checked=false;
   const mEv2=document.getElementById('ov-message'); if(mEv2) mEv2.value='';
+  const oL=document.getElementById('ov-offre-label'); if(oL) oL.value='';
   _ovMenuSel=[]; _ovPrixSel={};
   const eEx=document.getElementById('ov-event-extras'); if(eEx) eEx.style.display='none';
 }
@@ -2814,7 +2817,8 @@ function renderOvMenuPicker(selectedIds){
               +   x.nom
               + '</label>'
               + '<span class="ovme-prixwrap" data-for="'+x.id+'" style="display:'+(isOn?'inline-flex':'none')+';align-items:center;gap:4px">'
-              +   '<input type="number" step="0.10" min="0" class="ovme-prix" data-id="'+x.id+'" value="'+pv+'" placeholder="'+ph+'" title="Prix soirée — laisser vide = prix normal" style="width:78px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:13px;text-align:right">'
+              +   '<button type="button" class="btn btn-sm btn-secondary" onclick="ovSetOffert(\''+x.id+'\')" title="Mettre ce produit à 0 = offert" style="padding:3px 8px;font-size:11px">🎁 Offert</button>'
+              +   '<input type="number" step="0.10" min="0" class="ovme-prix" data-id="'+x.id+'" value="'+pv+'" placeholder="'+ph+'" title="Prix soirée — vide = prix normal · 0 = offert" style="width:78px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-size:13px;text-align:right">'
               +   '<span style="color:var(--text-muted)">€</span>'
               + '</span>'
               + '</div>';
@@ -2822,6 +2826,10 @@ function renderOvMenuPicker(selectedIds){
         + '</div>';
     }).join('');
   });
+}
+function ovSetOffert(id){
+  var inp = document.querySelector('.ovme-prix[data-id="'+id+'"]');
+  if(inp){ inp.value = '0'; }
 }
 function ovTogglePrixField(cb){
   var wrap = document.querySelector('.ovme-prixwrap[data-for="'+cb.value+'"]');
@@ -2878,9 +2886,13 @@ function sauvegarderOverride(){
       var wrap = document.querySelector('.ovme-prix[data-id="'+c.value+'"]');
       if(!wrap) return;
       var v = parseFloat(String(wrap.value).replace(',','.'));
-      if(!isNaN(v) && v > 0) prixEvent[c.value] = Math.round(v*100)/100;
+      // vide = prix normal (non stocké) · 0 = offert · >0 = prix soirée
+      if(String(wrap.value).trim()!=='' && !isNaN(v) && v >= 0) prixEvent[c.value] = Math.round(v*100)/100;
     });
     if(Object.keys(prixEvent).length) rec.prixEvent = prixEvent;
+    // Texte du badge "Offert" personnalisable
+    var offLabel = (document.getElementById('ov-offre-label')||{}).value;
+    if(offLabel && offLabel.trim()) rec.offreLabel = offLabel.trim();
   }
   db.ref(`overrides/${etabId}/${date}_${service}`).set(rec)
     .then(()=>{
@@ -5918,13 +5930,27 @@ function renderPkbAnnulees(list){
         <div style="text-align:right">
           <div>${badge}${warnConf}</div>
           <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Annulée ${quand}</div>
+          <div style="margin-top:6px"><button class="btn btn-primary btn-sm" onclick="restaurerAnnulPkb('${o.id}')">↩︎ Restaurer</button></div>
         </div>
       </div>
     </div>`;
   }).join('');
 }
 
-// ── Onglet RÉATTRIBUTIONS ──
+// Restaure une commande Pok&Ben annulée → « À valider »
+function restaurerAnnulPkb(id){
+  const o = _pkbOrders[id];
+  if(!o) return;
+  if(!confirm('Restaurer la commande '+(o.num||'')+' de '+_pkbPrenomNom(o)+' ?'
+    + '\n\nElle repassera en « À valider » (le créneau sera de nouveau réservé).'
+    + '\n\n⚠️ Vérifie que le créneau '+_pkbHeure(o)+' est toujours disponible avant de valider.')) return;
+  db.ref('commandes_web/'+PKB_ETAB+'/'+id).update({
+    status:'pending',
+    annulee_le:null, annulee_par:null, statut_avant:null, annul_vue:null, email_statut:null
+  })
+    .then(()=>showNotif('✓ '+(o.num||'')+' restaurée — de retour dans « À valider »','success'))
+    .catch(()=>showNotif('Erreur Firebase — réessayez','error'));
+}
 function renderPkbReattrib(list){
   const el = document.getElementById('cpb-reattrib-list'); if(!el) return;
   list = list || _pkbReattribOrders();
@@ -5973,20 +5999,22 @@ function _pkbTicketHTML(o){
   </div>`;
 }
 
-function _pkbPrintWindow(innerHTML, idsToMark){
+function _pkbPrintWindow(innerHTML, idsToMark, markPrinted){
   const w = window.open('','_blank','width=380,height=640');
   w.document.write('<html><head><title>Ticket Pok&Ben</title></head><body style="margin:0;padding:10px">'+innerHTML+
     '<br><div style="text-align:center"><button onclick="window.print()" style="padding:8px 16px">Imprimer</button></div></body></html>');
   w.document.close(); w.focus();
   setTimeout(()=>w.print(),350);
-  (idsToMark||[]).forEach(id=>{
-    db.ref('commandes_web/'+PKB_ETAB+'/'+id+'/status').set('printed').catch(()=>{});
-  });
+  if(markPrinted){
+    (idsToMark||[]).forEach(id=>{
+      db.ref('commandes_web/'+PKB_ETAB+'/'+id+'/status').set('printed').catch(()=>{});
+    });
+  }
 }
 
 function imprimerTicketPkb(id){
   const o = _pkbOrders[id]; if(!o) return;
-  _pkbPrintWindow(_pkbTicketHTML(o), [id]);
+  _pkbPrintWindow(_pkbTicketHTML(o), [id], false); // APERÇU : ne change pas le statut
 }
 
 function imprimerTiroirPkb(k){
@@ -5996,7 +6024,7 @@ function imprimerTiroirPkb(k){
     .sort((a,b)=>_pkbHeure(a).localeCompare(_pkbHeure(b)));
   if(!orders.length) return;
   const html = orders.map(o=>_pkbTicketHTML(o)).join('<div style="border-top:2px solid #000;margin:14px 0"></div>');
-  _pkbPrintWindow(html, orders.map(o=>o.id));
+  _pkbPrintWindow(html, orders.map(o=>o.id), true);
 }
 
 // ============================================================
@@ -6139,11 +6167,29 @@ function renderCaptnAnnulees(list){
         <div style="text-align:right">
           <div>${badge}${warnConf}</div>
           <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Annulée ${quand}</div>
-          ${aAcquitter?`<button class="btn btn-secondary btn-sm" style="margin-top:6px" onclick="acquitterAnnulCaptn('${o.id}')">✓ Vu</button>`:''}
+          <div style="margin-top:6px;display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap">
+            ${aAcquitter?`<button class="btn btn-secondary btn-sm" onclick="acquitterAnnulCaptn('${o.id}')">✓ Vu</button>`:''}
+            <button class="btn btn-primary btn-sm" onclick="restaurerAnnulCaptn('${o.id}')">↩︎ Restaurer</button>
+          </div>
         </div>
       </div>
     </div>`;
   }).join('');
+}
+
+// Restaure une commande annulée → la remet en « À valider »
+function restaurerAnnulCaptn(id){
+  const o = _captnOrders[id];
+  if(!o) return;
+  if(!confirm('Restaurer la commande '+(o.num||'')+' de '+((o.fname||'')+' '+(o.lname||'')).trim()+' ?'
+    + '\n\nElle repassera en « À valider » (le créneau sera de nouveau réservé).'
+    + '\n\n⚠️ Vérifie que le créneau '+_captnHeure(o)+' est toujours disponible avant de valider.')) return;
+  db.ref('commandes_web/'+CAPTN_ETAB+'/'+id).update({
+    status:'pending',
+    annulee_le:null, annulee_par:null, statut_avant:null, annul_vue:null, email_statut:null
+  })
+    .then(()=>showNotif('✓ '+(o.num||'')+' restaurée — de retour dans « À valider »','success'))
+    .catch(()=>showNotif('Erreur Firebase — réessayez','error'));
 }
 
 // ----- Onglet À VALIDER -----
@@ -6332,22 +6378,25 @@ function _captnTicketHTML(o){
   </div>`;
 }
 
-function _captnPrintWindow(innerHTML, idsToMark){
+function _captnPrintWindow(innerHTML, idsToMark, markPrinted){
   const w = window.open('','_blank','width=380,height=640');
   w.document.write('<html><head><title>Ticket Capt&Fish</title></head><body style="margin:0;padding:10px">'+innerHTML+
     '<br><div style="text-align:center"><button onclick="window.print()" style="padding:8px 16px">Imprimer</button></div></body></html>');
   w.document.close(); w.focus();
   setTimeout(()=>w.print(),350);
-  // marquer comme imprimé
-  (idsToMark||[]).forEach(id=>{
-    db.ref('commandes_web/'+CAPTN_ETAB+'/'+id+'/status').set('printed').catch(()=>{});
-  });
+  // marquer comme imprimé UNIQUEMENT si demandé explicitement (impression tiroir),
+  // jamais lors d'un simple aperçu — sinon la commande sort de « À valider ».
+  if(markPrinted){
+    (idsToMark||[]).forEach(id=>{
+      db.ref('commandes_web/'+CAPTN_ETAB+'/'+id+'/status').set('printed').catch(()=>{});
+    });
+  }
 }
 
 function imprimerTicketCaptn(id){
   const o = _captnOrders[id];
   if(!o) return;
-  _captnPrintWindow(_captnTicketHTML(o), [id]);
+  _captnPrintWindow(_captnTicketHTML(o), [id], false); // APERÇU : ne change pas le statut
 }
 
 function imprimerTiroirCaptn(k){
@@ -6356,7 +6405,7 @@ function imprimerTiroirCaptn(k){
     .sort((a,b)=>_captnHeure(a).localeCompare(_captnHeure(b)));
   if(!orders.length) return;
   const html = orders.map(o=>_captnTicketHTML(o)).join('<div style="border-top:2px solid #000;margin:14px 0"></div>');
-  _captnPrintWindow(html, orders.map(o=>o.id));
+  _captnPrintWindow(html, orders.map(o=>o.id), true);
 }
 
 // ============================================================

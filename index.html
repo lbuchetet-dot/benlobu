@@ -1818,6 +1818,21 @@
   </div>
 </div>
 
+<!-- Modale événement (carte spéciale) -->
+<div class="emp-popup-overlay" id="event-popup" onclick="if(event.target===this)fermerEventPopup()">
+  <div class="emp-popup-card">
+    <button class="emp-popup-close" onclick="fermerEventPopup()" aria-label="Fermer">✕</button>
+    <div class="emp-popup-anchor">🎉</div>
+    <div class="emp-popup-label">Événement spécial</div>
+    <h3 class="emp-popup-title" id="event-popup-title">Carte spéciale ce soir</h3>
+    <div class="emp-popup-when" id="event-popup-sub">Une sélection dédiée pour ce créneau</div>
+    <div class="emp-popup-adr" id="event-popup-dispo" style="text-align:left"></div>
+    <div id="event-popup-retire" style="display:none;font-size:.82rem;color:var(--gold-lt);background:rgba(0,0,0,0.18);border-radius:12px;padding:.7rem 1rem;margin-bottom:1rem;line-height:1.45;text-align:left"></div>
+    <button class="emp-popup-cta" onclick="fermerEventPopup()">J'ai compris 👍</button>
+    <div class="emp-popup-note">Merci de votre compréhension</div>
+  </div>
+</div>
+
 <script>
 // =================== FIREBASE ===================
 const firebaseConfig = {
@@ -2170,7 +2185,8 @@ function buildSpots(){
         sansLimite: !!(ov && ov.sansLimite),
         menuEvent: (ov && Array.isArray(ov.menuEvent)) ? ov.menuEvent : [],
         messageEvent: (ov && ov.messageEvent) || '',
-        prixEvent: (ov && ov.prixEvent && typeof ov.prixEvent==='object') ? ov.prixEvent : {}
+        prixEvent: (ov && ov.prixEvent && typeof ov.prixEvent==='object') ? ov.prixEvent : {},
+        offreLabel: (ov && ov.offreLabel) || ''
       });
     });
   }
@@ -2475,7 +2491,8 @@ function pdUnitPrice(){
   return p;
 }
 function pdRefreshPrice(){
-  document.getElementById('pd-price').textContent = pdUnitPrice().toFixed(2).replace('.',',')+' €';
+  const _p = pdUnitPrice();
+  document.getElementById('pd-price').textContent = _p===0 ? '🎁 Offert' : _p.toFixed(2).replace('.',',')+' €';
 }
 function pdToggleSup(sid){
   const item = menu.find(m => m.id === _pdId) || {};
@@ -2550,9 +2567,16 @@ function renderMenuGrid(containerId, cat='all', showAddBtn=true) {
   const _cardHTML = (item, orderable) => {
     const _pe = _prixEffectif(item);
     const _isSoiree = orderable && _pe !== (item.price||0);
-    const _prixHTML = _isSoiree
-      ? `<span class="menu-price"><span style="text-decoration:line-through;opacity:.5;font-weight:400;margin-right:5px">${(item.price||0).toFixed(2).replace('.',',')}</span>${_pe.toFixed(2).replace('.',',')} €</span>`
-      : `<span class="menu-price">${_pe.toFixed(2).replace('.',',')} €</span>`;
+    const _spCur = selectedSpot ? spots.find(s=>s.id===selectedSpot) : null;
+    const _offLbl = (_spCur && _spCur.offreLabel) ? _spCur.offreLabel : 'OFFERT 🎁';
+    let _prixHTML;
+    if(orderable && _pe === 0){
+      _prixHTML = `<span class="menu-price" style="color:var(--gold,#c8a96e)"><span style="text-decoration:line-through;opacity:.45;font-weight:400;margin-right:5px">${(item.price||0).toFixed(2).replace('.',',')} €</span>🎁 ${_offLbl}</span>`;
+    } else if(_isSoiree){
+      _prixHTML = `<span class="menu-price"><span style="text-decoration:line-through;opacity:.5;font-weight:400;margin-right:5px">${(item.price||0).toFixed(2).replace('.',',')}</span>${_pe.toFixed(2).replace('.',',')} €</span>`;
+    } else {
+      _prixHTML = `<span class="menu-price">${_pe.toFixed(2).replace('.',',')} €</span>`;
+    }
     return `
     <div class="menu-card${orderable?'':' menu-card-off'}" ${orderable && showAddBtn ? `onclick="openProductDetail('${item.id}')"` : ''}>
       <div class="menu-card-img"${item.photo ? ` style="background-image:url('${item.photo}');background-size:cover;background-position:center;font-size:0"` : ''}>${item.photo ? '' : item.emoji}</div>
@@ -2570,12 +2594,12 @@ function renderMenuGrid(containerId, cat='all', showAddBtn=true) {
     const evSet = new Set(_evIds);
     const dispo = items.filter(m => evSet.has(m.id));
     const autres = items.filter(m => !evSet.has(m.id));
-    const msg = _sp.messageEvent ? _sp.messageEvent : 'Carte spéciale ce soir sur cet emplacement';
+    const baseMsg = _sp.messageEvent ? _sp.messageEvent : 'Carte spéciale ce soir sur cet emplacement';
     el.style.display = 'block';
-    let html = `<div class="event-banner">🎉 ${msg}</div>`;
+    let html = `<div class="event-banner">🎉 ${baseMsg}</div>`;
     html += `<div class="menu-grid event-dispo">${dispo.map(m=>_cardHTML(m,true)).join('')}</div>`;
     if (autres.length) {
-      html += `<div class="event-off-note">Le reste de la carte n'est pas disponible sur cet événement</div>`;
+      html += `<div class="event-off-note">⛔ Le reste de la carte n'est pas disponible pour cet événement — merci de votre compréhension</div>`;
       html += `<div class="menu-grid menu-off-grid">${autres.map(m=>_cardHTML(m,false)).join('')}</div>`;
     }
     el.innerHTML = html;
@@ -2740,6 +2764,11 @@ function goToOrderWithSpot(spotId) {
   if (!s.ouvrable) { showToast('Commandes closes pour cet emplacement.'+noteTelCommande(), '⚠', 6000); return; }
   selectedSpot = spotId;
   selectedTimeSlot = null;
+  if(Array.isArray(s.menuEvent) && s.menuEvent.length){
+    const retires = purgerPanierEvent();
+    alerteEvent(s, retires);
+    try{ renderCart(); updateCartBadge(); }catch(e){}
+  }
   showPage('order');
   setTimeout(() => {
     const ts = document.getElementById('time-slot-section');
@@ -2995,6 +3024,13 @@ function selectSpot(id) {
   if(!s || !s.ouvrable){ showToast('Ce créneau n\'est pas commandable.'+noteTelCommande(), '⚠', 6000); return; }
   selectedSpot = id;
   selectedTimeSlot = null;
+  // VERROU ÉVÉNEMENT : si ce créneau a une carte spéciale, on purge le panier
+  // des produits non autorisés et on prévient le client.
+  if(Array.isArray(s.menuEvent) && s.menuEvent.length){
+    const retires = purgerPanierEvent();
+    alerteEvent(s, retires);
+    try{ renderCart(); updateCartBadge(); }catch(e){}
+  }
   // Met à jour le label de récap
   const lbl = document.getElementById('summary-spot-label');
   if(lbl) lbl.textContent = s.name + ' · ' + s.day + ' ' + s.dayShort;
@@ -3030,9 +3066,68 @@ function _prixEffectif(item){
   }catch(e){}
   return base;
 }
+// ═══ VERROU ÉVÉNEMENT ═══
+// Renvoie la liste des IDs autorisés pour le créneau choisi, ou null si pas d'event.
+function _evIdsCreneau(){
+  if(!selectedSpot) return null;
+  const sp = spots.find(s => s.id === selectedSpot);
+  if(sp && Array.isArray(sp.menuEvent) && sp.menuEvent.length) return new Set(sp.menuEvent);
+  return null;
+}
+// Un produit est-il commandable sur le créneau choisi ?
+function _prodAutorise(prodId){
+  const ev = _evIdsCreneau();
+  return !ev || ev.has(String(prodId)) || ev.has(prodId);
+}
+// Nom lisible d'un produit (pour les messages)
+function _nomProd(prodId){
+  const m = menu.find(x => x.id == prodId); return m ? (m.name||'cet article') : 'cet article';
+}
+// Purge du panier les produits non autorisés par l'événement. Renvoie les noms retirés.
+function purgerPanierEvent(){
+  const ev = _evIdsCreneau();
+  if(!ev) return [];
+  const retires = [];
+  for(let i = cart.length - 1; i >= 0; i--){
+    const l = cart[i];
+    // les formules et les produits hors event sont retirés
+    const pid = l.prodId;
+    const ok = (l.type !== 'formule') && (ev.has(String(pid)) || ev.has(pid));
+    if(!ok){ retires.push(l.nom || _nomProd(pid)); cart.splice(i,1); }
+  }
+  return retires;
+}
+// Jolie modale d'avertissement événement (remplace l'alerte navigateur)
+function alerteEvent(spot, retires){
+  const noms = (spot.menuEvent||[]).map(id => _nomProd(id)).filter(Boolean);
+  const listeDispo = noms.length ? noms.join(', ') : 'le(s) burger(s) de la soirée';
+  const dispoEl = document.getElementById('event-popup-dispo');
+  if(dispoEl) dispoEl.innerHTML = '<strong style="color:var(--gold-lt)">Disponible ce soir :</strong><br>' + listeDispo + '<br><span style="opacity:.7;font-size:.86em">Le reste de la carte n\'est pas disponible pour cet événement.</span>';
+  const retEl = document.getElementById('event-popup-retire');
+  if(retEl){
+    if(retires && retires.length){
+      retEl.style.display = 'block';
+      retEl.innerHTML = '⚠️ Retiré(s) de votre panier (non disponible(s) ce soir) : <strong>' + retires.join(', ') + '</strong>.';
+    } else {
+      retEl.style.display = 'none';
+    }
+  }
+  const ov = document.getElementById('event-popup');
+  if(ov) ov.classList.add('open');
+}
+function fermerEventPopup(){
+  const ov = document.getElementById('event-popup');
+  if(ov) ov.classList.remove('open');
+}
+
 function _cartAdd(prodId, sups, qte){
   const item = menu.find(m => m.id == prodId);
   if(!item) return;
+  // VERROU : produit interdit sur un créneau événement
+  if(!_prodAutorise(prodId)){
+    try{ showToast('Indisponible sur cet événement', '⚠', 4000); }catch(e){}
+    return;
+  }
   sups = (sups||[]).map(s => ({ nom:s.nom, prix:s.prix||0 }));
   qte = qte || 1;
   const sig = _supSig(sups);
@@ -3085,6 +3180,25 @@ function cartTotal() {
   return cart.reduce((sum,l) => sum + l.prixUnit * l.qte, 0);
 }
 function renderCart() {
+  // ═══ VERROU ÉVÉNEMENT (point de contrôle central) ═══
+  // Dès qu'un créneau événement est actif, on retire du panier tout produit
+  // hors carte spéciale — quel que soit le chemin qui l'a ajouté.
+  const _evR = _evIdsCreneau();
+  if(_evR){
+    for(let i = cart.length - 1; i >= 0; i--){
+      const l = cart[i];
+      const ok = (l.type !== 'formule') && (_evR.has(String(l.prodId)) || _evR.has(l.prodId));
+      if(!ok){ cart.splice(i, 1); continue; }
+      // article autorisé : on applique le prix soirée s'il existe
+      const it = menu.find(m => m.id == l.prodId);
+      if(it){
+        const pe = _prixEffectif(it);
+        const supsTotal = (l.supplements||[]).reduce((s,x)=>s+(x.prix||0),0);
+        l.prixBase = pe;
+        l.prixUnit = pe + supsTotal;
+      }
+    }
+  }
   const el = document.getElementById('cart-display');
   const lignes = cart.filter(l => l.qte > 0);
   if(lignes.length === 0) {
@@ -3111,7 +3225,7 @@ function renderCart() {
         <span class="qty-num">${l.qte}</span>
         <button class="qty-btn" onclick="addLineQty('${l.lineId}')">+</button>
       </div>
-      <span class="cart-item-price">${(l.prixUnit * l.qte).toFixed(2).replace('.',',')} €</span>
+      <span class="cart-item-price">${(l.prixUnit * l.qte)===0 ? '🎁 Offert' : (l.prixUnit * l.qte).toFixed(2).replace('.',',')+' €'}</span>
     </div>`;
   }).join('');
   const total = cartTotal();
@@ -3155,6 +3269,12 @@ function ordreManquant(){
   if(!selectedSpot)                       return { msg:"Choisissez votre emplacement", elId:'order-spots' };
   if(!selectedTimeSlot)                   return { msg:"Choisissez votre heure de retrait", elId:'time-slot-section' };
   if(_cartCount()===0)                    return { msg:"Ajoutez au moins un article", elId:'order-menu' };
+  // VERROU ÉVÉNEMENT : aucun produit hors carte spéciale ne peut être commandé
+  const ev = _evIdsCreneau();
+  if(ev){
+    const intrus = cart.find(l => l.type==='formule' || !(ev.has(String(l.prodId)) || ev.has(l.prodId)));
+    if(intrus) return { msg:"Retirez les articles non disponibles sur cet événement", elId:'order-menu' };
+  }
   if(!_valTrim('fname')||!_valTrim('lname')) return { msg:"Indiquez vos prénom et nom", elId:'fname', input:true };
   if(!_valTrim('fphone'))                 return { msg:"Indiquez votre téléphone", elId:'fphone', input:true };
   if(!_valTrim('femail'))                 return { msg:"Renseignez votre email", elId:'femail', input:true };
@@ -3256,6 +3376,18 @@ function confirmerEtEnvoyer(){
 
 // Envoi réel de la commande (après confirmation)
 function _envoyerCommande() {
+  // VERROU DUR : blocage définitif si le panier contient un produit hors événement
+  const _ev = _evIdsCreneau();
+  if(_ev){
+    const _intrus = cart.find(l => l.type==='formule' || !(_ev.has(String(l.prodId)) || _ev.has(l.prodId)));
+    if(_intrus){
+      const _retires = purgerPanierEvent();
+      try{ renderCart(); updateCartBadge(); updateCheckoutState(); }catch(e){}
+      const _sp = spots.find(s => s.id === selectedSpot);
+      if(_sp) alerteEvent(_sp, _retires);
+      return;
+    }
+  }
   const fname = document.getElementById('fname').value.trim();
   const lname = document.getElementById('lname').value.trim();
   const phone = document.getElementById('fphone').value.trim();
