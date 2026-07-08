@@ -3064,7 +3064,9 @@ function _suppOffert(supNom){
   if(!selectedSpot || !supNom) return false;
   const sp = spots.find(s => s.id === selectedSpot);
   if(!sp || !Array.isArray(sp.supplementsOfferts) || !sp.supplementsOfferts.length) return false;
-  return sp.supplementsOfferts.indexOf(String(supNom).trim().toLowerCase()) !== -1;
+  const n = String(supNom).trim().toLowerCase();
+  // tolérant : match exact, OU l'entrée contient le nom du supplément, OU l'inverse
+  return sp.supplementsOfferts.some(e => e === n || e.includes(n) || n.includes(e));
 }
 // Prix effectif d'un supplément (0 si offert)
 function _suppPrix(sup){
