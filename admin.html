@@ -278,8 +278,10 @@ tr:hover td{background:var(--bg)}
       <div class="nav-item" onclick="showView('conso')" id="nav-conso"><span>📦</span>Conso & écarts</div>
       <div class="nav-item" onclick="showView('rapport-paiements')" id="nav-rapport-paiements"><span>💳</span>Rapport paiements</div>
       <div class="nav-item" onclick="showView('rapport-comptable')" id="nav-rapport-comptable"><span>🧾</span>Rapport comptable</div>
+      <div class="nav-item" onclick="showView('suivi-remises')" id="nav-suivi-remises"><span>🏷️</span>Suivi des remises</div>
       <div class="nav-item" onclick="showView('fidelite')" id="nav-fidelite"><span>⭐</span>Fidélité</div>
       <div class="nav-item" onclick="showView('param-fidelite')" id="nav-param-fidelite"><span>🎁</span>Paramétrage fidélité</div>
+      <div class="nav-item" onclick="showView('remise-groupes')" id="nav-remise-groupes"><span>🏷️</span>Groupes de remise</div>
       <div class="nav-section">E-réputation</div>
       <div class="nav-item" onclick="showView('avis')" id="nav-avis"><span>💬</span>Avis Google <span id="nav-avis-badge" style="display:none;margin-left:auto;background:var(--coral);color:#fff;font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px"></span></div>
       <div class="nav-section">Configuration</div>
@@ -886,6 +888,55 @@ tr:hover td{background:var(--bg)}
           <button class="btn btn-secondary btn-sm" style="margin-top:10px" onclick="pfAddReward()">+ Ajouter une récompense</button>
           <div style="margin-top:14px"><button class="btn btn-primary" onclick="pfSaveRewards()">💾 Enregistrer les récompenses</button></div>
           <div id="pf-result" style="margin-top:10px;font-size:13px"></div>
+        </div>
+      </div>
+
+      <!-- GROUPES DE REMISE -->
+      <div class="view" id="view-remise-groupes">
+        <div class="page-header">
+          <div class="page-header-left"><div class="page-title">Groupes de remise</div><div class="page-sub">Remises négociées par groupe de clients — appliquées depuis la caisse à l'encaissement</div></div>
+        </div>
+        <div class="card">
+          <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap" id="rg-etab-tabs"></div>
+          <div id="rg-liste"></div>
+          <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center">
+            <input type="text" id="rg-new-nom" placeholder="Nom (ex. Décathlon)" style="flex:2;min-width:140px;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:13px">
+            <select id="rg-new-type" style="padding:8px;border:1px solid var(--border);border-radius:8px;font-size:13px"><option value="pct">%</option><option value="eur">€</option></select>
+            <input type="number" id="rg-new-val" min="0" step="0.5" placeholder="10" style="width:80px;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:13px;text-align:right">
+            <button class="btn btn-primary btn-sm" onclick="rgAjouter()">+ Ajouter</button>
+          </div>
+          <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
+            <span style="font-size:12px;color:var(--text-muted)">Copier tous les groupes de ce camion vers :</span>
+            <span id="rg-copy-btns"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- SUIVI DES REMISES -->
+      <div class="view" id="view-suivi-remises">
+        <div class="page-header">
+          <div class="page-header-left"><div class="page-title">Suivi des remises</div><div class="page-sub">Impact des remises par groupe et par emplacement</div></div>
+        </div>
+        <div class="card">
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
+            <select id="sr-etab" onchange="chargerSuiviRemises()" style="padding:8px;border:1px solid var(--border);border-radius:8px;font-size:13px"></select>
+            <select id="sr-periode" onchange="chargerSuiviRemises()" style="padding:8px;border:1px solid var(--border);border-radius:8px;font-size:13px">
+              <option value="7">7 derniers jours</option>
+              <option value="30" selected>30 derniers jours</option>
+              <option value="90">90 derniers jours</option>
+            </select>
+            <button class="btn btn-secondary btn-sm" onclick="chargerSuiviRemises()">↻ Actualiser</button>
+          </div>
+          <div class="stats-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
+            <div class="stat-card"><div class="stat-label">Tickets remisés</div><div class="stat-value" id="sr-nb">—</div></div>
+            <div class="stat-card"><div class="stat-label">CA brut remisé</div><div class="stat-value" id="sr-brut">—</div></div>
+            <div class="stat-card"><div class="stat-label">Total remises</div><div class="stat-value" style="color:#c0392b" id="sr-total">—</div></div>
+            <div class="stat-card"><div class="stat-label">CA net remisé</div><div class="stat-value green" id="sr-net">—</div></div>
+          </div>
+          <div class="card-title">Par groupe</div>
+          <div id="sr-par-groupe" style="margin-bottom:20px"></div>
+          <div class="card-title">Par emplacement</div>
+          <div id="sr-par-empl"></div>
         </div>
       </div>
 
@@ -1788,7 +1839,7 @@ auth.onAuthStateChanged(u => { if(u) lancerApp(u.email); });
 // ============================================================
 // NAVIGATION
 // ============================================================
-const viewTitles = {dashboard:'Tableau de bord',etablissements:'Établissements',planning:'Emplacements',import:'Import de commandes','commandes-captn':'Commandes Capt&Fish',controle:'Contrôle de caisse',produits:'Produits & Cartes',marge:'Recettes & contrôle de marge',rapports:'Rapports',clotures:'Clôtures','perf-emplacements':'Performance par emplacement','conso':'Conso théorique & écarts','rapport-paiements':'Rapport de paiements','rapport-comptable':'Rapport comptable',fidelite:'Fidélité','param-fidelite':'Paramétrage fidélité',avis:'Avis Google',parametres:'Paramètres',manuel:'Manuel & maintenance','site-captfish':'Capt&Fish — Site web','site-pokeben':'Pok&Ben — Site web'};
+const viewTitles = {dashboard:'Tableau de bord',etablissements:'Établissements',planning:'Emplacements',import:'Import de commandes','commandes-captn':'Commandes Capt&Fish',controle:'Contrôle de caisse',produits:'Produits & Cartes',marge:'Recettes & contrôle de marge',rapports:'Rapports',clotures:'Clôtures','perf-emplacements':'Performance par emplacement','conso':'Conso théorique & écarts','rapport-paiements':'Rapport de paiements','rapport-comptable':'Rapport comptable',fidelite:'Fidélité','param-fidelite':'Paramétrage fidélité','remise-groupes':'Groupes de remise','suivi-remises':'Suivi des remises',avis:'Avis Google',parametres:'Paramètres',manuel:'Manuel & maintenance','site-captfish':'Capt&Fish — Site web','site-pokeben':'Pok&Ben — Site web'};
 
 function manGo(id){ const el=document.getElementById(id); if(el){ el.open=true; el.scrollIntoView({behavior:'smooth',block:'start'}); } return false; }
 
@@ -1827,6 +1878,8 @@ function showView(v){
   if(v==='conso') chargerConso();
   if(v==='fidelite') chargerFidelite();
   if(v==='param-fidelite') chargerParamFidelite();
+  if(v==='remise-groupes') chargerRemiseGroupesAdmin();
+  if(v==='suivi-remises') initSuiviRemises();
   if(v==='avis') chargerAvis();
   if(v==='parametres') afficherParametres();
   if(v==='site-captfish') chargerSiteConfig('captfish');
@@ -3633,11 +3686,12 @@ function chargerPerfEmplacements(){
           if(c.statut && c.statut!=='payee') return;
           const svc=c.service||'';
           const empl=emplMap[eid+'|'+date+'|'+svc] || '— (sans clôture)';
+          const byE=analyse[eid]=analyse[eid]||{};
+          const E=byE[empl]=byE[empl]||{ca:0,tailles:{},produits:{},remises:0,nbRemises:0};
+          if(c.remise && c.remise.montant){ E.remises+=c.remise.montant; E.nbRemises++; }
           (c.articles||[]).forEach(a=>{
             const lineCa=(a.prix||0)*(a.qte||1);
             const t=a.taille||'(sans taille)', p=a.nom||'?';
-            const byE=analyse[eid]=analyse[eid]||{};
-            const E=byE[empl]=byE[empl]||{ca:0,tailles:{},produits:{}};
             E.ca+=lineCa; E.tailles[t]=(E.tailles[t]||0)+lineCa;
             const P=E.produits[p]=E.produits[p]||{ca:0,tailles:{}};
             P.ca+=lineCa; P.tailles[t]=(P.tailles[t]||0)+lineCa;
@@ -3657,8 +3711,8 @@ function _analyseFiltree(){
   const merged={};
   Object.values(_perfEmplAnalyse).forEach(byE=>{
     Object.entries(byE).forEach(([empl,v])=>{
-      const M=merged[empl]=merged[empl]||{ca:0,tailles:{},produits:{}};
-      M.ca+=v.ca;
+      const M=merged[empl]=merged[empl]||{ca:0,tailles:{},produits:{},remises:0,nbRemises:0};
+      M.ca+=v.ca; M.remises+=(v.remises||0); M.nbRemises+=(v.nbRemises||0);
       Object.entries(v.tailles).forEach(([t,ca])=>M.tailles[t]=(M.tailles[t]||0)+ca);
       Object.entries(v.produits).forEach(([p,pv])=>{
         const P=M.produits[p]=M.produits[p]||{ca:0,tailles:{}};
@@ -3963,7 +4017,7 @@ function perfDetail(eid,j,service){
     const prodRows=prods.map(([p,pv])=>{ const cells=allT.map(t=>{ const ca=pv.tailles[t]||0; const pct=pv.ca?Math.round(ca/pv.ca*100):0; return `<td style="text-align:right;padding:6px 10px">${ca?pct+'%':'—'}</td>`; }).join(''); return `<tr style="border-top:1px solid var(--border)"><td style="padding:6px 10px">${p}</td>${cells}<td style="text-align:right;padding:6px 10px;font-weight:600">${fmtPrix(pv.ca)}</td></tr>`; }).join('');
     return `<div style="margin-top:12px;padding:13px;border:1px solid var(--border);border-radius:10px;background:#faf8f5">
       <div style="font-size:13px;font-weight:700">📍 ${nom}</div>
-      <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px">Tout ce qui s'y vend (historique de cet emplacement) · CA détaillé ${fmtPrix(E.ca)}</div>
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px">Tout ce qui s'y vend (historique de cet emplacement) · CA détaillé ${fmtPrix(E.ca)}${(E.remises||0)>0?` · <span style="color:#c0392b">dont remises −${fmtPrix(E.remises)} (${E.nbRemises} ticket${E.nbRemises>1?'s':''})</span>`:''}</div>
       <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;margin-bottom:4px">Mix tailles (% du CA)</div>
       ${bars}
       <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;margin:12px 0 4px">Par produit (% du CA du produit, par taille)</div>
@@ -5355,6 +5409,127 @@ const _pfDefaut={
   poke:[{pts:30,nom:'Une boisson',emoji:'🥤',actif:true},{pts:50,nom:'Un cookie',emoji:'🍪',actif:true},{pts:60,nom:'Apéro à partager',emoji:'🫒',actif:true},{pts:90,nom:'Un poké moyen',emoji:'🥗',actif:true},{pts:120,nom:'Une formule offerte',emoji:'🎁',actif:true}],
   captn:[{pts:30,nom:'Une boisson',emoji:'🥤',actif:true},{pts:50,nom:'Une portion de frites',emoji:'🍟',actif:true},{pts:90,nom:'Un burger',emoji:'🍔',actif:true},{pts:120,nom:'Une formule offerte',emoji:'🎁',actif:true}]
 };
+// ═══════════════════ GROUPES DE REMISE ═══════════════════
+let _rgEtab = null;
+let _rgData = {};
+function chargerRemiseGroupesAdmin(){
+  const etabs = Object.keys(etabsData||{});
+  if(!_rgEtab && etabs.length) _rgEtab = etabs[0];
+  // onglets camions
+  document.getElementById('rg-etab-tabs').innerHTML = etabs.map(id =>
+    `<button class="btn btn-sm ${id===_rgEtab?'btn-primary':'btn-secondary'}" onclick="rgSetEtab('${id}')">${(etabsData[id]||{}).nom||id}</button>`
+  ).join('');
+  // boutons copie
+  document.getElementById('rg-copy-btns').innerHTML = etabs.filter(id=>id!==_rgEtab).map(id =>
+    `<button class="btn btn-secondary btn-sm" style="margin-left:6px" onclick="rgCopierVers('${id}')">${(etabsData[id]||{}).nom||id}</button>`
+  ).join('');
+  db.ref('remise_groupes/'+_rgEtab).once('value', s=>{ _rgData = s.val()||{}; rgRender(); });
+}
+function rgSetEtab(id){ _rgEtab = id; chargerRemiseGroupesAdmin(); }
+function rgRender(){
+  const box = document.getElementById('rg-liste');
+  const entries = Object.entries(_rgData);
+  if(!entries.length){ box.innerHTML = '<p style="font-size:13px;color:var(--text-muted)">Aucun groupe pour ce camion. Ajoute le premier ci-dessous.</p>'; return; }
+  box.innerHTML = entries.map(([id,g]) =>
+    `<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
+      <input type="text" value="${(g.nom||'').replace(/"/g,'&quot;')}" oninput="rgEdit('${id}','nom',this.value)" style="flex:2;min-width:140px;padding:7px 8px;border:1px solid var(--border);border-radius:8px;font-size:13px">
+      <select onchange="rgEdit('${id}','type',this.value)" style="padding:7px;border:1px solid var(--border);border-radius:8px;font-size:13px">
+        <option value="pct"${g.type!=='eur'?' selected':''}>%</option><option value="eur"${g.type==='eur'?' selected':''}>€</option>
+      </select>
+      <input type="number" min="0" step="0.5" value="${g.valeur!=null?g.valeur:0}" oninput="rgEdit('${id}','valeur',this.value)" style="width:80px;padding:7px;border:1px solid var(--border);border-radius:8px;font-size:13px;text-align:right">
+      <label style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer"><input type="checkbox" ${g.actif!==false?'checked':''} onchange="rgEdit('${id}','actif',this.checked)" style="width:auto"> Actif</label>
+      <button class="btn btn-primary btn-sm" onclick="rgSauver('${id}')">💾</button>
+      <button class="btn btn-icon btn-danger" onclick="rgSupprimer('${id}')" title="Supprimer">🗑</button>
+    </div>`
+  ).join('');
+}
+function rgEdit(id, champ, val){
+  const g = _rgData[id]; if(!g) return;
+  if(champ==='valeur') g.valeur = parseFloat(String(val).replace(',','.'))||0;
+  else if(champ==='actif') g.actif = !!val;
+  else g[champ] = val;
+}
+function rgSauver(id){
+  const g = _rgData[id]; if(!g || !(g.nom||'').trim()){ showNotif('Nom requis','error'); return; }
+  db.ref('remise_groupes/'+_rgEtab+'/'+id).set({ nom:g.nom.trim(), type:(g.type==='eur'?'eur':'pct'), valeur:Math.round((g.valeur||0)*100)/100, actif:g.actif!==false })
+    .then(()=>showNotif('Groupe enregistré ✓','success')).catch(()=>showNotif('Erreur Firebase','error'));
+}
+function rgAjouter(){
+  const nom = (document.getElementById('rg-new-nom').value||'').trim();
+  const type = document.getElementById('rg-new-type').value;
+  const val = parseFloat(String(document.getElementById('rg-new-val').value).replace(',','.'));
+  if(!nom || isNaN(val) || val<=0){ showNotif('Nom + valeur requis','error'); return; }
+  if(type==='pct' && val>100){ showNotif('Max 100%','error'); return; }
+  const id = 'rg_'+Date.now();
+  db.ref('remise_groupes/'+_rgEtab+'/'+id).set({ nom, type, valeur:Math.round(val*100)/100, actif:true })
+    .then(()=>{ showNotif('Groupe ajouté ✓','success'); document.getElementById('rg-new-nom').value=''; document.getElementById('rg-new-val').value=''; chargerRemiseGroupesAdmin(); })
+    .catch(()=>showNotif('Erreur Firebase','error'));
+}
+function rgSupprimer(id){
+  const g=_rgData[id]||{};
+  if(!confirm('Supprimer le groupe « '+(g.nom||id)+' » ?')) return;
+  db.ref('remise_groupes/'+_rgEtab+'/'+id).remove().then(()=>{ showNotif('Groupe supprimé','success'); chargerRemiseGroupesAdmin(); });
+}
+function rgCopierVers(etabCible){
+  if(!Object.keys(_rgData).length){ showNotif('Rien à copier','error'); return; }
+  const nomCible=(etabsData[etabCible]||{}).nom||etabCible;
+  if(!confirm('Copier les '+Object.keys(_rgData).length+' groupe(s) vers '+nomCible+' ?\n\nLes groupes existants de '+nomCible+' portant le même identifiant seront écrasés.')) return;
+  db.ref('remise_groupes/'+etabCible).update(_rgData)
+    .then(()=>showNotif('Groupes copiés vers '+nomCible+' ✓','success')).catch(()=>showNotif('Erreur Firebase','error'));
+}
+
+// ═══════════════════ SUIVI DES REMISES ═══════════════════
+function initSuiviRemises(){
+  const sel=document.getElementById('sr-etab');
+  const etabs=Object.keys(etabsData||{});
+  sel.innerHTML='<option value="__tous__">Tous les camions</option>'+etabs.map(id=>`<option value="${id}">${(etabsData[id]||{}).nom||id}</option>`).join('');
+  chargerSuiviRemises();
+}
+function chargerSuiviRemises(){
+  const etabSel=document.getElementById('sr-etab').value||'__tous__';
+  const jours=parseInt(document.getElementById('sr-periode').value)||30;
+  const depuis=new Date(); depuis.setDate(depuis.getDate()-jours);
+  const depuisKey=depuis.toISOString().split('T')[0];
+  const etabs = etabSel==='__tous__' ? Object.keys(etabsData||{}) : [etabSel];
+  Promise.all(etabs.map(id=>db.ref('commandes/'+id).once('value').then(s=>({id, data:s.val()||{}}))))
+    .then(results=>{
+      let nb=0, brut=0, remTot=0;
+      const parGroupe={}, parEmpl={};
+      results.forEach(({id,data})=>{
+        Object.entries(data).forEach(([dateKey, cmds])=>{
+          if(dateKey<depuisKey) return;
+          Object.values(cmds||{}).forEach(c=>{
+            if(!c || c.statut!=='payee' || !c.remise || !c.remise.montant) return;
+            nb++;
+            const b=c.total_brut||((c.total||0)+c.remise.montant);
+            brut+=b; remTot+=c.remise.montant;
+            const gKey=c.remise.groupe_nom || (c.remise.mode==='pct'?'Remise libre %':'Remise libre €');
+            (parGroupe[gKey]=parGroupe[gKey]||{n:0,brut:0,rem:0}); parGroupe[gKey].n++; parGroupe[gKey].brut+=b; parGroupe[gKey].rem+=c.remise.montant;
+            const e=c.emplacement||'—';
+            (parEmpl[e]=parEmpl[e]||{n:0,rem:0}); parEmpl[e].n++; parEmpl[e].rem+=c.remise.montant;
+          });
+        });
+      });
+      const f=v=>v.toFixed(2).replace('.',',')+' €';
+      document.getElementById('sr-nb').textContent=nb;
+      document.getElementById('sr-brut').textContent=f(brut);
+      document.getElementById('sr-total').textContent='−'+f(remTot);
+      document.getElementById('sr-net').textContent=f(brut-remTot);
+      const gE=Object.entries(parGroupe).sort((a,b)=>b[1].rem-a[1].rem);
+      document.getElementById('sr-par-groupe').innerHTML = gE.length
+        ? '<table><thead><tr><th>Groupe</th><th style="text-align:right">Tickets</th><th style="text-align:right">CA brut</th><th style="text-align:right">Remises</th><th style="text-align:right">CA net</th><th style="text-align:right">Panier moy. net</th></tr></thead><tbody>'
+          + gE.map(([g,v])=>`<tr><td style="font-weight:600">${g}</td><td style="text-align:right">${v.n}</td><td style="text-align:right">${f(v.brut)}</td><td style="text-align:right;color:#c0392b">−${f(v.rem)}</td><td style="text-align:right">${f(v.brut-v.rem)}</td><td style="text-align:right">${f((v.brut-v.rem)/v.n)}</td></tr>`).join('')
+          + '</tbody></table>'
+        : '<p style="font-size:13px;color:var(--text-muted)">Aucune remise sur la période.</p>';
+      const eE=Object.entries(parEmpl).sort((a,b)=>b[1].rem-a[1].rem);
+      document.getElementById('sr-par-empl').innerHTML = eE.length
+        ? '<table><thead><tr><th>Emplacement</th><th style="text-align:right">Tickets remisés</th><th style="text-align:right">Total remises</th></tr></thead><tbody>'
+          + eE.map(([e,v])=>`<tr><td style="font-weight:600">${e}</td><td style="text-align:right">${v.n}</td><td style="text-align:right;color:#c0392b">−${f(v.rem)}</td></tr>`).join('')
+          + '</tbody></table>'
+        : '<p style="font-size:13px;color:var(--text-muted)">Aucune remise sur la période.</p>';
+    });
+}
+
 function chargerParamFidelite(){
   db.ref('site_config/fidelite/home_message').once('value',s=>{
     const el=document.getElementById('pf-home-msg'); if(el) el.value = (s.exists()&&typeof s.val()==='string') ? s.val() : '3 camions, 1 fidélité 🎁\nÇa se passe juste ici 👇';

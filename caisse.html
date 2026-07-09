@@ -788,6 +788,37 @@ input,select,textarea{font-family:inherit;outline:none}
         <span id="pmt-solde-restant"></span>
       </div>
     </div>
+    <div id="pmt-remise-box" style="margin-bottom:10px">
+      <div id="pmt-remise-active" style="display:none;align-items:center;justify-content:space-between;background:#fff7e6;border:1px solid #e8c98a;border-radius:10px;padding:8px 12px;font-size:13px">
+        <span id="pmt-remise-lbl" style="font-weight:600;color:#9a6b00"></span>
+        <button onclick="retirerRemise()" style="background:none;border:none;color:#c0392b;font-size:16px;cursor:pointer;padding:0 4px" title="Retirer la remise">✕</button>
+      </div>
+      <button id="pmt-remise-btn" onclick="ouvrirRemise()" style="width:100%;padding:9px;background:#fff;border:1px dashed #c8a96e;border-radius:10px;color:#9a6b00;font-size:13px;font-weight:600;cursor:pointer">🏷️ Appliquer une remise</button>
+      <div id="pmt-remise-panel" style="display:none;background:#faf6ee;border:1px solid #e5dcc8;border-radius:10px;padding:10px;margin-top:6px">
+        <div style="display:flex;gap:6px;margin-bottom:8px">
+          <button class="rem-tab" id="rem-tab-pct" onclick="remTab('pct')" style="flex:1;padding:7px;border-radius:8px;border:1px solid #d5c9a8;background:#fff;font-size:13px;font-weight:600;cursor:pointer">%</button>
+          <button class="rem-tab" id="rem-tab-eur" onclick="remTab('eur')" style="flex:1;padding:7px;border-radius:8px;border:1px solid #d5c9a8;background:#fff;font-size:13px;font-weight:600;cursor:pointer">€</button>
+          <button class="rem-tab" id="rem-tab-grp" onclick="remTab('grp')" style="flex:1;padding:7px;border-radius:8px;border:1px solid #d5c9a8;background:#fff;font-size:13px;font-weight:600;cursor:pointer">Groupe</button>
+        </div>
+        <div id="rem-pane-pct" style="display:none">
+          <div style="display:flex;gap:6px;align-items:center">
+            <input type="number" id="rem-val-pct" min="0" max="100" step="1" placeholder="10" style="flex:1;padding:8px;border:1px solid #d5c9a8;border-radius:8px;font-size:15px;text-align:right">
+            <span style="font-weight:700">%</span>
+            <button onclick="appliquerRemiseLibre('pct')" style="padding:8px 14px;background:var(--green);color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer">OK</button>
+          </div>
+        </div>
+        <div id="rem-pane-eur" style="display:none">
+          <div style="display:flex;gap:6px;align-items:center">
+            <input type="number" id="rem-val-eur" min="0" step="0.10" placeholder="2.00" style="flex:1;padding:8px;border:1px solid #d5c9a8;border-radius:8px;font-size:15px;text-align:right">
+            <span style="font-weight:700">€</span>
+            <button onclick="appliquerRemiseLibre('eur')" style="padding:8px 14px;background:var(--green);color:#fff;border:none;border-radius:8px;font-weight:600;cursor:pointer">OK</button>
+          </div>
+        </div>
+        <div id="rem-pane-grp" style="display:none">
+          <div id="rem-grp-liste" style="display:flex;flex-direction:column;gap:6px"></div>
+        </div>
+      </div>
+    </div>
     <div class="pmt-total" id="pmt-total-display"></div>
     <div class="pmt-grid" id="pmt-grid"></div>
     <button class="btn-multi" onclick="ouvrirMultiPaiement()">⚡ Partager l'addition</button>
@@ -1285,13 +1316,29 @@ let _appInitialisee = false;
 // On attend que les établissements ET les paramètres soient chargés une fois,
 // puis on décide quoi afficher (UNE SEULE FOIS).
 function brancherEtablissements(){
+  // Démarrage à froid HORS LIGNE : si Firebase ne répond pas vite,
+  // on restaure établissements + paramètres depuis le cache local.
+  const _bootGuard = setTimeout(()=>{
+    if(_appInitialisee) return;
+    const eC = cacheGet('etabs'), pC = cacheGet('parametres');
+    if(eC){
+      etabsData = eC; parametresData = pC || {};
+      modesPaiementDispos = Object.entries(parametresData.modes_paiement || {CB:true,Especes:true})
+        .filter(([,v])=>v).map(([k])=>k);
+      _appInitialisee = true;
+      demarrerApp();
+    }
+  }, 3500);
   db.ref('etablissements').on('value', snap => {
     etabsData = snap.val() || {};
+    cacheSet('etabs', etabsData);
     if(!_appInitialisee){
+      clearTimeout(_bootGuard);
       _appInitialisee = true;
       // Charger les paramètres avant de démarrer
       db.ref('parametres').once('value', snapP => {
         parametresData = snapP.val() || {};
+        cacheSet('parametres', parametresData);
         modesPaiementDispos = Object.entries(parametresData.modes_paiement || {CB:true,Especes:true})
           .filter(([,v])=>v).map(([k])=>k);
         demarrerApp();
@@ -1482,10 +1529,15 @@ function lancerCaisse(etabId, e, directCaisse){
 
   // Emplacement + stats S-1
   chargerEmplacementEtStatsS1();
+  // Groupes de remise du camion
+  chargerRemiseGroupes();
 
-  // Charger carte
+  // Charger carte (avec cache hors-ligne : restauration immédiate, maj réseau ensuite)
+  const _carteCached = cacheGet('carte_'+etabId);
+  if(_carteCached){ carteData = _carteCached; renderArticles(); }
   db.ref('cartes/'+(e.carte||'poke')+'/produits').on('value', snap => {
     carteData = snap.val() || {};
+    cacheSet('carte_'+etabId, carteData);
     renderArticles();
   });
 
@@ -1925,11 +1977,16 @@ function chargerClotures(){
 // ENVOI BON CUISINE (sans aller au paiement)
 // ══════════════════════════════════════════════════════════
 function reserverNumero(cb){
+  // Hors ligne : numéro local série 9000+ immédiat (aucune collision serveur)
+  if(!_fbConnecte || !navigator.onLine){ cb(numeroHorsLigne()); return; }
+  let done = false;
+  const guard = setTimeout(()=>{ if(!done){ done = true; cb(numeroHorsLigne()); } }, 2500);
   db.ref('compteurs/'+selectedEtabId+'/'+todayKey()).transaction(
     n => (n||0)+1,
     (err, committed, snap) => {
+      if(done) return; done = true; clearTimeout(guard);
       let num;
-      if(err || !committed || snap==null){ cmdCounter++; num = cmdCounter; } // repli hors-ligne
+      if(err || !committed || snap==null){ num = numeroHorsLigne(); }
       else { num = snap.val(); cmdCounter = Math.max(cmdCounter, num); }
       cb(num);
     }
@@ -2009,7 +2066,7 @@ function envoyerBonCuisine(){
       timestamp: now.getTime()
     };
     const cmdKey = 'cmd_'+now.getTime();
-    db.ref('commandes/'+selectedEtabId+'/'+todayKey()+'/'+cmdKey).set(cmdEnCours);
+    ecrireFiable('commandes/'+selectedEtabId+'/'+todayKey()+'/'+cmdKey, cmdEnCours);
     commandeEnCoursKey = cmdKey;
     commandeEnCours = cmdEnCours;
     // Imprimer le bon
@@ -2838,13 +2895,175 @@ function validerComment(){
 function getTotal(){ return Math.round(panier.reduce((s,i)=>s+i.prixTotal*i.qte,0)*100)/100; }
 
 // ══════════════════════════════════════════════════════════
+// MODE HORS-LIGNE (niveau 2) — file persistée + sync + cache
+// L'app démarre sans réseau (service worker), toute écriture
+// critique passe par la file localStorage (survit au reboot),
+// et se resynchronise à la reconnexion, dans l'ordre.
+// ══════════════════════════════════════════════════════════
+const OQ_KEY = 'pokben_oq_v1';
+let _oqSync = false;
+let _fbConnecte = true;
+
+function oqAll(){ try{ return JSON.parse(localStorage.getItem(OQ_KEY)||'[]'); }catch(e){ return []; } }
+function oqSave(q){ try{ localStorage.setItem(OQ_KEY, JSON.stringify(q)); }catch(e){} majIndicHorsLigne(); }
+// Écriture fiable : persistée localement AVANT tout, retirée de la file
+// uniquement quand le serveur a confirmé. op = 'set' | 'update'.
+function ecrireFiable(path, data, op){
+  const q = oqAll();
+  q.push({ id:'q'+Date.now()+'_'+Math.random().toString(36).slice(2,7), path, data, op:(op||'set'), ts:Date.now() });
+  oqSave(q);
+  oqSync();
+}
+function oqSync(){
+  if(_oqSync) return;
+  const q = oqAll();
+  if(!q.length){ majIndicHorsLigne(); return; }
+  _oqSync = true;
+  const item = q[0];
+  const ref = db.ref(item.path);
+  const p = item.op==='update' ? ref.update(item.data) : ref.set(item.data);
+  const timeout = new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')), 12000));
+  Promise.race([p, timeout])
+    .then(()=>{ oqSave(oqAll().filter(x=>x.id!==item.id)); _oqSync=false; oqSync(); })
+    .catch(()=>{ _oqSync=false; setTimeout(oqSync, 6000); });
+}
+window.addEventListener('online', ()=>setTimeout(oqSync, 800));
+setInterval(oqSync, 20000);
+
+// Numérotation hors-ligne : série 9000+ par jour et par appareil → aucune
+// collision possible avec la série serveur, et le ticket garde son numéro.
+function numeroHorsLigne(){
+  const k = 'pokben_hlnum_'+todayKey();
+  const n = (parseInt(localStorage.getItem(k))||0) + 1;
+  localStorage.setItem(k, String(n));
+  return 9000 + n;
+}
+
+// Cache local des données de référence (carte, remises, emplacement) —
+// restaurées au démarrage pour que la caisse soit opérationnelle sans réseau.
+function cacheSet(k, v){ try{ localStorage.setItem('pokben_cache_'+k, JSON.stringify(v)); }catch(e){} }
+function cacheGet(k){ try{ return JSON.parse(localStorage.getItem('pokben_cache_'+k)); }catch(e){ return null; } }
+
+// Indicateur visuel + suivi connexion Firebase
+function majIndicHorsLigne(){
+  let el = document.getElementById('indic-hl');
+  if(!el){
+    const tb = document.getElementById('topbar') || document.body;
+    el = document.createElement('div');
+    el.id = 'indic-hl';
+    el.style.cssText = 'position:fixed;bottom:10px;left:10px;z-index:9999;padding:6px 12px;border-radius:20px;font-size:12px;font-weight:700;display:none;box-shadow:0 2px 8px rgba(0,0,0,.25)';
+    document.body.appendChild(el);
+  }
+  const n = oqAll().length;
+  if(!_fbConnecte){
+    el.style.display = 'block';
+    el.style.background = '#c0392b'; el.style.color = '#fff';
+    el.textContent = '🔴 Hors ligne' + (n ? ' · '+n+' opération'+(n>1?'s':'')+' en attente' : ' — encaissements sécurisés localement');
+  } else if(n > 0){
+    el.style.display = 'block';
+    el.style.background = '#e67e22'; el.style.color = '#fff';
+    el.textContent = '🟠 Synchronisation… '+n+' en attente';
+  } else {
+    el.style.display = 'none';
+  }
+}
+try{
+  db.ref('.info/connected').on('value', s=>{ _fbConnecte = (s.val()===true); majIndicHorsLigne(); if(_fbConnecte) oqSync(); });
+}catch(e){}
+
+// Service worker : l'app se lance même sans réseau
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{ navigator.serviceWorker.register('caisse-sw.js').catch(()=>{}); });
+}
+
+// ══════════════════════════════════════════════════════════
+// REMISES (libre % / € + groupes paramétrés dans l'admin)
+// ══════════════════════════════════════════════════════════
+let remiseEnCours = null;        // {type:'pct'|'eur'|'groupe', mode:'pct'|'eur', valeur, groupe_id, groupe_nom}
+let _remiseGroupes = {};         // remise_groupes/{etab} chargés
+
+function chargerRemiseGroupes(){
+  if(!selectedEtabId) return;
+  const _c = cacheGet('remises_'+selectedEtabId);
+  if(_c) _remiseGroupes = _c;
+  db.ref('remise_groupes/'+selectedEtabId).on('value', s=>{ _remiseGroupes = s.val()||{}; cacheSet('remises_'+selectedEtabId, _remiseGroupes); });
+}
+// Montant de la remise pour un brut donné (jamais > brut)
+function remiseMontant(brut){
+  if(!remiseEnCours) return 0;
+  let m = 0;
+  if(remiseEnCours.mode==='pct') m = brut * (remiseEnCours.valeur/100);
+  else m = remiseEnCours.valeur;
+  m = Math.min(m, brut);
+  return Math.round(m*100)/100;
+}
+function getTotalNet(){
+  const brut = getTotal() || commandeEnCours?.total_brut || commandeEnCours?.total || 0;
+  return Math.round((brut - remiseMontant(brut))*100)/100;
+}
+function ouvrirRemise(){
+  const p = document.getElementById('pmt-remise-panel');
+  p.style.display = p.style.display==='none' ? 'block' : 'none';
+  if(p.style.display==='block') remTab('pct');
+}
+function remTab(t){
+  ['pct','eur','grp'].forEach(x=>{
+    document.getElementById('rem-pane-'+x).style.display = (x===t)?'block':'none';
+    const b=document.getElementById('rem-tab-'+x);
+    b.style.background = (x===t)?'var(--green)':'#fff';
+    b.style.color = (x===t)?'#fff':'inherit';
+  });
+  if(t==='grp'){
+    const box=document.getElementById('rem-grp-liste');
+    const grps=Object.entries(_remiseGroupes).filter(([,g])=>g && g.actif!==false);
+    box.innerHTML = grps.length ? grps.map(([id,g])=>
+      `<button onclick="appliquerRemiseGroupe('${id}')" style="padding:9px;border:1px solid #d5c9a8;border-radius:8px;background:#fff;font-size:13px;font-weight:600;cursor:pointer;text-align:left;display:flex;justify-content:space-between"><span>${g.nom}</span><span style="color:#9a6b00">−${g.valeur}${g.type==='pct'?'%':'€'}</span></button>`
+    ).join('') : '<div style="font-size:12px;color:#888;text-align:center;padding:6px">Aucun groupe — configure-les dans l\'admin (Groupes de remise)</div>';
+  }
+}
+function appliquerRemiseLibre(mode){
+  const v = parseFloat(String(document.getElementById('rem-val-'+mode).value).replace(',','.'));
+  if(isNaN(v) || v<=0){ showNotif('Saisis une valeur','error'); return; }
+  if(mode==='pct' && v>100){ showNotif('Max 100%','error'); return; }
+  remiseEnCours = { type:mode, mode:mode, valeur:Math.round(v*100)/100 };
+  majAffichageRemise();
+}
+function appliquerRemiseGroupe(id){
+  const g=_remiseGroupes[id]; if(!g) return;
+  remiseEnCours = { type:'groupe', mode:(g.type==='eur'?'eur':'pct'), valeur:Number(g.valeur)||0, groupe_id:id, groupe_nom:g.nom };
+  majAffichageRemise();
+}
+function retirerRemise(){ remiseEnCours=null; majAffichageRemise(); }
+function majAffichageRemise(){
+  const act=document.getElementById('pmt-remise-active');
+  const btn=document.getElementById('pmt-remise-btn');
+  const panel=document.getElementById('pmt-remise-panel');
+  const brut = getTotal() || commandeEnCours?.total_brut || commandeEnCours?.total || 0;
+  if(remiseEnCours){
+    const m=remiseMontant(brut);
+    const lbl = remiseEnCours.type==='groupe'
+      ? `🏷️ ${remiseEnCours.groupe_nom} −${remiseEnCours.valeur}${remiseEnCours.mode==='pct'?'%':'€'} · −${fmtPrix(m)}`
+      : `🏷️ Remise −${remiseEnCours.valeur}${remiseEnCours.mode==='pct'?'%':'€'} · −${fmtPrix(m)}`;
+    document.getElementById('pmt-remise-lbl').textContent = lbl;
+    act.style.display='flex'; btn.style.display='none'; panel.style.display='none';
+  } else {
+    act.style.display='none'; btn.style.display='block';
+  }
+  // recalcul du total affiché (hors multi-paiement partiel en cours)
+  const dejaRegle = multiPaiementsValides.reduce((s,p)=>s+p.montant,0);
+  const solde = Math.round((getTotalNet() - dejaRegle)*100)/100;
+  const disp=document.getElementById('pmt-total-display');
+  if(disp) disp.textContent = fmtPrix(dejaRegle>0 ? solde : getTotalNet());
+}
+
+// ══════════════════════════════════════════════════════════
 // PAIEMENT SIMPLE
 // ══════════════════════════════════════════════════════════
 function ouvrirPaiement(){
   selectedPmt = null;
   fermerModal('modal-especes');
   fermerModal('modal-tickets');
-  const totalCommande = getTotal() || commandeEnCours?.total || 0;
+  const totalCommande = getTotalNet() || commandeEnCours?.total || 0;
   const dejaRegle = multiPaiementsValides.reduce((s,p)=>s+p.montant,0);
   const soldeRestant = Math.round((totalCommande - dejaRegle)*100)/100;
   // Afficher récap si paiements partiels
@@ -2877,6 +3096,7 @@ function ouvrirPaiement(){
     grid.appendChild(btn);
   });
   document.getElementById('modal-paiement').classList.add('open');
+  majAffichageRemise();
 }
 
 function selectPmt(mode, btn){
@@ -2895,7 +3115,7 @@ function selectPmt(mode, btn){
 
 function confirmerPaiement(){
   if(!selectedPmt) return;
-  const totalCommande = getTotal() || commandeEnCours?.total || 0;
+  const totalCommande = getTotalNet() || commandeEnCours?.total || 0;
   const dejaRegle = multiPaiementsValides.reduce((s,p)=>s+p.montant,0);
   const solde = Math.round((totalCommande - dejaRegle)*100)/100;
   const pmt = {mode:selectedPmt, montant:solde>0?solde:totalCommande};
@@ -3300,6 +3520,7 @@ function majMultiTickets(){
 
 function annulerPaiement(){
   document.getElementById('modal-paiement').classList.remove('open');
+  remiseEnCours = null;
   setTimeout(()=>{
     multiPaiementsValides = [];
     majPanierPmtRecap();
@@ -3478,7 +3699,14 @@ function finaliserCommande(paiements){
   fermerModal('modal-multi');
   const nom = nettoyerTexte(document.getElementById('input-nom').value.trim()) || commandeEnCours?.nom_client || 'Client';
   const couverts = parseInt(document.getElementById('input-couverts').value) || commandeEnCours?.couverts || 1;
-  const total = getTotal() || commandeEnCours?.total || 0;
+  const totalBrut = getTotal() || commandeEnCours?.total_brut || commandeEnCours?.total || 0;
+  const remiseMt = remiseMontant(totalBrut);
+  const total = Math.round((totalBrut - remiseMt)*100)/100;
+  const remiseRec = remiseEnCours ? {
+    type: remiseEnCours.type, mode: remiseEnCours.mode, valeur: remiseEnCours.valeur,
+    montant: remiseMt,
+    ...(remiseEnCours.groupe_id ? { groupe_id: remiseEnCours.groupe_id, groupe_nom: remiseEnCours.groupe_nom } : {})
+  } : null;
   const now = new Date();
   const tel = document.getElementById('input-couverts').dataset.tel;
   const construireEtSauver = (num) => {
@@ -3491,6 +3719,8 @@ function finaliserCommande(paiements){
       emplacement: etabInfo.emplacement_actuel || '—',
       statut: 'payee',
       total,
+      total_brut: totalBrut,
+      ...(remiseRec ? { remise: remiseRec } : {}),
       articles: panier.length > 0 ? panier.map(i=>({
         prodId:i.prodId, nom:i.nom, taille:i.taille,
         prix:i.prixTotal, supplements:i.supplements||[],
@@ -3501,11 +3731,12 @@ function finaliserCommande(paiements){
       timestamp: now.getTime()
     };
     const cmdKey = commandeEnCoursKey || 'cmd_'+now.getTime();
-    db.ref('commandes/'+selectedEtabId+'/'+todayKey()+'/'+cmdKey).set(commande);
+    ecrireFiable('commandes/'+selectedEtabId+'/'+todayKey()+'/'+cmdKey, commande);
     // Archive des ventes (nœud séparé, conservé pour l'analyse coût matière S-1)
-    db.ref('ventes_archive/'+selectedEtabId+'/'+todayKey()+'/'+cmdKey).set(commande);
+    ecrireFiable('ventes_archive/'+selectedEtabId+'/'+todayKey()+'/'+cmdKey, commande);
     commandeEnCours = commande;
     commandeEnCoursKey = null;
+    remiseEnCours = null;   // la remise ne survit pas au ticket
     if(tel){ crediterFidelite(tel, total); }
     // Ouverture tiroir selon les modes de paiement configurés (imprimante réseau)
     if(eposActif() && paiementOuvreTiroir(paiements)){ eposOuvrirTiroir(); }
@@ -3853,6 +4084,11 @@ function imprimerNote(avecDetail){
       if(a.commentaire) lignes.push('<div style="font-size:10px;padding-left:8px;color:#c00">⚠️ '+a.commentaire+'</div>');
     });
     lignes.push('<div class="pr-sep"></div>');
+  }
+  if(cmd.remise && cmd.remise.montant){
+    lignes.push('<div class="pr-line"><span>Sous-total</span><span>'+fmtPrix(cmd.total_brut||((cmd.total||0)+cmd.remise.montant))+'</span></div>');
+    const remLbl = cmd.remise.groupe_nom ? ('Remise '+cmd.remise.groupe_nom) : 'Remise';
+    lignes.push('<div class="pr-line"><span>'+remLbl+' −'+cmd.remise.valeur+(cmd.remise.mode==='pct'?'%':'€')+'</span><span>−'+fmtPrix(cmd.remise.montant)+'</span></div>');
   }
   lignes.push('<div class="pr-total"><span>TOTAL TTC</span><span>'+fmtPrix(cmd.total)+'</span></div>');
   // Détail TVA
@@ -4289,20 +4525,18 @@ function confirmerCloture(service, ca, nbCmd, nbCvt, pm, parPmt, controleActif){
       detail_paiements:parPmt,
       ...(controleData?{controle_caisse:controleData}:{})
     };
-    db.ref('clotures/'+selectedEtabId+'/'+today+'/'+service).set(cloture)
-      .then(()=>{
-        // Mode "prochaine clôture" : on désactive après usage
-        const cfg = etabInfo.controle_caisse_config;
-        if(controleData && cfg && cfg.mode==='cloture'){
-          db.ref('etablissements/'+selectedEtabId+'/controle_caisse_config/mode').set('off');
-          if(etabInfo.controle_caisse_config) etabInfo.controle_caisse_config.mode='off';
-        }
-        fermerModal('modal-cloture');
-        imprimerRapportCloture(cloture);
-        // Afficher écran post-clôture
-        afficherPostCloture(cloture);
-      })
-      .catch(()=>showNotif('Erreur lors de la clôture (réessaie)','error'));
+    // Clôture via la file fiable : passe hors ligne, se synchronise ensuite.
+    ecrireFiable('clotures/'+selectedEtabId+'/'+today+'/'+service, cloture);
+    // Mode "prochaine clôture" : on désactive après usage
+    const cfg = etabInfo.controle_caisse_config;
+    if(controleData && cfg && cfg.mode==='cloture'){
+      ecrireFiable('etablissements/'+selectedEtabId+'/controle_caisse_config/mode', 'off');
+      if(etabInfo.controle_caisse_config) etabInfo.controle_caisse_config.mode='off';
+    }
+    fermerModal('modal-cloture');
+    imprimerRapportCloture(cloture);
+    // Afficher écran post-clôture
+    afficherPostCloture(cloture);
   });
 }
 

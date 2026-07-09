@@ -536,12 +536,23 @@ const app = initializeApp(firebaseConfig, 'fidelitePublic'); // session isolée 
 const db = getDatabase(app);
 const auth = getAuth(app);
 
-// Authentification anonyme (les règles pokeben-caisse exigent auth != null)
-let authReady = signInAnonymously(auth).catch(e => {
-  console.error('Auth error', e);
-  window.toast && window.toast('⚠️ Connexion sécurisée échouée','error');
+// ── Authentification STAFF (appareil interne) ──
+// La tablette n'utilise plus l'anonyme : clients_fidelite est désormais
+// réservé au staff (sécurité N2 : l'énumération anonyme devient impossible).
+// Connexion une seule fois par appareil — la session persiste (redémarrages inclus).
+import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+let _authResolve;
+let authReady = new Promise(res => { _authResolve = res; });
+let _authBootDone = false;
+onAuthStateChanged(auth, (u) => {
+  if(u && !u.isAnonymous){
+    if(!_authBootDone){ _authBootDone = true; _authResolve(u); goVeille(); }
+  } else if(!_authBootDone){
+    // Pas de session staff : écran de connexion appareil
+    showScreen('screen-admin-login');
+  }
 });
-authReady && authReady.then && authReady.then(()=>{ try{ majEmplacementJour(); }catch(e){} chargerRewardsMarque().then(()=>{ try{ majVeilleHome(); }catch(e){} }); });
+authReady.then(()=>{ try{ majEmplacementJour(); }catch(e){} chargerRewardsMarque().then(()=>{ try{ majVeilleHome(); }catch(e){} }); precacheClients(); });
 
 let npVal='', pinVal='', cur=null, curTel=null, all={}, detailTel=null, adminTab='dash';
 let regSexe=null, regConsent=null, qState={};
@@ -572,10 +583,18 @@ window.searchClient=async()=>{
   const tel=telKey();
   try{
     await authReady;
-    const snap=await get(ref(db,'clients_fidelite/'+tel));
+    const snap = await Promise.race([
+      get(ref(db,'clients_fidelite/'+tel)),
+      new Promise((_,rej)=>setTimeout(()=>rej(new Error('hl')), 4000))
+    ]);
     if(snap.exists()){ cur=snap.val(); curTel=tel; showProfile(); }
     else showInscription(tel);
-  }catch(e){ toast('⚠️ Erreur réseau','error'); }
+  }catch(e){
+    // Hors ligne : consultation depuis le cache local
+    const c = clientDepuisCache(tel);
+    if(c){ cur=c; curTel=tel; showProfile(); }
+    else showInscription(tel);
+  }
 };
 
 // INSCRIPTION
@@ -608,7 +627,7 @@ window.registerClient=async()=>{
     acquisition_camion:_cam?_cam.id:null,
     profile:{}, history:[]
   };
-  try{ await set(ref(db,'clients_fidelite/'+tel),c); cur=c; curTel=tel; showProfile(); toast('🎉 Bienvenue dans la famille Pok&Ben !','ok'); }
+  try{ ecrireFiableF('clients_fidelite/'+tel, c, 'set'); cur=c; curTel=tel; showProfile(); toast('🎉 Bienvenue dans la famille Pok&Ben !','ok'); }
   catch(e){ toast("Erreur à l'inscription",'error'); }
 };
 
@@ -630,7 +649,7 @@ window.utiliserRecompense = async (idx) => {
   const empl = getEmplacementFinal(); if(empl) he.emplacement = empl;
   hist.push(he);
   try{
-    await update(ref(db,'clients_fidelite/'+curTel), { points:newPts, history:hist });
+    ecrireFiableF('clients_fidelite/'+curTel, { points:newPts, history:hist }, 'update');
     cur = { ...cur, points:newPts, history:hist };
     showProfile();
     toast('🎉 '+r.nom+' — bon appétit !','ok');
@@ -742,7 +761,7 @@ async function doPassage(tel, ts){
     const hist=c.history?Object.values(c.history):[];
     const he={ts,type:'passage',visites,points}; if(cam){ he.camion=cam.id; he.marque=cam.marque; } const empl=getEmplacementFinal(); if(empl) he.emplacement=empl;
     hist.push(he);
-    await update(ref(db,'clients_fidelite/'+tel),{visites,points,derniere_visite:ts,history:hist,camions});
+    ecrireFiableF('clients_fidelite/'+tel, {visites,points,derniere_visite:ts,history:hist,camions}, 'update');
     cur={...c,visites,points,derniere_visite:ts,camions};
     if(isGift) showScreen('screen-gift');
     else showSuccess(false, visites%PASSAGES_FOR_REWARD);
@@ -766,10 +785,10 @@ window.doFidLogin=()=>{
   const pwd=document.getElementById('fid-login-pwd').value||'';
   const err=document.getElementById('fid-login-error'); if(err) err.style.display='none';
   signInWithEmailAndPassword(auth, email, pwd)
-    .then(()=>{ showScreen('screen-admin-pin'); })
+    .then(()=>{ if(_authBootDone){ showScreen('screen-admin-pin'); } /* sinon onAuthStateChanged lance l'app */ })
     .catch(()=>{ if(err) err.style.display='block'; });
 };
-window.fidLogout=()=>{ signOut(auth).then(()=>{ try{ signInAnonymously(auth); }catch(e){} goVeille(); }); };
+window.fidLogout=()=>{ signOut(auth).then(()=>{ _authBootDone=false; showScreen('screen-admin-login'); }); };
 window.pin=(d)=>{ if(pinVal.length>=4) return; pinVal+=d; pinDots();
   if(pinVal.length===4) setTimeout(()=>{ if(pinVal===ADMIN_PIN){ pinVal=''; pinDots(); loadAdmin(); showScreen('screen-admin'); } else { toast('Code incorrect','error'); pinVal=''; pinDots(); } },180); };
 window.pinDel=()=>{ pinVal=pinVal.slice(0,-1); pinDots(); };
@@ -914,6 +933,68 @@ function toast(m,t){ window.toast(m,t); }
 function fmtPhone(p){ return p?p.replace(/(\d{2})(?=\d)/g,'$1 ').trim():''; }
 function fmtDate(ts){ return ts?new Date(ts).toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'}):'—'; }
 function todayKey(){ return new Date().toISOString().split('T')[0]; }
+
+// ══════════════════════════════════════════════════════════
+// MODE HORS-LIGNE FIDÉLITÉ — précache clients + file d'écriture
+// ══════════════════════════════════════════════════════════
+const FQ_KEY = 'fid_oq_v1';
+const FCACHE_KEY = 'fid_clients_v1';
+let _fqSync = false;
+
+function fqAll(){ try{ return JSON.parse(localStorage.getItem(FQ_KEY)||'[]'); }catch(e){ return []; } }
+function fqSave(q){ try{ localStorage.setItem(FQ_KEY, JSON.stringify(q)); }catch(e){} }
+function ecrireFiableF(path, data, op){
+  const q = fqAll();
+  q.push({ id:'f'+Date.now()+'_'+Math.random().toString(36).slice(2,6), path, data, op:(op||'set'), ts:Date.now() });
+  fqSave(q); fqSync();
+  // maj optimiste du cache local pour cohérence d'affichage hors ligne
+  try{
+    const m = path.match(/^clients_fidelite\/(0\d{9})/);
+    if(m){
+      const cache = JSON.parse(localStorage.getItem(FCACHE_KEY)||'{}');
+      const tel = m[1];
+      if(op==='update') cache[tel] = { ...(cache[tel]||{}), ...data };
+      else cache[tel] = data;
+      localStorage.setItem(FCACHE_KEY, JSON.stringify(cache));
+    }
+  }catch(e){}
+}
+function fqSync(){
+  if(_fqSync) return;
+  const q = fqAll(); if(!q.length) return;
+  _fqSync = true;
+  const item = q[0];
+  const r = ref(db, item.path);
+  const p = item.op==='update' ? update(r, item.data) : set(r, item.data);
+  Promise.race([p, new Promise((_,rej)=>setTimeout(()=>rej(1), 12000))])
+    .then(()=>{ fqSave(fqAll().filter(x=>x.id!==item.id)); _fqSync=false; fqSync(); })
+    .catch(()=>{ _fqSync=false; setTimeout(fqSync, 6000); });
+}
+window.addEventListener('online', ()=>setTimeout(fqSync, 800));
+setInterval(fqSync, 20000);
+
+// Précharge la base clients (sans historique ni données Pongo → léger) pour la consultation hors ligne
+async function precacheClients(){
+  try{
+    const s = await get(ref(db,'clients_fidelite'));
+    if(!s.exists()) return;
+    const src = s.val()||{}; const light = {};
+    Object.entries(src).forEach(([tel,c])=>{
+      if(!c) return;
+      const { history, pongo, ...rest } = c;
+      light[tel] = rest;
+    });
+    localStorage.setItem(FCACHE_KEY, JSON.stringify(light));
+  }catch(e){}
+}
+setInterval(precacheClients, 5*60*1000);
+function clientDepuisCache(tel){
+  try{ const c = JSON.parse(localStorage.getItem(FCACHE_KEY)||'{}'); return c[tel]||null; }catch(e){ return null; }
+}
+// Service worker : la tablette démarre sans réseau
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{ navigator.serviceWorker.register('fidelite-sw.js').catch(()=>{}); });
+}
 
 // idle
 let idle;
