@@ -5994,6 +5994,7 @@ function validerPkb(id){
     status:'confirmed',
     validee_le: firebase.database.ServerValue.TIMESTAMP,
     validee_par:'Admin',
+    email_type:'confirmation',
     email_statut: o.email ? 'en_attente' : 'sans_email'
   })
     .then(()=>showNotif('✓ '+(o.num||'')+' confirmée'+(o.email?' · email en cours d\'envoi':''),'success'))
@@ -6002,22 +6003,26 @@ function validerPkb(id){
 
 function refuserPkb(id){
   const o = _pkbOrders[id]; if(!o) return;
-  if(!confirm('Refuser la commande '+(o.num||'')+' ? Le créneau sera re-libéré.')) return;
+  const motif = prompt('Refuser la commande '+(o.num||'')+' ?\n\nMotif communiqué au client (optionnel) :', 'Nous ne pouvons malheureusement pas honorer cette commande.');
+  if(motif === null) return;
   db.ref('commandes_web/'+PKB_ETAB+'/'+id).update({
     status:'cancelled',
     annulee_le: firebase.database.ServerValue.TIMESTAMP,
     annulee_par:'Admin',
     statut_avant:(o.status||'pending'),
-    annul_vue:true
+    annul_vue:true,
+    motif_refus:(motif||'').trim()||null,
+    email_type:'refus',
+    email_statut: o.email ? 'en_attente' : 'sans_email'
   })
-    .then(()=>showNotif('Commande refusée','success'))
+    .then(()=>showNotif(o.email ? 'Commande refusée — email au client en cours' : 'Commande refusée (client sans email)','success'))
     .catch(()=>showNotif('Erreur Firebase','error'));
 }
 
 function remettreEnAttentePkb(id){
   const o = _pkbOrders[id]; if(!o) return;
   if(!confirm('Remettre la commande '+(o.num||'')+' en attente ?')) return;
-  db.ref('commandes_web/'+PKB_ETAB+'/'+id).update({ status:'pending' })
+  db.ref('commandes_web/'+PKB_ETAB+'/'+id).update({ status:'pending', email_statut:null, email_type:null, motif_refus:null })
     .then(()=>showNotif('Remise en attente','success'))
     .catch(()=>showNotif('Erreur Firebase','error'));
 }
