@@ -6128,7 +6128,7 @@ function restaurerAnnulPkb(id){
     + '\n\n⚠️ Vérifie que le créneau '+_pkbHeure(o)+' est toujours disponible avant de valider.')) return;
   db.ref('commandes_web/'+PKB_ETAB+'/'+id).update({
     status:'pending',
-    annulee_le:null, annulee_par:null, statut_avant:null, annul_vue:null, email_statut:null
+    annulee_le:null, annulee_par:null, statut_avant:null, annul_vue:null, email_statut:null, email_type:null, motif_refus:null
   })
     .then(()=>showNotif('✓ '+(o.num||'')+' restaurée — de retour dans « À valider »','success'))
     .catch(()=>showNotif('Erreur Firebase — réessayez','error'));
@@ -6368,7 +6368,7 @@ function restaurerAnnulCaptn(id){
     + '\n\n⚠️ Vérifie que le créneau '+_captnHeure(o)+' est toujours disponible avant de valider.')) return;
   db.ref('commandes_web/'+CAPTN_ETAB+'/'+id).update({
     status:'pending',
-    annulee_le:null, annulee_par:null, statut_avant:null, annul_vue:null, email_statut:null
+    annulee_le:null, annulee_par:null, statut_avant:null, annul_vue:null, email_statut:null, email_type:null, motif_refus:null
   })
     .then(()=>showNotif('✓ '+(o.num||'')+' restaurée — de retour dans « À valider »','success'))
     .catch(()=>showNotif('Erreur Firebase — réessayez','error'));
@@ -6428,6 +6428,7 @@ function validerCommandeCaptn(id){
     status: 'confirmed',
     validee_le: firebase.database.ServerValue.TIMESTAMP,
     validee_par: 'Admin',
+    email_type: 'confirmation',
     email_statut: o.email ? 'en_attente' : 'sans_email'
   };
   db.ref('commandes_web/'+CAPTN_ETAB+'/'+id).update(maj)
@@ -6474,16 +6475,21 @@ function _captnEmailBadge(o){
 function refuserCommandeCaptn(id){
   const o = _captnOrders[id];
   if(!o) return;
-  if(!confirm('Refuser la commande '+(o.num||'')+' ? Elle sera retirée et le créneau re-libéré.')) return;
+  const motif = prompt('Refuser la commande '+(o.num||'')+' ?\n\nMotif communiqué au client (optionnel) :', 'Nous ne pouvons malheureusement pas honorer cette commande.');
+  if(motif === null) return;   // Annuler
   const _u = {};
   _u['commandes_web/'+CAPTN_ETAB+'/'+id+'/status']='cancelled';
   _u['commandes_web/'+CAPTN_ETAB+'/'+id+'/annulee_le']=firebase.database.ServerValue.TIMESTAMP;
   _u['commandes_web/'+CAPTN_ETAB+'/'+id+'/annulee_par']='Admin';
   _u['commandes_web/'+CAPTN_ETAB+'/'+id+'/statut_avant']=(o.status||'pending');
   _u['commandes_web/'+CAPTN_ETAB+'/'+id+'/annul_vue']=true;
+  _u['commandes_web/'+CAPTN_ETAB+'/'+id+'/motif_refus']=(motif||'').trim()||null;
+  // Email de refus : le script Apps Script lit email_type pour choisir le bon message
+  _u['commandes_web/'+CAPTN_ETAB+'/'+id+'/email_type']='refus';
+  _u['commandes_web/'+CAPTN_ETAB+'/'+id+'/email_statut']= o.email ? 'en_attente' : 'sans_email';
   _u['creneaux_web/'+CAPTN_ETAB+'/'+id+'/status']='cancelled'; // libère la capacité (miroir sans PII)
   db.ref().update(_u)
-    .then(()=>showNotif('Commande refusée','success'))
+    .then(()=>showNotif(o.email ? 'Commande refusée — email au client en cours' : 'Commande refusée (client sans email)','success'))
     .catch(()=>showNotif('Erreur Firebase','error'));
 }
 

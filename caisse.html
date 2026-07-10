@@ -5015,6 +5015,7 @@ function validerWebCaptn(id){
   _u['commandes_web/'+_node+'/'+id+'/status'] = 'confirmed';
   _u['commandes_web/'+_node+'/'+id+'/validee_le'] = firebase.database.ServerValue.TIMESTAMP;
   _u['commandes_web/'+_node+'/'+id+'/validee_par'] = 'Caisse';
+  _u['commandes_web/'+_node+'/'+id+'/email_type'] = 'confirmation';
   _u['commandes_web/'+_node+'/'+id+'/email_statut'] = o.email ? 'en_attente' : 'sans_email';
   if(_node==='captfish') _u['creneaux_web/'+_node+'/'+id+'/status'] = 'confirmed'; // sync suivi client (site)
   db.ref().update(_u)
@@ -5027,7 +5028,8 @@ function validerWebCaptn(id){
 }
 function refuserWebCaptn(id){
   const o = _webOrders[id]; if(!o) return;
-  if(!confirm('Refuser la commande '+(o.num||'')+' ? Le créneau sera re-libéré.')) return;
+  const motif = prompt('Refuser la commande '+(o.num||'')+' ?\n\nMotif communiqué au client (optionnel) :', 'Nous ne pouvons malheureusement pas honorer cette commande.');
+  if(motif === null) return;
   const _node = (_webEtabNode||CAPTN_WEB_ETAB);
   const _u = {};
   _u['commandes_web/'+_node+'/'+id+'/status']='cancelled';
@@ -5035,9 +5037,12 @@ function refuserWebCaptn(id){
   _u['commandes_web/'+_node+'/'+id+'/annulee_par']='Caisse';
   _u['commandes_web/'+_node+'/'+id+'/statut_avant']=(o.status||'pending');
   _u['commandes_web/'+_node+'/'+id+'/annul_vue']=true;
+  _u['commandes_web/'+_node+'/'+id+'/motif_refus']=(motif||'').trim()||null;
+  _u['commandes_web/'+_node+'/'+id+'/email_type']='refus';
+  _u['commandes_web/'+_node+'/'+id+'/email_statut']= o.email ? 'en_attente' : 'sans_email';
   if(_node==='captfish') _u['creneaux_web/'+_node+'/'+id+'/status']='cancelled'; // libère la capacité
   db.ref().update(_u)
-    .then(()=>{ showNotif('Commande refusée','success'); renderWebValiderSheet(); renderWebOrdersAccueil(); })
+    .then(()=>{ showNotif(o.email ? 'Commande refusée — email au client en cours' : 'Commande refusée (client sans email)','success'); renderWebValiderSheet(); renderWebOrdersAccueil(); })
     .catch(()=>showNotif('Erreur réseau','error'));
 }
 // Réversibilité : remettre une commande confirmée en attente
