@@ -528,6 +528,7 @@ input,select,textarea{font-family:inherit;outline:none}
       <div>🪑 <span id="topbar-s1-cvt" style="font-weight:600">—</span></div>
     </div>
     <button id="btn-fond-caisse" onclick="ouvrirFondCaisse()" style="padding:6px 12px;background:none;border:1.5px solid var(--border);border-radius:var(--radius);font-size:12px;font-weight:600;color:var(--text-muted);cursor:pointer">💶 Fond de caisse</button>
+    <button id="btn-ouvrir-tiroir" onclick="ouvrirTiroirManuel()" style="padding:6px 12px;background:none;border:1.5px solid var(--border);border-radius:var(--radius);font-size:12px;font-weight:600;color:var(--text-muted);cursor:pointer" title="Ouvrir le tiroir sans vente (PIN requis)">🗄 Tiroir</button>
     <button id="btn-fin-service" onclick="ouvrirFinDeService()" style="padding:6px 12px;background:var(--amber-light);border:1.5px solid var(--amber);border-radius:var(--radius);font-size:12px;font-weight:600;color:var(--amber);cursor:pointer">☕ Fin de service</button>
     <button id="btn-cloture" onclick="ouvrirCloture()">Clôturer ↓</button>
   </div>
@@ -555,21 +556,26 @@ input,select,textarea{font-family:inherit;outline:none}
           <span class="couverts-val" id="p-cvt-val">—</span>
         </div>
         <div id="panier-header">
-          <h2>Commande</h2>
-          <div class="panier-meta">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">
+            <h2 style="margin:0">Commande</h2>
+            <button id="btn-nouvelle-cmd" onclick="demarrerNouvelleCommande()" style="padding:6px 12px;background:var(--green-light);border:1.5px solid var(--green);border-radius:var(--radius);font-size:12px;font-weight:600;color:var(--green-dark);cursor:pointer">＋ Nouvelle commande</button>
+          </div>
+          <!-- Saisie centralisée : ces champs sont en LECTURE SEULE, l'édition passe par la modale (un clic l'ouvre) -->
+          <div class="panier-meta" onclick="ouvrirModalNomCouverts()" style="cursor:pointer" title="Touchez pour modifier">
             <div class="panier-meta-field">
               <div class="panier-meta-label">Nom client</div>
-              <input class="panier-meta-input" id="input-nom" placeholder="Sophie" maxlength="20" type="text" onblur="sauvegarderInfosCommande()">
+              <input class="panier-meta-input" id="input-nom" placeholder="Sophie" maxlength="20" type="text" readonly style="cursor:pointer;background:transparent">
             </div>
             <div class="panier-meta-field">
               <div class="panier-meta-label">Couverts</div>
-              <input class="panier-meta-input" id="input-couverts" type="number" min="1" max="99" placeholder="2" onblur="sauvegarderInfosCommande()">
+              <input class="panier-meta-input" id="input-couverts" type="number" min="1" max="99" placeholder="2" readonly style="cursor:pointer;background:transparent">
             </div>
           </div>
-          <div style="margin-top:6px">
+          <div style="margin-top:6px;cursor:pointer" onclick="ouvrirModalNomCouverts()" title="Touchez pour modifier">
             <div class="panier-meta-label">Retrait souhaité</div>
-            <input class="panier-meta-input" id="input-retrait" type="time" step="600" placeholder="12:30" style="width:100%;font-size:14px" onchange="arrondirHeure10(this);sauvegarderInfosCommande()">
+            <input class="panier-meta-input" id="input-retrait" type="time" step="600" placeholder="12:30" style="width:100%;font-size:14px;cursor:pointer;background:transparent" readonly>
           </div>
+          <div style="font-size:10px;color:var(--text-muted);margin-top:5px;text-align:center">✏️ Touchez le nom pour modifier — la saisie se fait dans la fenêtre</div>
         </div>
         <div id="panier-list"></div>
         <div id="panier-footer">
@@ -2133,6 +2139,7 @@ function confirmerSuppression(){
     bonImprime = false;
     commandeEnCours = null;
     commandeEnCoursKey = null;
+    remiseEnCours = null;   // ③
     multiPaiementsValides = [];
     document.getElementById('input-nom').value = '';
     document.getElementById('input-couverts').value = '';
@@ -2196,6 +2203,7 @@ function nouvelleCommande(){
   commandeEnCours = null;
   commandeEnCoursKey = null;
   panier = [];
+  remiseEnCours = null;   // ③ la remise ne survit jamais à un changement de commande
   multiPaiementsValides = [];
   majPanierPmtRecap();
   document.getElementById('input-nom').value = '';
@@ -2211,6 +2219,37 @@ function rimprimerBon(){
   if(!commandeEnCours) return;
   imprimerBon();
   showNotif('Bon réimprimé','success');
+}
+
+// ④ Récupérer une commande annulée → duplication en NOUVELLE commande en cours.
+// L'annulée d'origine reste tracée telle quelle (aucune modif de son nœud).
+function recupererAnnulation(key){
+  db.ref('annulations/'+selectedEtabId+'/'+todayKey()+'/'+key).once('value', snap=>{
+    const c = snap.val();
+    if(!c){ showNotif('Annulation introuvable','error'); return; }
+    if(panier.length>0 && !confirm('Une commande est en cours de saisie. La remplacer par la commande récupérée ?')) return;
+    // On repart d'une commande VIERGE (pas de clé Firebase) → l'envoi/encaissement créera une nouvelle commande + un nouveau n°
+    commandeEnCours = null;
+    commandeEnCoursKey = null;
+    remiseEnCours = rehydraterRemise(c);
+    multiPaiementsValides = [];
+    bonImprime = false;
+    panier = (c.articles||[]).map(a=>({
+      prodId:a.prodId, nom:a.nom, taille:a.taille,
+      prixBase:a.prix, supplements:a.supplements||[],
+      prixTotal:a.prix, commentaire:a.commentaire||'', qte:a.qte
+    }));
+    document.getElementById('input-nom').value = c.nom_client||'';
+    document.getElementById('input-couverts').value = c.couverts||'';
+    document.getElementById('input-retrait').value = c.retrait_souhaite||'';
+    document.getElementById('footer-avant-bon').style.display = 'flex';
+    document.getElementById('footer-apres-bon').style.display = 'none';
+    majPanierPmtRecap();
+    renderPanier();
+    renderArticles();
+    showOnglet('caisse', document.getElementById('ong-caisse'));
+    showNotif('Commande de '+(c.nom_client||'—')+' récupérée — vérifie puis envoie le bon / encaisse','success');
+  });
 }
 
 // ══════════════════════════════════════════════════════════
@@ -2353,6 +2392,7 @@ function corrigerPaiement(key, e){
     db.ref('commandes/'+selectedEtabId+'/'+todayKey()+'/'+key+'/statut').set('en_cours');
     commandeEnCoursKey = key;
     commandeEnCours = {...c, statut:'en_cours'};
+    remiseEnCours = rehydraterRemise(c);   // ③ on repart de la remise réellement stockée (ou aucune)
     panier = (c.articles||[]).map(a=>({
       prodId:a.prodId, nom:a.nom, taille:a.taille,
       prixBase:a.prix, supplements:a.supplements||[],
@@ -2380,6 +2420,7 @@ function rouvriCommandePayee(key, e){
     db.ref('commandes/'+selectedEtabId+'/'+todayKey()+'/'+key+'/statut').set('en_cours');
     commandeEnCoursKey = key;
     commandeEnCours = {...c, statut:'en_cours'};
+    remiseEnCours = rehydraterRemise(c);   // ③
     // Charger les articles dans le panier
     panier = (c.articles||[]).map(a=>({
       prodId:a.prodId, nom:a.nom, taille:a.taille,
@@ -2409,6 +2450,7 @@ function rouvriCommande(key, e){
     // Charger la commande dans le panier
     commandeEnCoursKey = key;
     commandeEnCours = c;
+    remiseEnCours = rehydraterRemise(c);   // ③
     panier = (c.articles||[]).map(a=>({
       prodId:a.prodId, nom:a.nom, taille:a.taille,
       prixBase:a.prix, supplements:a.supplements||[],
@@ -2436,6 +2478,7 @@ function rouvriCommandeAjouter(key, e){
     if(!c) return;
     commandeEnCoursKey = key;
     commandeEnCours = c;
+    remiseEnCours = rehydraterRemise(c);   // ③
     panier = (c.articles||[]).map(a=>({
       prodId:a.prodId, nom:a.nom, taille:a.taille,
       prixBase:a.prix, supplements:a.supplements||[],
@@ -2546,19 +2589,19 @@ function renderServiceDuJour(){
 
     // ── Annulations du jour (suivi des pertes) ──
     db.ref('annulations/'+selectedEtabId+'/'+today).once('value', snapAnn=>{
-      const annul = Object.values(snapAnn.val()||{});
+      const annulEntries = Object.entries(snapAnn.val()||{});
       const recapEl = document.getElementById('jour-annul-recap');
       const listEl = document.getElementById('jour-annulations');
       if(!listEl) return;
-      if(!annul.length){
+      if(!annulEntries.length){
         if(recapEl) recapEl.textContent = '';
         listEl.innerHTML = '<div style="font-size:13px;color:var(--text-muted);text-align:center;padding:8px">Aucune annulation aujourd\'hui ✓</div>';
         return;
       }
-      const totalAnnul = Math.round(annul.reduce((s,c)=>s+(c.total||0),0)*100)/100;
-      if(recapEl) recapEl.textContent = annul.length+' annulation'+(annul.length>1?'s':'')+' · '+fmtPrix(totalAnnul);
-      const sorted = [...annul].sort((a,b)=>(b.timestamp||0)-(a.timestamp||0));
-      listEl.innerHTML = sorted.map(c=>{
+      const totalAnnul = Math.round(annulEntries.reduce((s,[,c])=>s+(c.total||0),0)*100)/100;
+      if(recapEl) recapEl.textContent = annulEntries.length+' annulation'+(annulEntries.length>1?'s':'')+' · '+fmtPrix(totalAnnul);
+      const sorted = [...annulEntries].sort(([,a],[,b])=>(b.timestamp||0)-(a.timestamp||0));
+      listEl.innerHTML = sorted.map(([key,c])=>{
         const arts = (c.articles||[]).map(a=>a.qte+'× '+a.nom).join(', ');
         return '<div style="border:1px solid var(--coral-light);background:var(--coral-light);border-radius:var(--radius);padding:10px 12px;margin-bottom:8px">'
           +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px">'
@@ -2568,6 +2611,7 @@ function renderServiceDuJour(){
           +'<div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">'+arts+'</div>'
           +'<div style="font-size:12px;color:var(--text)"><b>Motif :</b> '+(c.motif_annulation||'—')+'</div>'
           +'<div style="font-size:10px;color:var(--text-muted);margin-top:2px">Créée '+(c.heure||'—')+' · annulée '+(c.heure_annulation||'—')+'</div>'
+          +'<div style="margin-top:8px"><button onclick="recupererAnnulation(\''+key+'\')" style="width:100%;padding:8px;background:var(--green);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer">↩︎ Récupérer (dupliquer en nouvelle commande)</button></div>'
           +'</div>';
       }).join('');
     });
@@ -2741,6 +2785,7 @@ function confirmerArticle(){
       bonImprime = false;
       commandeEnCours = null;
       commandeEnCoursKey = null;
+      remiseEnCours = null;   // ③ nouvelle commande vierge → pas de remise héritée
       multiPaiementsValides = [];
       document.getElementById('input-nom').value = '';
       document.getElementById('input-couverts').value = '';
@@ -2777,6 +2822,7 @@ function validerNomCouverts(){
   const retrait = document.getElementById('mnc-retrait').value;
   if(!nom){ showNotif('Renseigne le nom du client','error'); return; }
   if(!couverts || parseInt(couverts) < 1){ showNotif('Renseigne le nombre de couverts','error'); return; }
+  if(!retrait){ showNotif('Renseigne l\'heure de retrait','error'); document.getElementById('mnc-retrait').focus(); return; }
   document.getElementById('input-nom').value = nom;
   document.getElementById('input-couverts').value = couverts;
   document.getElementById('input-retrait').value = retrait;
@@ -2785,9 +2831,21 @@ function validerNomCouverts(){
     const fn = window._afterNomCouverts;
     window._afterNomCouverts = null;
     fn();
-  } else {
+  } else if(articleEnAttente){
     ajouterArticleEnAttente();
+  } else if(commandeEnCoursKey){
+    // Édition des infos d'une commande déjà envoyée → on persiste dans Firebase
+    sauvegarderInfosCommande();
   }
+}
+
+// ① Deuxième porte d'entrée : bouton « Nouvelle commande » → ouvre la même modale, à blanc
+function demarrerNouvelleCommande(){
+  if(panier.length > 0 && !confirm('Une commande est en cours de saisie. La remplacer par une nouvelle commande vide ?')) return;
+  nouvelleCommande();          // reset complet de l'état (panier, commande, remise…)
+  window._afterNomCouverts = null;
+  articleEnAttente = null;
+  ouvrirModalNomCouverts();
 }
 
 function ajouterArticleEnAttente(){
@@ -2866,6 +2924,7 @@ function viderPanier(){
   bonImprime = false;
   commandeEnCours = null;
   commandeEnCoursKey = null;
+  remiseEnCours = null;   // ③
   multiPaiementsValides = [];
   document.getElementById('input-nom').value = '';
   document.getElementById('input-couverts').value = '';
@@ -3034,6 +3093,18 @@ function appliquerRemiseGroupe(id){
   majAffichageRemise();
 }
 function retirerRemise(){ remiseEnCours=null; majAffichageRemise(); }
+// ③ Reconstruit l'état remise à partir d'une commande stockée (ou null si aucune remise).
+// Garantit qu'une remise ne peut venir QUE d'une commande qui en portait réellement une.
+function rehydraterRemise(c){
+  const r = c && c.remise;
+  if(!r || !(Number(r.valeur)>0)) return null;
+  return {
+    type: r.type || (r.mode==='eur'?'eur':'pct'),
+    mode: r.mode || (r.type==='eur'?'eur':'pct'),
+    valeur: Number(r.valeur)||0,
+    ...(r.groupe_id ? { groupe_id:r.groupe_id, groupe_nom:r.groupe_nom } : {})
+  };
+}
 function majAffichageRemise(){
   const act=document.getElementById('pmt-remise-active');
   const btn=document.getElementById('pmt-remise-btn');
@@ -3917,6 +3988,7 @@ function fermerBonEtNouveau(){
     bonImprime = false;
     commandeEnCours = null;
     commandeEnCoursKey = null;
+    remiseEnCours = null;   // ③
     multiPaiementsValides = [];
     document.getElementById('input-nom').value = '';
     document.getElementById('input-couverts').value = '';
@@ -3936,6 +4008,7 @@ function fermerBon(){
   bonImprime = false;
   commandeEnCours = null;
   commandeEnCoursKey = null;
+  remiseEnCours = null;   // ③
   multiPaiementsValides = [];
   document.getElementById('input-nom').value='';
   document.getElementById('input-couverts').value='';
@@ -4352,7 +4425,7 @@ function confirmerFinDeService(){
     if(Object.keys(updates).length) db.ref().update(updates);
     fermerModal('modal-fin-service');
     // Reset caisse
-    panier=[]; bonImprime=false; commandeEnCours=null; commandeEnCoursKey=null; multiPaiementsValides=[];
+    panier=[]; bonImprime=false; commandeEnCours=null; commandeEnCoursKey=null; remiseEnCours=null; multiPaiementsValides=[];
     document.getElementById('input-nom').value='';
     document.getElementById('input-couverts').value='';
     document.getElementById('input-retrait').value='';
@@ -4581,7 +4654,7 @@ function terminerJournee(){
   // Reset état mais garder le camion mémorisé
   const etabMemorise = localStorage.getItem('pokben_etab_id');
   panier=[]; bonImprime=false;
-  commandeEnCours=null; commandeEnCoursKey=null; multiPaiementsValides=[];
+  commandeEnCours=null; commandeEnCoursKey=null; remiseEnCours=null; multiPaiementsValides=[];
   pinSaisie='';
   document.body.classList.remove('theme-captn');
   updatePinDisplay();
@@ -5484,7 +5557,7 @@ const DRAWER_MODES = [
 function drawerModesActives(){
   const v = (parametresData && parametresData.tiroir_modes);
   if(Array.isArray(v)) return v;
-  return ['especes'];
+  return ['especes','ticket','cheque'];   // ⑤ défaut : le tiroir s'ouvre sur espèces, tickets resto et chèque (CB exclue)
 }
 function normMode(s){ return String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
 function paiementOuvreTiroir(paiements){
@@ -5633,6 +5706,29 @@ async function eposOuvrirTiroir(){
   const body = eposBuildBody([], true);
   const r = await eposEnvoyer(body);
   return r.success;
+}
+
+// ⑥ Ouverture MANUELLE du tiroir (hors vente : appoint, monnaie…), protégée par le PIN employés.
+async function ouvrirTiroirManuel(){
+  if(!eposActif()){
+    showNotif('Tiroir indisponible : imprimante réseau/Bluetooth non configurée','error');
+    return;
+  }
+  const pinAttendu = (etabInfo && etabInfo.pin!=null) ? String(etabInfo.pin) : '';
+  if(!pinAttendu){ showNotif('Aucun PIN configuré — contacte l\'admin','error'); return; }
+  const saisi = prompt('Ouverture du tiroir sans vente\n\nCode PIN employés :');
+  if(saisi==null) return;                                   // annulé
+  if(String(saisi).trim() !== pinAttendu){ showNotif('Code PIN incorrect','error'); return; }
+  const ok = await eposOuvrirTiroir();
+  // Traçabilité : toute ouverture hors vente est journalisée (point de contrôle caisse)
+  try{
+    db.ref('tiroir_ouvertures/'+selectedEtabId+'/'+todayKey()).push({
+      heure: new Date().toTimeString().substring(0,5),
+      timestamp: new Date().getTime(),
+      type: 'manuelle'
+    });
+  }catch(_){}
+  showNotif(ok!==false ? 'Tiroir ouvert (hors vente)' : 'Commande tiroir envoyée', 'success');
 }
 
 // Détecte un paiement espèces dans le tableau paiements

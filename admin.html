@@ -1964,7 +1964,7 @@ function chargerDashboardPeriode(){
     Promise.all([db.ref('clotures').once('value'), db.ref('commandes').once('value')]).then(([cloSnap,cmdSnap])=>{
       const clo=cloSnap.val()||{}, cmds=cmdSnap.val()||{};
       const agg={};
-      const ensure=id=>agg[id]||(agg[id]={ca:0,ht:0,cmd:0,cvt:0,encCa:0,encCvt:0,encCmd:0,byDate:{}});
+      const ensure=id=>agg[id]||(agg[id]={ca:0,ht:0,cmd:0,cvt:0,encCa:0,encCvt:0,encCmd:0,nePayeCa:0,nePayeCvt:0,nePayeCmd:0,byDate:{}});
       // ---- 1) Historique : clôtures (déjà splitté midi/soir) ----
       Object.entries(clo).forEach(([etabId,dates])=>{
         Object.entries(dates||{}).forEach(([date,svcs])=>{
@@ -1984,6 +1984,14 @@ function chargerDashboardPeriode(){
         Object.entries(dates||{}).forEach(([date,jour])=>{
           if(date<startIso||date>endIso) return;
           Object.values(jour||{}).forEach(c=>{
+            // ② Encours NON encaissés (commandes prises, bon envoyé, pas encore payées) — uniquement le jour même
+            if(c.statut==='en_cours'){
+              if(date===todayIso){
+                const a=ensure(etabId);
+                a.nePayeCa+=(c.total||0); a.nePayeCvt+=(c.couverts||0); a.nePayeCmd+=1;
+              }
+              return;
+            }
             if(c.statut!=='payee') return;
             const svc=_dashServiceFromCmd(c);
             const ex=agg[etabId];
@@ -1999,15 +2007,24 @@ function chargerDashboardPeriode(){
       });
       _dashAgg=agg;
       const set=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
-      let tCa=0,tHt=0,tCmd=0,tCvt=0,tEncCa=0,tEncCvt=0;
-      Object.values(agg).forEach(a=>{ tCa+=a.ca; tHt+=a.ht; tCmd+=a.cmd; tCvt+=a.cvt; tEncCa+=a.encCa; tEncCvt+=a.encCvt; });
+      let tCa=0,tHt=0,tCmd=0,tCvt=0,tEncCa=0,tEncCvt=0,tNePayeCa=0,tNePayeCvt=0,tNePayeCmd=0;
+      Object.values(agg).forEach(a=>{ tCa+=a.ca; tHt+=a.ht; tCmd+=a.cmd; tCvt+=a.cvt; tEncCa+=a.encCa; tEncCvt+=a.encCvt; tNePayeCa+=(a.nePayeCa||0); tNePayeCvt+=(a.nePayeCvt||0); tNePayeCmd+=(a.nePayeCmd||0); });
       set('d-ca',fmtPrix(tCa)); set('d-ca-ht',fmtPrix(tHt));
       set('d-cmd',tCmd); set('d-cvt',tCvt);
       set('d-pm',tCvt>0?fmtPrix(tCa/tCvt):'—');
       // Bandeau encours global (live)
       const banner=document.getElementById('dash-live-banner');
       if(banner){
-        if(tEncCa>0||tEncCvt>0){ banner.style.display=''; banner.innerHTML='🔴 En cours aujourd\'hui — <strong>'+fmtPrix(tEncCa)+'</strong> · <strong>'+tEncCvt+'</strong> couverts (services non encore clôturés)'; }
+        let bh='';
+        // ② Commandes prises mais PAS encore encaissées (à encaisser)
+        if(tNePayeCa>0||tNePayeCmd>0){
+          bh+='🟠 À encaisser (commandes en cours, non payées) — <strong>'+fmtPrix(tNePayeCa)+'</strong> · <strong>'+tNePayeCmd+'</strong> commande'+(tNePayeCmd>1?'s':'')+' · '+tNePayeCvt+' couverts';
+        }
+        // Encaissé mais service pas encore clôturé
+        if(tEncCa>0||tEncCvt>0){
+          bh+=(bh?'<br>':'')+'🔴 Encaissé du jour non clôturé — <strong>'+fmtPrix(tEncCa)+'</strong> · <strong>'+tEncCvt+'</strong> couverts (services non encore clôturés)';
+        }
+        if(bh){ banner.style.display=''; banner.innerHTML=bh; }
         else banner.style.display='none';
       }
       // Cartes par camion
@@ -5768,7 +5785,7 @@ function afficherParametres(){
   Object.entries(lgChamps).forEach(([k,id])=>{ const el=document.getElementById(id); if(el) el.value=lg[k]||''; });
   renderModes();
   // Tiroir-caisse (réglage centralisé)
-  const tm = Array.isArray(parametresData.tiroir_modes) ? parametresData.tiroir_modes : ['especes'];
+  const tm = Array.isArray(parametresData.tiroir_modes) ? parametresData.tiroir_modes : ['especes','ticket','cheque'];   // ⑤ défaut espèces + tickets resto + chèque
   [['especes','tiroir-especes'],['ticket','tiroir-ticket'],['cheque','tiroir-cheque'],['cb','tiroir-cb']].forEach(([k,id])=>{ const el=document.getElementById(id); if(el) el.checked=tm.includes(k); });
 }
 
