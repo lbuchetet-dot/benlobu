@@ -500,31 +500,43 @@ tr:hover td{background:var(--bg)}
             <div id="cct-annulees-list"><p style="color:var(--text-muted);font-size:13px;padding:14px 0">Chargement…</p></div>
           </div>
 
+        
+        </div>
+
         <!-- PARAMÈTRES COMMANDES -->
         <div id="cct-pane-params" style="display:none">
           <div class="card">
-            <div class="card-title">Heures limites de commande</div>
-            <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px">Passée cette heure, le service du jour n'est plus commandable sur le site — la prochaine occurrence est proposée.</p>
+            <div class="card-title">⏰ Heures limites de commande</div>
+            <p style="font-size:12px;color:var(--text-muted);margin:4px 0 16px">Passée cette heure, le service du jour n'est plus commandable sur le site — la prochaine occurrence est proposée automatiquement au client.</p>
             <div class="form-grid">
-              <div class="form-group"><label>Limite service midi</label><input type="time" id="cct-cfg-cutoff-midi" value="09:30"></div>
-              <div class="form-group"><label>Limite service soir</label><input type="time" id="cct-cfg-cutoff-soir" value="17:00"></div>
+              <div class="form-field"><label class="form-label">Limite service midi</label><input type="time" class="form-input" id="cct-cfg-cutoff-midi" value="09:30"></div>
+              <div class="form-field"><label class="form-label">Limite service soir</label><input type="time" class="form-input" id="cct-cfg-cutoff-soir" value="17:00"></div>
             </div>
           </div>
           <div class="card">
-            <div class="card-title">Créneaux de retrait</div>
-            <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px">Les créneaux sont générés automatiquement entre le début et la fin, au pas choisi. La capacité limite le nombre de burgers par créneau.</p>
+            <div class="card-title">🕐 Créneaux de retrait</div>
+            <p style="font-size:12px;color:var(--text-muted);margin:4px 0 16px">Les créneaux sont générés automatiquement entre le premier et le dernier, au pas choisi. La capacité limite le nombre de burgers acceptés par créneau — au-delà, le créneau s'affiche « Complet » sur le site.</p>
+            <div style="font-size:11px;font-weight:700;letter-spacing:.5px;color:var(--text-muted);text-transform:uppercase;margin-bottom:10px">Service midi</div>
             <div class="form-grid">
-              <div class="form-group"><label>Midi — premier créneau</label><input type="time" id="cct-cfg-midi-debut" value="11:45"></div>
-              <div class="form-group"><label>Midi — dernier créneau</label><input type="time" id="cct-cfg-midi-fin" value="13:15"></div>
-              <div class="form-group"><label>Soir — premier créneau</label><input type="time" id="cct-cfg-soir-debut" value="18:30"></div>
-              <div class="form-group"><label>Soir — dernier créneau</label><input type="time" id="cct-cfg-soir-fin" value="20:15"></div>
-              <div class="form-group"><label>Pas entre créneaux (min)</label><input type="number" id="cct-cfg-pas" min="5" max="60" step="5" value="10"></div>
-              <div class="form-group"><label>Capacité (burgers / créneau)</label><input type="number" id="cct-cfg-capacite" min="1" max="50" value="6"></div>
+              <div class="form-field"><label class="form-label">Premier créneau</label><input type="time" class="form-input" id="cct-cfg-midi-debut" value="11:45"></div>
+              <div class="form-field"><label class="form-label">Dernier créneau</label><input type="time" class="form-input" id="cct-cfg-midi-fin" value="13:15"></div>
             </div>
-            <button class="btn btn-primary" onclick="sauverCmdConfig('captfish')">💾 Enregistrer</button>
-            <span id="cct-cfg-statut" style="font-size:12px;color:var(--text-muted);margin-left:10px"></span>
+            <div style="font-size:11px;font-weight:700;letter-spacing:.5px;color:var(--text-muted);text-transform:uppercase;margin:18px 0 10px">Service soir</div>
+            <div class="form-grid">
+              <div class="form-field"><label class="form-label">Premier créneau</label><input type="time" class="form-input" id="cct-cfg-soir-debut" value="18:30"></div>
+              <div class="form-field"><label class="form-label">Dernier créneau</label><input type="time" class="form-input" id="cct-cfg-soir-fin" value="20:15"></div>
+            </div>
+            <div style="font-size:11px;font-weight:700;letter-spacing:.5px;color:var(--text-muted);text-transform:uppercase;margin:18px 0 10px">Réglage commun</div>
+            <div class="form-grid">
+              <div class="form-field"><label class="form-label">Pas entre créneaux (minutes)</label><input type="number" class="form-input" id="cct-cfg-pas" min="5" max="60" step="5" value="10"></div>
+              <div class="form-field"><label class="form-label">Capacité (burgers par créneau)</label><input type="number" class="form-input" id="cct-cfg-capacite" min="1" max="50" value="6"></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:14px;margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
+              <button class="btn btn-primary" onclick="sauverCmdConfig('captfish')">💾 Enregistrer les paramètres</button>
+              <span id="cct-cfg-statut" style="font-size:12px;color:var(--text-muted)"></span>
+            </div>
+            <p style="font-size:11px;color:var(--text-muted);margin:12px 0 0">✅ Appliqué immédiatement sur captainfish.fr, sans redéploiement.</p>
           </div>
-        </div>
         </div>
       </div>
 
@@ -586,27 +598,38 @@ tr:hover td{background:var(--bg)}
             <div id="cpb-reattrib-list"><p style="color:var(--text-muted);font-size:13px;padding:14px 0">Chargement…</p></div>
           </div>
 
+        
+        </div>
+
         <!-- PARAMÈTRES COMMANDES -->
         <div id="cpb-pane-params" style="display:none">
           <div class="card">
-            <div class="card-title">Heures limites de commande</div>
-            <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px">Passée cette heure, le service du jour n'est plus commandable sur le site — la prochaine occurrence est proposée. Vaut pour les deux camions.</p>
+            <div class="card-title">⏰ Heures limites de commande</div>
+            <p style="font-size:12px;color:var(--text-muted);margin:4px 0 16px">Passée cette heure, le service du jour n'est plus commandable sur le site — la prochaine occurrence est proposée automatiquement au client. Valable pour les deux camions.</p>
             <div class="form-grid">
-              <div class="form-group"><label>Limite service midi</label><input type="time" id="cpb-cfg-cutoff-midi" value="09:30"></div>
-              <div class="form-group"><label>Limite service soir</label><input type="time" id="cpb-cfg-cutoff-soir" value="17:00"></div>
+              <div class="form-field"><label class="form-label">Limite service midi</label><input type="time" class="form-input" id="cpb-cfg-cutoff-midi" value="09:30"></div>
+              <div class="form-field"><label class="form-label">Limite service soir</label><input type="time" class="form-input" id="cpb-cfg-cutoff-soir" value="17:00"></div>
             </div>
           </div>
           <div class="card">
-            <div class="card-title">Créneaux de retrait</div>
-            <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px">Un créneau par ligne ou séparés par des virgules, au format <strong>12h30</strong>. Vaut pour tous les emplacements des deux camions.</p>
+            <div class="card-title">🕐 Créneaux de retrait</div>
+            <p style="font-size:12px;color:var(--text-muted);margin:4px 0 16px">Un créneau par ligne ou séparés par des virgules, au format <strong>12h30</strong>. Valable pour tous les emplacements des deux camions.</p>
             <div class="form-grid">
-              <div class="form-group"><label>Créneaux du midi</label><textarea id="cpb-cfg-crx-midi" rows="3" style="font-family:monospace">11h30, 11h45, 12h00, 12h15, 12h30, 12h45, 13h00, 13h15, 13h30</textarea></div>
-              <div class="form-group"><label>Créneaux du soir</label><textarea id="cpb-cfg-crx-soir" rows="3" style="font-family:monospace">19h00, 19h15, 19h30, 19h45, 20h00, 20h15, 20h30</textarea></div>
+              <div class="form-field">
+                <label class="form-label">🌞 Créneaux du midi</label>
+                <textarea class="form-input" id="cpb-cfg-crx-midi" rows="4" style="resize:vertical;font-family:ui-monospace,monospace;font-size:13px;line-height:1.7">11h30, 11h45, 12h00, 12h15, 12h30, 12h45, 13h00, 13h15, 13h30</textarea>
+              </div>
+              <div class="form-field">
+                <label class="form-label">🌙 Créneaux du soir</label>
+                <textarea class="form-input" id="cpb-cfg-crx-soir" rows="4" style="resize:vertical;font-family:ui-monospace,monospace;font-size:13px;line-height:1.7">19h00, 19h15, 19h30, 19h45, 20h00, 20h15, 20h30</textarea>
+              </div>
             </div>
-            <button class="btn btn-primary" onclick="sauverCmdConfig('pokeben')">💾 Enregistrer</button>
-            <span id="cpb-cfg-statut" style="font-size:12px;color:var(--text-muted);margin-left:10px"></span>
+            <div style="display:flex;align-items:center;gap:14px;margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
+              <button class="btn btn-primary" onclick="sauverCmdConfig('pokeben')">💾 Enregistrer les paramètres</button>
+              <span id="cpb-cfg-statut" style="font-size:12px;color:var(--text-muted)"></span>
+            </div>
+            <p style="font-size:11px;color:var(--text-muted);margin:12px 0 0">✅ Appliqué immédiatement sur pokeben.fr, sans redéploiement.</p>
           </div>
-        </div>
         </div>
       </div>
 
