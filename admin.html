@@ -313,7 +313,7 @@ tr:hover td{background:var(--bg)}
         <div class="page-header">
           <div class="page-header-left">
             <div class="page-title" id="dash-greeting">Bonjour 👋</div>
-            <div class="page-sub">Vue consolidée — tous les établissements</div>
+            <div class="page-sub">Suivi live par camion — mise à jour instantanée</div>
           </div>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
@@ -327,9 +327,9 @@ tr:hover td{background:var(--bg)}
           <div class="stat-card"><div class="stat-label">CA HT</div><div class="stat-value" id="d-ca-ht">—</div><div class="stat-delta" id="d-caht-lbl">estimé</div></div>
           <div class="stat-card"><div class="stat-label">Commandes</div><div class="stat-value" id="d-cmd">—</div><div class="stat-delta" id="d-cmd-lbl">aujourd'hui</div></div>
           <div class="stat-card"><div class="stat-label">Couverts</div><div class="stat-value" id="d-cvt">—</div><div class="stat-delta" id="d-cvt-lbl">aujourd'hui</div></div>
-          <div class="stat-card"><div class="stat-label">Panier moyen</div><div class="stat-value" id="d-pm">—</div><div class="stat-delta" id="d-pm-lbl">aujourd'hui</div></div>
+          <div class="stat-card"><div class="stat-label">Ticket moyen</div><div class="stat-value" id="d-pm">—</div><div class="stat-delta" id="d-pm-couvert">—</div></div>
         </div>
-        <div id="dash-live-banner" style="display:none;margin:4px 0 14px;padding:10px 14px;background:#fff4f2;border:1px solid #f3c6bf;border-radius:10px;font-size:13px;color:#c0392b"></div>
+        <div style="display:flex;justify-content:flex-end;font-size:11px;color:var(--text-muted);margin:2px 0 12px"><span id="dash-maj">—</span></div>
         <div class="etab-grid" id="dash-etabs"></div>
       </div>
 
@@ -1858,6 +1858,10 @@ function showView(v){
   document.getElementById('topbar-title').textContent = viewTitles[v]||v;
   if(window.innerWidth<=768) toggleSidebar(false); // referme le tiroir sur mobile
   if(v!=='commandes-captn' && v!=='planning') document.body.classList.remove('theme-captn');
+  // Les listeners live du TdB ne doivent pas rester ouverts sur les autres vues
+  // (trafic Firebase inutile) ; ils sont réattachés au retour sur le dashboard.
+  if(v==='dashboard'){ try{ renderEtabsDashboard(); }catch(e){ console.error('[TdB] rendu :', e); } }
+  else _dashDetachLive();
   if(v==='etablissements') renderEtabs();
   if(v==='controle') renderControle();
   if(v==='planning') renderPlanningSelector();
@@ -1951,6 +1955,54 @@ function _dashFrDate(iso){
 }
 function _dashEmptyDay(){ return {midi:{ca:0,cvt:0,cmd:0,closed:false}, soir:{ca:0,cvt:0,cmd:0,closed:false}}; }
 
+// ── Écoute LIVE du jour, camion par camion ──────────────────────────────────
+// AVANT : toutes les 60 s on relisait db.ref('clotures') ET db.ref('commandes')
+// ENTIERS (tous camions, toutes dates depuis l'origine) avant de filtrer en JS.
+// Le volume téléchargé grandissait indéfiniment avec l'historique.
+// MAINTENANT : un listener temps réel par camion sur la seule journée du jour
+// (commandes/{etab}/{date}) — charge minuscule, mise à jour instantanée,
+// et l'historique n'est plus jamais retéléchargé pour afficher le live.
+let _dashLive = {};          // { etabId: {ca,cmd,cvt,aEncCa,aEncCmd,parHeure:{}} }
+let _dashLiveRefs = [];      // listeners actifs, à détacher proprement
+let _dashJ7 = {};            // { etabId: ca } — même jour la semaine dernière
+
+function _dashDetachLive(){
+  _dashLiveRefs.forEach(r=>{ try{ r.ref.off('value', r.cb); }catch(e){} });
+  _dashLiveRefs = [];
+}
+
+function _dashAttachLive(){
+  _dashDetachLive();
+  const today = _dashIso(new Date());
+  Object.keys(etabsData||{}).forEach(id=>{
+    const ref = db.ref('commandes/'+id+'/'+today);
+    const cb = ref.on('value', snap=>{
+      const jour = snap.val()||{};
+      const L = {ca:0,cmd:0,cvt:0,aEncCa:0,aEncCmd:0,aEncCvt:0,parHeure:{}};
+      Object.values(jour).forEach(c=>{
+        if(c.statut==='en_cours'){
+          L.aEncCa+=(c.total||0); L.aEncCmd+=1; L.aEncCvt+=(c.couverts||0);
+          return;
+        }
+        if(c.statut!=='payee') return;
+        L.ca+=(c.total||0); L.cmd+=1; L.cvt+=(c.couverts||0);
+        const h = String(c.heure_paiement||c.heure||'').slice(0,2);
+        if(/^\d\d$/.test(h)) L.parHeure[h]=(L.parHeure[h]||0)+(c.total||0);
+      });
+      _dashLive[id]=L;
+      _dashMajCarte(id);
+      _dashMajGlobal();
+    }, err=>{
+      // Sans ce callback, un refus de règles Firebase passait totalement inaperçu.
+      console.error('[TdB] lecture live refusée pour '+id+' :', err && err.message);
+      const z=document.getElementById('dash-corps-'+id);
+      if(z) z.innerHTML='<div style="font-size:13px;color:#c0392b">⚠️ Lecture live indisponible<div style="font-size:11px;color:var(--text-muted);margin-top:3px">'+((err&&err.message)||'')+'</div></div>';
+    });
+    _dashLiveRefs.push({ref, cb});
+  });
+}
+
+// ── Historique borné par plage de dates (plus jamais le nœud entier) ────────
 function chargerDashboardPeriode(){
   ['jour','semaine','mois','annee'].forEach(p=>{ const b=document.getElementById('dash-p-'+p); if(b) b.className='btn btn-sm '+(_dashPeriode===p?'btn-primary':'btn-secondary'); });
   const lbl=_dashLabel(_dashPeriode);
@@ -1958,46 +2010,62 @@ function chargerDashboardPeriode(){
   const ch=document.getElementById('d-caht-lbl'); if(ch) ch.textContent=lbl+' · estimé';
   const {startIso,endIso}=_dashRange(_dashPeriode);
   const todayIso=_dashIso(new Date());
+  // Même jour la semaine dernière, pour la comparaison des cartes
+  const j7=new Date(); j7.setDate(j7.getDate()-7); const j7Iso=_dashIso(j7);
+
   const run=(taux)=>{
     const tauxSP=(taux&&taux._sp!=null)?taux._sp:(taux._default||0.1);
-    // clotures = services clôturés (ventes caisse des camions) ; commandes = encours non encore clôturé
-    Promise.all([db.ref('clotures').once('value'), db.ref('commandes').once('value')]).then(([cloSnap,cmdSnap])=>{
-      const clo=cloSnap.val()||{}, cmds=cmdSnap.val()||{};
-      const agg={};
+    const ids=Object.keys(etabsData||{});
+    if(!ids.length) return;
+    // Une requête bornée par camion et par nœud, au lieu de deux lectures globales.
+    const jobs=[];
+    ids.forEach(id=>{
+      jobs.push(db.ref('clotures/'+id).orderByKey().startAt(startIso).endAt(endIso).once('value')
+        .then(sn=>({type:'clo',id,val:sn.val()||{}}))
+        .catch(e=>{ console.error('[TdB] clotures/'+id+' :', e && e.message); return {type:'clo',id,val:{}}; }));
+      jobs.push(db.ref('commandes/'+id).orderByKey().startAt(startIso).endAt(endIso).once('value')
+        .then(sn=>({type:'cmd',id,val:sn.val()||{}}))
+        .catch(e=>{ console.error('[TdB] commandes/'+id+' :', e && e.message); return {type:'cmd',id,val:{}}; }));
+      // Référence J-7 : une seule date, deux petites lectures
+      jobs.push(db.ref('clotures/'+id+'/'+j7Iso).once('value')
+        .then(sn=>({type:'j7clo',id,val:sn.val()||{}})).catch(()=>({type:'j7clo',id,val:{}})));
+      jobs.push(db.ref('commandes/'+id+'/'+j7Iso).once('value')
+        .then(sn=>({type:'j7cmd',id,val:sn.val()||{}})).catch(()=>({type:'j7cmd',id,val:{}})));
+    });
+
+    Promise.all(jobs).then(res=>{
+      const agg={}, j7={};
       const ensure=id=>agg[id]||(agg[id]={ca:0,ht:0,cmd:0,cvt:0,encCa:0,encCvt:0,encCmd:0,nePayeCa:0,nePayeCvt:0,nePayeCmd:0,byDate:{}});
-      // ---- 1) Historique : clôtures (déjà splitté midi/soir) ----
-      Object.entries(clo).forEach(([etabId,dates])=>{
-        Object.entries(dates||{}).forEach(([date,svcs])=>{
-          if(date<startIso||date>endIso) return;
+      ids.forEach(id=>{ ensure(id); j7[id]=0; });
+
+      // 1) Historique : clôtures (déjà splitté midi/soir)
+      res.filter(r=>r.type==='clo').forEach(r=>{
+        Object.entries(r.val).forEach(([date,svcs])=>{
           Object.entries(svcs||{}).forEach(([svc,cl])=>{
             if(svc!=='midi'&&svc!=='soir') return;
             const ca=(cl.ca_total||cl.ca||0), cvt=(cl.nb_couverts||0), cmd=(cl.nb_commandes||0);
-            const a=ensure(etabId);
+            const a=ensure(r.id);
             a.ca+=ca; a.cvt+=cvt; a.cmd+=cmd; a.ht+=ca/(1+tauxSP);
             const bd=a.byDate[date]||(a.byDate[date]=_dashEmptyDay());
             bd[svc].ca+=ca; bd[svc].cvt+=cvt; bd[svc].cmd+=cmd; bd[svc].closed=true;
           });
         });
       });
-      // ---- 2) Live : commandes payées non encore clôturées (encours) ----
-      Object.entries(cmds).forEach(([etabId,dates])=>{
-        Object.entries(dates||{}).forEach(([date,jour])=>{
-          if(date<startIso||date>endIso) return;
+
+      // 2) Commandes payées pas encore clôturées
+      res.filter(r=>r.type==='cmd').forEach(r=>{
+        Object.entries(r.val).forEach(([date,jour])=>{
           Object.values(jour||{}).forEach(c=>{
-            // ② Encours NON encaissés (commandes prises, bon envoyé, pas encore payées) — uniquement le jour même
             if(c.statut==='en_cours'){
-              if(date===todayIso){
-                const a=ensure(etabId);
-                a.nePayeCa+=(c.total||0); a.nePayeCvt+=(c.couverts||0); a.nePayeCmd+=1;
-              }
+              if(date===todayIso){ const a=ensure(r.id); a.nePayeCa+=(c.total||0); a.nePayeCvt+=(c.couverts||0); a.nePayeCmd+=1; }
               return;
             }
             if(c.statut!=='payee') return;
             const svc=_dashServiceFromCmd(c);
-            const ex=agg[etabId];
-            if(ex && ex.byDate[date] && ex.byDate[date][svc] && ex.byDate[date][svc].closed) return; // service déjà clôturé → pas de double comptage
+            const ex=agg[r.id];
+            if(ex && ex.byDate[date] && ex.byDate[date][svc] && ex.byDate[date][svc].closed) return; // pas de double comptage
             const ca=c.total||0, cvt=c.couverts||0, ht=_htCommande(c,taux);
-            const a=ensure(etabId);
+            const a=ensure(r.id);
             a.ca+=ca; a.cvt+=cvt; a.cmd+=1; a.ht+=ht;
             const bd=a.byDate[date]||(a.byDate[date]=_dashEmptyDay());
             bd[svc].ca+=ca; bd[svc].cvt+=cvt; bd[svc].cmd+=1;
@@ -2005,43 +2073,94 @@ function chargerDashboardPeriode(){
           });
         });
       });
-      _dashAgg=agg;
-      const set=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
-      let tCa=0,tHt=0,tCmd=0,tCvt=0,tEncCa=0,tEncCvt=0,tNePayeCa=0,tNePayeCvt=0,tNePayeCmd=0;
-      Object.values(agg).forEach(a=>{ tCa+=a.ca; tHt+=a.ht; tCmd+=a.cmd; tCvt+=a.cvt; tEncCa+=a.encCa; tEncCvt+=a.encCvt; tNePayeCa+=(a.nePayeCa||0); tNePayeCvt+=(a.nePayeCvt||0); tNePayeCmd+=(a.nePayeCmd||0); });
-      set('d-ca',fmtPrix(tCa)); set('d-ca-ht',fmtPrix(tHt));
-      set('d-cmd',tCmd); set('d-cvt',tCvt);
-      set('d-pm',tCvt>0?fmtPrix(tCa/tCvt):'—');
-      // Bandeau encours global (live)
-      const banner=document.getElementById('dash-live-banner');
-      if(banner){
-        let bh='';
-        // ② Commandes prises mais PAS encore encaissées (à encaisser)
-        if(tNePayeCa>0||tNePayeCmd>0){
-          bh+='🟠 À encaisser (commandes en cours, non payées) — <strong>'+fmtPrix(tNePayeCa)+'</strong> · <strong>'+tNePayeCmd+'</strong> commande'+(tNePayeCmd>1?'s':'')+' · '+tNePayeCvt+' couverts';
-        }
-        // Encaissé mais service pas encore clôturé
-        if(tEncCa>0||tEncCvt>0){
-          bh+=(bh?'<br>':'')+'🔴 Encaissé du jour non clôturé — <strong>'+fmtPrix(tEncCa)+'</strong> · <strong>'+tEncCvt+'</strong> couverts (services non encore clôturés)';
-        }
-        if(bh){ banner.style.display=''; banner.innerHTML=bh; }
-        else banner.style.display='none';
-      }
-      // Cartes par camion
-      Object.keys(etabsData).forEach(id=>{
-        const a=agg[id]||{ca:0,ht:0,cmd:0,cvt:0,encCa:0,encCvt:0};
-        set('dash-ca-'+id,fmtPrix(a.ca)); set('dash-caht-'+id,fmtPrix(a.ht));
-        set('dash-cmd-'+id,a.cmd); set('dash-cvt-'+id,a.cvt);
-        const encRow=document.getElementById('dash-enc-row-'+id);
-        const encVal=document.getElementById('dash-enc-'+id);
-        if(encRow&&encVal){
-          if(a.encCa>0||a.encCvt>0){ encRow.style.display=''; encVal.textContent=fmtPrix(a.encCa)+' · '+a.encCvt+' couv.'; }
-          else encRow.style.display='none';
-        }
+
+      // 3) Référence J-7 (clôture prioritaire, sinon commandes payées)
+      res.filter(r=>r.type==='j7clo').forEach(r=>{
+        Object.entries(r.val).forEach(([svc,cl])=>{
+          if(svc!=='midi'&&svc!=='soir') return;
+          j7[r.id]=(j7[r.id]||0)+(cl.ca_total||cl.ca||0);
+        });
       });
+      res.filter(r=>r.type==='j7cmd').forEach(r=>{
+        if(j7[r.id]>0) return; // déjà couvert par la clôture
+        Object.values(r.val||{}).forEach(c=>{ if(c.statut==='payee') j7[r.id]=(j7[r.id]||0)+(c.total||0); });
+      });
+
+      _dashAgg=agg; _dashJ7=j7;
+      _dashMajGlobal();
+      Object.keys(etabsData).forEach(_dashMajCarte);
+      const st=document.getElementById('dash-maj'); if(st) st.textContent='mis à jour à '+new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
     });
   };
   if(_prodTaux) run(_prodTaux); else _chargerProdTaux(run);
+}
+
+// Bandeau consolidé (secondaire : le détail vit maintenant dans chaque carte)
+function _dashMajGlobal(){
+  const set=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
+  let tCa=0,tHt=0,tCmd=0,tCvt=0;
+  Object.values(_dashAgg||{}).forEach(a=>{ tCa+=a.ca; tHt+=a.ht; tCmd+=a.cmd; tCvt+=a.cvt; });
+  set('d-ca',fmtPrix(tCa)); set('d-ca-ht',fmtPrix(tHt));
+  set('d-cmd',tCmd); set('d-cvt',tCvt);
+  // Ticket moyen PAR COMMANDE (l'ancien libellé « panier moyen » affichait CA/couverts)
+  set('d-pm',tCmd>0?fmtPrix(tCa/tCmd):'—');
+  const pc=document.getElementById('d-pm-couvert'); if(pc) pc.textContent = tCvt>0?(fmtPrix(tCa/tCvt)+' par couvert'):'—';
+}
+
+// Sparkline horaire (barres CSS, aucune lib)
+function _dashSparkline(parHeure){
+  const heures=Object.keys(parHeure||{}).sort();
+  if(!heures.length) return '';
+  const max=Math.max(...heures.map(h=>parHeure[h]))||1;
+  const barres=heures.map(h=>{
+    const pct=Math.max(6, Math.round(parHeure[h]/max*100));
+    return '<div title="'+h+'h · '+fmtPrix(parHeure[h])+'" style="flex:1;height:'+pct+'%;background:var(--green);border-radius:1px;min-width:4px"></div>';
+  }).join('');
+  return '<div style="display:flex;gap:2px;align-items:flex-end;height:30px;margin:10px 0 3px">'+barres+'</div>'
+    +'<div style="font-size:11px;color:var(--text-muted)">'+heures[0]+'h → '+heures[heures.length-1]+'h</div>';
+}
+
+// Met à jour UNE carte camion (période + live du jour)
+function _dashMajCarte(id){
+  const zone=document.getElementById('dash-corps-'+id);
+  if(!zone) return;
+  const e=etabsData[id]||{};
+  const a=_dashAgg[id]||{ca:0,ht:0,cmd:0,cvt:0};
+  const L=_dashLive[id]||{ca:0,cmd:0,cvt:0,aEncCa:0,aEncCmd:0,parHeure:{}};
+  const jourEnCours=(_dashPeriode==='jour');
+  const ca = jourEnCours ? L.ca : a.ca;
+  const cmd= jourEnCours ? L.cmd : a.cmd;
+  const cvt= jourEnCours ? L.cvt : a.cvt;
+  const tm = cmd>0 ? fmtPrix(ca/cmd) : '—';
+
+  let html='';
+
+  // ── EN COURS À ENCAISSER — en TÊTE de carte ──
+  // C'est l'info actionnable pendant le service (ce qui est préparé et pas encore payé),
+  // donc elle passe avant le CA. L'ancienne ligne « encaissé non clôturé » a été retirée :
+  // elle répétait à l'identique le CA affiché juste en dessous.
+  if(jourEnCours && L.aEncCa>0){
+    html+='<div style="margin-bottom:10px;padding:8px 11px;background:var(--amber-light);border-radius:6px;font-size:12px;color:var(--amber);display:flex;justify-content:space-between;align-items:center;gap:8px">'
+        +'<span>🟠 à encaisser</span>'
+        +'<span><strong style="font-size:14px">'+fmtPrix(L.aEncCa)+'</strong> · '+L.aEncCmd+' cmd</span></div>';
+  }
+
+  // Comparaison J-7 (uniquement en vue jour, sinon la référence n'a pas de sens)
+  const ref=_dashJ7[id]||0;
+  let delta='';
+  if(jourEnCours && ref>0){
+    const pct=Math.round((ca-ref)/ref*100);
+    const coul=pct>=0?'var(--green-dark)':'#c0392b';
+    delta='<div style="font-size:12px;color:'+coul+';margin-top:3px">'+(pct>=0?'+':'')+pct+' % vs '+_dashFrDate(_dashIso(new Date(Date.now()-7*864e5)))+'</div>';
+  }
+  html+='<div style="font-size:26px;font-weight:600;line-height:1.2">'+fmtPrix(ca)+'</div>'+delta;
+
+  if(jourEnCours) html+=_dashSparkline(L.parHeure);
+
+  html+='<div style="display:flex;justify-content:space-between;font-size:13px;color:var(--text-muted);padding-top:10px;margin-top:10px;border-top:1px solid var(--border)">'
+      +'<span>'+cmd+' cmd</span><span>'+cvt+' couv.</span><span style="color:var(--text)">'+tm+'</span></div>';
+
+  zone.innerHTML=html;
 }
 
 function openDashDetail(id){
@@ -2076,11 +2195,13 @@ function openDashDetail(id){
   document.getElementById('modal-dash-detail').classList.add('open');
 }
 
-// Rafraîchissement « live » : recharge le TdB toutes les 60 s tant qu'il est affiché
+// Le live du jour passe désormais par des listeners temps réel (_dashAttachLive) :
+// ce timer ne rafraîchit plus que la partie HISTORIQUE (clôtures, périodes longues),
+// qui bouge très peu. D'où 5 min au lieu de 60 s — et des requêtes bornées par date.
 setInterval(function(){
   const dv=document.getElementById('view-dashboard');
   if(dv && dv.classList.contains('active') && Object.keys(etabsData||{}).length){ chargerDashboardPeriode(); }
-}, 60000);
+}, 300000);
 
 function populerSelectsEtabs(){
   ['rp-etab','cl-etab','rp2-etab','rc-etab','pe-etab','ic-etab'].forEach(id => {
@@ -2102,6 +2223,10 @@ function populerSelectsEtabs(){
 function renderEtabsDashboard(){
   const grid = document.getElementById('dash-etabs');
   if(!grid) return;
+  if(!etabsData || !Object.keys(etabsData).length){
+    grid.innerHTML = '<div style="grid-column:1/-1;padding:20px;color:var(--text-muted);font-size:13px">Chargement des camions…</div>';
+    return;
+  }
   grid.innerHTML = '';
   Object.entries(etabsData).forEach(([id,e]) => {
     const cfg=e.controle_caisse_config;
@@ -2110,25 +2235,25 @@ function renderEtabsDashboard(){
     card.className = 'etab-card' + (e.service_actif ? ' en-service' : '');
     card.style.cursor='pointer';
     card.onclick=()=>openDashDetail(id);
+    const ouvert = !!e.service_actif;
     card.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
         <div>
           <div style="font-size:16px;font-weight:600">${e.nom}</div>
           <div style="font-size:12px;color:var(--text-muted);margin-top:2px">${e.carte==='poke'?'🥗 Poké':'🍔 Burger'} · ${e.emplacement_actuel||'—'}</div>
         </div>
-        ${e.service_actif?`<span class="badge badge-green">En service</span>`:`<span class="badge badge-gray">Fermé</span>`}
+        ${ouvert
+          ? `<span class="badge badge-green" style="display:inline-flex;align-items:center;gap:5px"><span style="width:7px;height:7px;border-radius:50%;background:var(--green-dark);display:inline-block"></span>En service</span>`
+          : `<span class="badge badge-gray">Fermé</span>`}
       </div>
-      <div class="etab-stat"><span class="etab-stat-label">CA TTC</span><span id="dash-ca-${id}" style="color:var(--green-dark);font-weight:600">—</span></div>
-      <div class="etab-stat"><span class="etab-stat-label">CA HT</span><span id="dash-caht-${id}">—</span></div>
-      <div class="etab-stat"><span class="etab-stat-label">Commandes</span><span id="dash-cmd-${id}">—</span></div>
-      <div class="etab-stat"><span class="etab-stat-label">Couverts</span><span id="dash-cvt-${id}">—</span></div>
-      <div class="etab-stat" id="dash-enc-row-${id}" style="display:none;border-top:1px dashed var(--border);margin-top:6px;padding-top:8px"><span class="etab-stat-label" style="color:#c0392b">🔴 En cours</span><span id="dash-enc-${id}" style="color:#c0392b;font-weight:600">—</span></div>
+      <div id="dash-corps-${id}"><div style="font-size:26px;font-weight:600;color:var(--text-muted)">—</div></div>
       ${ctrlOn?'<div style="margin-top:10px;padding:8px 10px;background:var(--amber-light);border-radius:6px;font-size:12px;color:var(--amber)">⚠️ Contrôle caisse actif</div>':''}
       <div style="margin-top:10px;font-size:11px;color:var(--text-muted);text-align:right">Détail midi / soir →</div>
     `;
     grid.appendChild(card);
   });
-  chargerDashboardPeriode();
+  try{ _dashAttachLive(); }catch(e){ console.error('[TdB] listeners live :', e); }
+  try{ chargerDashboardPeriode(); }catch(e){ console.error('[TdB] periode :', e); }
 }
 
 // ============================================================

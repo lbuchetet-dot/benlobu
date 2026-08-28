@@ -2401,7 +2401,8 @@ function corrigerPaiement(key, e){
     document.getElementById('input-nom').value = c.nom_client||'';
     document.getElementById('input-couverts').value = c.couverts||'';
     document.getElementById('input-retrait').value = c.retrait_souhaite||'';
-    multiPaiementsValides = [];
+    multiPaiementsValides = [];   // commande déjà soldée : ses paiements sont dans c.paiements
+    window._articlesPayesIdx = [];
     bonImprime = true; // mode "bon déjà imprimé" → Encaisser pleine largeur
     document.getElementById('bon-envoye-heure').textContent = c.heure||'';
     renderPanier();
@@ -2430,7 +2431,8 @@ function rouvriCommandePayee(key, e){
     document.getElementById('input-nom').value = c.nom_client||'';
     document.getElementById('input-couverts').value = c.couverts||'';
     document.getElementById('input-retrait').value = c.retrait_souhaite||'';
-    multiPaiementsValides = [];
+    multiPaiementsValides = [];   // commande déjà soldée : ses paiements sont dans c.paiements
+    window._articlesPayesIdx = [];
     bonImprime = false;
     document.getElementById('footer-avant-bon').style.display = 'flex';
     document.getElementById('footer-apres-bon').style.display = 'none';
@@ -2459,6 +2461,7 @@ function rouvriCommande(key, e){
     document.getElementById('input-nom').value = c.nom_client||'';
     document.getElementById('input-couverts').value = c.couverts||'';
     document.getElementById('input-retrait').value = c.retrait_souhaite||'';
+    _restaurerAcomptes(c);   // règlements partiels déjà encaissés sur cette commande
     // Mode après bon : montrer encaisser seul
     bonImprime = true;
     document.getElementById('footer-avant-bon').style.display = 'none';
@@ -2487,6 +2490,7 @@ function rouvriCommandeAjouter(key, e){
     document.getElementById('input-nom').value = c.nom_client||'';
     document.getElementById('input-couverts').value = c.couverts||'';
     document.getElementById('input-retrait').value = c.retrait_souhaite||'';
+    _restaurerAcomptes(c);   // règlements partiels déjà encaissés sur cette commande
     // Mode ajout : montrer les deux boutons pour pouvoir ajouter + renvoyer bon
     bonImprime = false;
     document.getElementById('footer-avant-bon').style.display = 'flex';
@@ -3473,9 +3477,9 @@ function validerPaiementLibre(){
     pmt.grpTotal = _selTotal;
     _selPaid = Math.round((_selPaid + pmt.montant)*100)/100;
     if(_selPaid >= _selTotal - 0.01){
-      // Sélection entièrement réglée → articles marqués payés
+      // Sélection entièrement réglée → unités marquées payées (clés "ligne:exemplaire")
       if(!window._articlesPayesIdx) window._articlesPayesIdx = [];
-      (_selIdx||[]).forEach(i=>{ if(!window._articlesPayesIdx.includes(i)) window._articlesPayesIdx.push(i); });
+      (_selIdx||[]).forEach(k=>{ if(!window._articlesPayesIdx.includes(k)) window._articlesPayesIdx.push(k); });
       _selArticles = null; _selIdx = []; _selTotal = 0; _selPaid = 0; _grpCourant = null;
     }
   } else {
@@ -3499,6 +3503,13 @@ function validerPaiementLibre(){
     finaliserCommande(tousLesPaiements);
     return;
   }
+
+  // ── Solde non nul : le partage continue. On sauvegarde IMMÉDIATEMENT les
+  // règlements déjà encaissés, pour qu'un rechargement de la tablette, une
+  // coupure réseau ou un passage sur une autre commande ne les perde plus.
+  // Si la vente n'a pas encore de commande en base (encaissement direct sans bon),
+  // on la crée maintenant : sans support, il n'y aurait rien à sauvegarder.
+  _assurerCommandeOuverte(_persisterAcomptes);
 
   // Reset champs pour prochain paiement
   document.getElementById('multi-montant-input').value = '';
@@ -3598,11 +3609,111 @@ function annulerPaiement(){
   }, 50);
 }
 
+// Garantit qu'une commande existe en base avant de sauvegarder des acomptes.
+// Cas visé : encaissement direct (sans bon envoyé) réglé en plusieurs fois — il
+// n'y avait alors AUCUN nœud Firebase où rattacher les règlements partiels.
+function _assurerCommandeOuverte(apres){
+  const suite = ()=>{ try{ apres && apres(); }catch(e){ console.error(e); } };
+  if(commandeEnCoursKey){ suite(); return; }
+  if(!panier.length){ suite(); return; }
+  const nom = nettoyerTexte(document.getElementById('input-nom').value.trim()) || 'Client';
+  const couverts = parseInt(document.getElementById('input-couverts').value) || 1;
+  const retrait = (document.getElementById('input-retrait').value || '').trim();
+  const now = new Date();
+  reserverNumero(num => {
+    const articles = panier.map(i=>({
+      prodId:i.prodId, nom:i.nom, taille:i.taille,
+      prix:i.prixTotal, supplements:i.supplements||[],
+      commentaire:i.commentaire||'', qte:i.qte
+    }));
+    const cmd = {
+      num, nom_client:nom, couverts, retrait_souhaite:retrait,
+      heure: now.toTimeString().substring(0,5),
+      service: detectService(now),
+      emplacement: etabInfo.emplacement_actuel || '—',
+      statut: 'en_cours',
+      total: getTotal(),
+      articles, envois: [], paiements: [],
+      date: todayKey(), timestamp: now.getTime(),
+      ouverte_par_partage: true   // créée automatiquement pour tracer un partage en cours
+    };
+    const cmdKey = 'cmd_'+now.getTime();
+    ecrireFiable('commandes/'+selectedEtabId+'/'+todayKey()+'/'+cmdKey, cmd);
+    commandeEnCoursKey = cmdKey;
+    commandeEnCours = cmd;
+    renderServiceEnCours();
+    suite();
+  });
+}
+
+// ══════════════════════════════════════════════════════════
+// PERSISTANCE DES ACOMPTES (paiements partiels)
+// ══════════════════════════════════════════════════════════
+// AVANT : multiPaiementsValides ne vivait qu'en mémoire jusqu'au solde à zéro.
+// Un rechargement de la tablette, une coupure réseau ou un changement de commande
+// au milieu d'un partage à 5 faisait perdre TOUS les règlements déjà encaissés.
+// MAINTENANT : chaque paiement validé est écrit dans Firebase au fil de l'eau,
+// sous la commande, et rechargé automatiquement à la réouverture.
+// Les acomptes sont purgés au moment de la finalisation (ils deviennent `paiements`).
+
+// Écrit l'état courant du partage sous la commande ouverte (best-effort, non bloquant).
+function _persisterAcomptes(){
+  if(!commandeEnCoursKey || !selectedEtabId) return;
+  const etat = {
+    paiements: multiPaiementsValides,
+    unites_payees: window._articlesPayesIdx || [],
+    maj_le: firebase.database.ServerValue.TIMESTAMP,
+    total_regle: Math.round(multiPaiementsValides.reduce((s,p)=>s+(p.montant||0),0)*100)/100
+  };
+  // On passe par ecrireFiable : la file d'écriture locale rejoue l'opération dès le
+  // retour du réseau. C'est précisément en mode dégradé qu'il ne faut rien perdre.
+  ecrireFiable('commandes/'+selectedEtabId+'/'+todayKey()+'/'+commandeEnCoursKey+'/acomptes',
+    multiPaiementsValides.length ? etat : null);
+}
+
+// Recharge les acomptes d'une commande dans l'état mémoire (à la réouverture).
+function _restaurerAcomptes(c){
+  const a = c && c.acomptes;
+  multiPaiementsValides = (a && Array.isArray(a.paiements)) ? a.paiements : [];
+  window._articlesPayesIdx = (a && Array.isArray(a.unites_payees)) ? a.unites_payees : [];
+  _selArticles = null; _selIdx = []; _selTotal = 0; _selPaid = 0; _grpCourant = null;
+  if(multiPaiementsValides.length){
+    // Repartir après le plus grand n° de groupe déjà utilisé, pour ne pas mélanger
+    // les règlements d'un client déjà servi avec ceux du suivant.
+    multiPaiementsValides.forEach(p=>{
+      const n = parseInt(String(p.grp||'').replace(/^L/,''), 10);
+      if(!isNaN(n) && n > _grpSeq) _grpSeq = n;
+    });
+    const regle = multiPaiementsValides.reduce((s,p)=>s+(p.montant||0),0);
+    showNotif('💾 '+multiPaiementsValides.length+' règlement(s) déjà encaissé(s) restauré(s) · '+fmtPrix(regle),'success');
+  }
+  majPanierPmtRecap();
+}
+
+// Efface les acomptes (commande soldée, ou partage abandonné volontairement).
+function _purgerAcomptes(key){
+  const k = key || commandeEnCoursKey;
+  if(!k || !selectedEtabId) return;
+  ecrireFiable('commandes/'+selectedEtabId+'/'+todayKey()+'/'+k+'/acomptes', null);
+}
+
 function annulerMultiPaiement(){
   document.getElementById('modal-multi').classList.remove('open');
+  // Des règlements réels ont déjà été encaissés : ne jamais les jeter en silence.
+  if(multiPaiementsValides.length){
+    const regle = multiPaiementsValides.reduce((s,p)=>s+(p.montant||0),0);
+    if(!confirm('⚠️ '+multiPaiementsValides.length+' règlement(s) déjà encaissé(s) pour '+fmtPrix(regle)+'.\n\n'
+      + 'OK = les ANNULER (l\'argent déjà encaissé ne sera plus tracé)\n'
+      + 'Annuler = les CONSERVER et revenir à la commande')){
+      majPanierPmtRecap();
+      return;   // on garde tout, mémoire ET Firebase
+    }
+    _purgerAcomptes();
+  }
   setTimeout(()=>{
     multiPaiementsValides = [];
     multiClientActuel = 1; multiPartDeclare = 0; multiPartRestante = 0;
+    window._articlesPayesIdx = [];
     majPanierPmtRecap();
   }, 50);
 }
@@ -3700,6 +3811,32 @@ function renderMultiArticles(){
   }
 }
 
+// ── Éclatement des lignes en UNITÉS ──
+// AVANT : une ligne « 3× Signature » = une seule case à cocher → impossible de faire
+// payer les 3 signatures séparément (tout ou rien).
+// MAINTENANT : chaque exemplaire est une unité cochable indépendamment.
+// Clé d'unité = "indexDeLigne:numéroDExemplaire" (ex. "0:2").
+function _multiUnites(articles){
+  const unites = [];
+  (articles||[]).forEach((a,i)=>{
+    const q = Math.max(1, parseInt(a.qte)||1);
+    for(let u=0; u<q; u++){
+      unites.push({
+        key: i+':'+u,
+        artIdx: i,
+        rang: u+1,
+        total_ligne: q,
+        nom: a.nom, taille: a.taille||'',
+        prix: a.prix,                        // prix unitaire (suppléments inclus)
+        supplements: a.supplements||[],
+        commentaire: a.commentaire||'',
+        prodId: a.prodId, qte: 1
+      });
+    }
+  });
+  return unites;
+}
+
 function _renderMultiArticlesList(articles){
   const list = document.getElementById('multi-articles-list');
   if(!list) return;
@@ -3708,58 +3845,68 @@ function _renderMultiArticlesList(articles){
     list.innerHTML = '<p style="color:var(--text-muted);font-size:13px">Aucun article</p>';
     return;
   }
-  articles.forEach((a,i)=>{
-    const ligneTotal = Math.round(a.prix*a.qte*100)/100;
-    const paye = (window._articlesPayesIdx||[]).includes(i);
+  const unites = _multiUnites(articles);
+  const payes = window._articlesPayesIdx || [];
+  unites.forEach(u=>{
+    const paye = payes.includes(u.key);
+    // Suffixe « (1/3) » uniquement quand la ligne compte plusieurs exemplaires
+    const rangLbl = u.total_ligne > 1 ? ' <span style="color:var(--text-muted);font-size:12px">('+u.rang+'/'+u.total_ligne+')</span>' : '';
+    const libelle = u.nom + ' ' + u.taille + rangLbl;
     const div = document.createElement('div');
     div.style.cssText = 'display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:.5px solid var(--border)'+(paye?';opacity:.45':'');
     if(paye){
       div.innerHTML = '<input type="checkbox" disabled checked style="width:20px;height:20px">'
-        +'<div style="flex:1"><div style="font-size:14px;font-weight:500;text-decoration:line-through">'+a.qte+'× '+a.nom+' '+a.taille+'</div><div style="font-size:11px;color:var(--green-dark);font-weight:600">✓ déjà payé</div></div>'
-        +'<div style="font-size:14px;font-weight:600;color:var(--text-muted);text-decoration:line-through">'+fmtPrix(ligneTotal)+'</div>';
+        +'<div style="flex:1"><div style="font-size:14px;font-weight:500;text-decoration:line-through">'+libelle+'</div><div style="font-size:11px;color:var(--green-dark);font-weight:600">✓ déjà payé</div></div>'
+        +'<div style="font-size:14px;font-weight:600;color:var(--text-muted);text-decoration:line-through">'+fmtPrix(u.prix)+'</div>';
     } else {
-      div.innerHTML = '<input type="checkbox" id="art-sel-'+i+'" onchange="majMultiArticleTotal()" style="width:20px;height:20px;cursor:pointer">'
-        +'<div style="flex:1"><div style="font-size:14px;font-weight:500">'+a.qte+'× '+a.nom+' '+a.taille+'</div></div>'
-        +'<div style="font-size:14px;font-weight:600;color:var(--green-dark)">'+fmtPrix(ligneTotal)+'</div>';
+      div.innerHTML = '<input type="checkbox" data-unite="'+u.key+'" onchange="majMultiArticleTotal()" style="width:20px;height:20px;cursor:pointer">'
+        +'<div style="flex:1"><div style="font-size:14px;font-weight:500">'+libelle+'</div></div>'
+        +'<div style="font-size:14px;font-weight:600;color:var(--green-dark)">'+fmtPrix(u.prix)+'</div>';
     }
     list.appendChild(div);
   });
   // Stocker pour calcul total
   window._multiArticlesCache = articles;
-  majMultiArticleTotalFromCache(articles);
+  window._multiUnitesCache = unites;
+  majMultiArticleTotalFromCache();
+}
+
+// Unités actuellement cochées (non encore payées)
+function _multiUnitesCochees(){
+  const unites = window._multiUnitesCache || [];
+  const sel = [];
+  document.querySelectorAll('#multi-articles-list input[data-unite]').forEach(cb=>{
+    if(!cb.checked) return;
+    const u = unites.find(x=>x.key === cb.getAttribute('data-unite'));
+    if(u) sel.push(u);
+  });
+  return sel;
 }
 
 function majMultiArticleTotal(){
-  majMultiArticleTotalFromCache(window._multiArticlesCache||[]);
+  majMultiArticleTotalFromCache();
 }
 
-function majMultiArticleTotalFromCache(articles){
-  let total = 0;
-  (articles||[]).forEach((a,i)=>{
-    const cb = document.getElementById('art-sel-'+i);
-    if(cb && cb.checked) total += Math.round(a.prix*a.qte*100)/100;
-  });
+function majMultiArticleTotalFromCache(){
+  const total = _multiUnitesCochees().reduce((s,u)=>s + u.prix, 0);
   const el = document.getElementById('multi-article-total-val');
   if(el) el.textContent = fmtPrix(Math.round(total*100)/100);
 }
 
 function encaisserSelectionArticles(){
-  const articles = window._multiArticlesCache || [];
-  let total = 0; const selected = []; const selIdx = [];
-  (articles||[]).forEach((a,i)=>{
-    const cb = document.getElementById('art-sel-'+i);
-    if(cb && cb.checked){ total += Math.round(a.prix*a.qte*100)/100; selected.push(a); selIdx.push(i); }
-  });
+  const sel = _multiUnitesCochees();
+  if(!sel.length){ showNotif('Sélectionne au moins un article','error'); return; }
+  const total = Math.round(sel.reduce((s,u)=>s + u.prix, 0)*100)/100;
   if(total <= 0){ showNotif('Sélectionne au moins un article','error'); return; }
-  _selArticles = selected;
-  _selIdx = selIdx;
-  _selTotal = Math.round(total*100)/100;
+  _selArticles = sel;
+  _selIdx = sel.map(u=>u.key);   // clés d'unités (et non plus index de lignes)
+  _selTotal = total;
   _selPaid = 0;
   _grpCourant = ++_grpSeq;
   document.getElementById('multi-montant-input').value = total.toFixed(2);
   switchMultiTab('libre', document.querySelector('.multi-tab'));
   majMultiMontantInput();
-  showNotif('Sélection : '+fmtPrix(total)+' — peut être réglée en un ou plusieurs paiements');
+  showNotif(sel.length+' article(s) · '+fmtPrix(total)+' — réglable en un ou plusieurs paiements');
 }
 
 // ══════════════════════════════════════════════════════════
@@ -3780,31 +3927,62 @@ function finaliserCommande(paiements){
   } : null;
   const now = new Date();
   const tel = document.getElementById('input-couverts').dataset.tel;
+  // ── Base = la commande déjà en cours (bon envoyé, commande web importée…).
+  // AVANT : l'objet était reconstruit de zéro à chaque encaissement, ce qui effaçait
+  // origine / web_id / web_num / envois / retrait_souhaite / note / tel :
+  //  · le lien avec la commande web était perdu (plus de bouton 🖨 réimpression),
+  //  · l'historique des bons complémentaires (envois) disparaissait du ticket,
+  //  · l'heure de retrait souhaitée n'était plus tracée.
+  // MAINTENANT : on repart de l'existant et on n'écrase que ce que le paiement change.
+  const base = (commandeEnCoursKey && commandeEnCours) ? commandeEnCours : {};
+  const retraitSaisi = (document.getElementById('input-retrait').value || '').trim();
   const construireEtSauver = (num) => {
     const commande = {
+      ...base,
       num,
       nom_client: nom,
       couverts,
-      heure: now.toTimeString().substring(0,5),
-      service: detectService(now),
-      emplacement: etabInfo.emplacement_actuel || '—',
+      // heure = heure de prise de commande : on la conserve si elle existe déjà
+      heure: base.heure || now.toTimeString().substring(0,5),
+      heure_paiement: now.toTimeString().substring(0,5),
+      retrait_souhaite: retraitSaisi || base.retrait_souhaite || '',
+      service: base.service || detectService(now),
+      emplacement: base.emplacement || etabInfo.emplacement_actuel || '—',
       statut: 'payee',
       total,
       total_brut: totalBrut,
-      ...(remiseRec ? { remise: remiseRec } : {}),
       articles: panier.length > 0 ? panier.map(i=>({
         prodId:i.prodId, nom:i.nom, taille:i.taille,
         prix:i.prixTotal, supplements:i.supplements||[],
         commentaire:i.commentaire||'', qte:i.qte
-      })) : (commandeEnCours?.articles || []),
+      })) : (base.articles || []),
       paiements,
       date: todayKey(),
-      timestamp: now.getTime()
+      timestamp: now.getTime()   // horodatage du paiement (tri des commandes payées)
     };
+    // La remise ne survit pas au ticket : si elle a été retirée, purger celle de la base.
+    if(remiseRec) commande.remise = remiseRec; else delete commande.remise;
+    // Les acomptes deviennent des `paiements` définitifs : on ne les recopie pas.
+    delete commande.acomptes;
+    delete commande.ouverte_par_partage;
     const cmdKey = commandeEnCoursKey || 'cmd_'+now.getTime();
     ecrireFiable('commandes/'+selectedEtabId+'/'+todayKey()+'/'+cmdKey, commande);
     // Archive des ventes (nœud séparé, conservé pour l'analyse coût matière S-1)
     ecrireFiable('ventes_archive/'+selectedEtabId+'/'+todayKey()+'/'+cmdKey, commande);
+    // ── Retour vers la commande web : le client suit sa commande sur le site ──
+    // ⚠️ Le champ `total` de commandes_web est FIGÉ par les règles Firebase (anti-fraude
+    // côté client) : on ne peut pas le modifier. On écrit donc le montant réellement
+    // encaissé dans des champs dédiés, ce qui permet d'afficher les ajouts faits en
+    // caisse sans toucher au montant d'origine.
+    if(commande.origine === 'web' && commande.web_id){
+      const _wn = commande.web_node || _webEtabNode || CAPTN_WEB_ETAB;
+      const _uw = {};
+      _uw['commandes_web/'+_wn+'/'+commande.web_id+'/paye'] = true;
+      _uw['commandes_web/'+_wn+'/'+commande.web_id+'/paye_le'] = firebase.database.ServerValue.TIMESTAMP;
+      _uw['commandes_web/'+_wn+'/'+commande.web_id+'/total_final'] = total;
+      _uw['commandes_web/'+_wn+'/'+commande.web_id+'/nb_articles_final'] = (commande.articles||[]).length;
+      db.ref().update(_uw).catch(()=>{ /* best-effort : ne bloque jamais l'encaissement */ });
+    }
     commandeEnCours = commande;
     commandeEnCoursKey = null;
     remiseEnCours = null;   // la remise ne survit pas au ticket
@@ -5071,6 +5249,9 @@ function validerToutWebCaptn(){
     _u['commandes_web/'+node+'/'+o.id+'/status'] = 'confirmed';
     _u['commandes_web/'+node+'/'+o.id+'/validee_le'] = firebase.database.ServerValue.TIMESTAMP;
     _u['commandes_web/'+node+'/'+o.id+'/validee_par'] = 'Caisse';
+    // email_type explicite (comme la validation unitaire) : ne jamais laisser traîner
+    // un 'refus' d'un cycle précédent, qui enverrait le mauvais email au client.
+    _u['commandes_web/'+node+'/'+o.id+'/email_type'] = 'confirmation';
     _u['commandes_web/'+node+'/'+o.id+'/email_statut'] = o.email ? 'en_attente' : 'sans_email';
     if(node==='captfish') _u['creneaux_web/'+node+'/'+o.id+'/status'] = 'confirmed';
   });
@@ -5127,6 +5308,11 @@ function remettreEnAttenteWebCaptn(id){
   const _u = {};
   _u['commandes_web/'+_node+'/'+id+'/status'] = 'pending';
   _u['commandes_web/'+_node+'/'+id+'/email_statut'] = null;
+  // ⚠️ Purger AUSSI le type d'email et le motif : sans ça, une commande refusée puis
+  // remise en attente puis re-validée renvoie l'email « Commande non retenue »
+  // (le script Apps Script lit email_type pour choisir le template).
+  _u['commandes_web/'+_node+'/'+id+'/email_type'] = null;
+  _u['commandes_web/'+_node+'/'+id+'/motif_refus'] = null;
   if(_node==='captfish') _u['creneaux_web/'+_node+'/'+id+'/status'] = 'pending'; // sync suivi client (site)
   db.ref().update(_u)
     .then(()=>{ showNotif('Remise en attente','success'); renderWebPreparerSheet(); renderWebOrdersAccueil(); })
@@ -5174,7 +5360,8 @@ function renderWebPreparerSheet(){
     + list.map(o => _webCarte(o,
     `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
        <div>${_webEmailBadge(o)}</div>
-       <div style="display:flex;gap:6px">
+       <div style="display:flex;gap:6px;flex-wrap:wrap">
+         <button onclick="envoyerWebEnService('${o.id}')" style="padding:8px 12px;background:#1f8a55;color:#fff;border:none;border-radius:8px;font-weight:800;font-size:12px;cursor:pointer" title="Envoyer cette commande seule en service (le client est là)">🖨 Envoyer en service</button>
          ${o.email_statut==='echec'?`<button onclick="renvoyerEmailWebCaptn('${o.id}')" style="padding:8px 10px;background:#fff3e0;color:#9a6a00;border-radius:8px;font-weight:700;font-size:12px">↻ Renvoyer</button>`:''}
          ${_webEtabNode==='pokeben'?`<button onclick="reattribuerWebCamion('${o.id}')" style="padding:8px 10px;background:#ede7f6;color:#5e35b1;border-radius:8px;font-weight:700;font-size:12px" title="Réattribuer vers l'autre camion">🔄 ${o.camion==='Camion 1'?'C2':'C1'}</button>`:''}
          <button onclick="remettreEnAttenteWebCaptn('${o.id}')" style="padding:8px 10px;background:#eef;color:#445;border-radius:8px;font-weight:700;font-size:12px">↩︎ En attente</button>
@@ -5215,6 +5402,7 @@ function envoyerWebEnService(id){
       origine: 'web',
       web_num: o.num||'',
       web_id: String(o.id||id),
+      web_node: (_webEtabNode||CAPTN_WEB_ETAB),
       tel: o.phone||o.tel||'',
       note: o.note||'',
       date: todayKey(),
@@ -5226,6 +5414,13 @@ function envoyerWebEnService(id){
       }))
       .then(()=>{
         showNotif('\u2713 '+(o.num||'')+' envoyée en service','success');
+        // Imprimer le bon de préparation, comme le fait l'envoi groupé.
+        const _printed = _imprimerLotBons([Object.assign({}, cmd, {bon_imprime:true})]);
+        if(_printed){
+          db.ref('commandes/'+selectedEtabId+'/'+todayKey()+'/'+cmdKey+'/bon_imprime').set(true).catch(()=>{});
+        } else {
+          showNotif('Imprimante indisponible — commande envoyée quand même','info');
+        }
         renderWebPreparerSheet(); renderWebOrdersAccueil(); renderServiceEnCours();
       })
       .catch(()=>showNotif('Erreur réseau — réessayez','error'));
@@ -5260,7 +5455,7 @@ function imprimerEtEnvoyerService(){
           heure:now.toTimeString().substring(0,5), service:o.service||detectService(now),
           emplacement:o.emplacement||etabInfo.emplacement_actuel||'—', statut:'en_cours',
           total:_webTotal(o), articles, envois:[{heure:now.toTimeString().substring(0,5), articles}],
-          paiements:[], origine:'web', web_num:o.num||'', web_id:String(o.id),
+          paiements:[], origine:'web', web_num:o.num||'', web_id:String(o.id), web_node:node,
           tel:o.phone||o.tel||'', note:o.note||'', date:today, timestamp:now.getTime()+idx, bon_imprime:true
         };
         updates['commandes/'+selectedEtabId+'/'+today+'/'+cmdKey] = cmd;
