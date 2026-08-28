@@ -879,7 +879,21 @@ const _pubAuth = _pubApp.auth();
 _pubAuth.signInAnonymously().catch(function(){});
 
 // ===== CONTRAINTES COMMANDE (miroir Capt&Fish) =====
-const CUTOFF_PB = { midi:'09:30', soir:'17:00' };   // heure limite de commande
+var CUTOFF_PB = { midi:'09:30', soir:'17:00' };   // heure limite de commande (surchargée par l'admin)
+var CRENEAUX_PB = {
+  midi:['11h30','11h45','12h00','12h15','12h30','12h45','13h00','13h15','13h30'],
+  soir:['19h00','19h15','19h30','19h45','20h00','20h15','20h30']
+};
+function _crxPourHoraires(horaires){ return (String(horaires||'').indexOf('11h')>=0) ? CRENEAUX_PB.midi : CRENEAUX_PB.soir; }
+// Paramétrage centralisé depuis l'admin (Commandes Pok&Ben \u2192 \u2699\ufe0f Param\u00e8tres)
+db.ref('site_config/pokeben/commande_config').on('value', function(sn){
+  var c = sn.val(); if(!c) return;
+  if(c.cutoff_midi) CUTOFF_PB.midi = c.cutoff_midi;
+  if(c.cutoff_soir) CUTOFF_PB.soir = c.cutoff_soir;
+  if(Array.isArray(c.creneaux_midi) && c.creneaux_midi.length) CRENEAUX_PB.midi = c.creneaux_midi;
+  if(Array.isArray(c.creneaux_soir) && c.creneaux_soir.length) CRENEAUX_PB.soir = c.creneaux_soir;
+  try{ renderToday(); renderPlanningGrid(); }catch(e){}
+});
 // 🧪 MODE TEST : ?test=1 dans l'URL déverrouille tous les créneaux (toi uniquement, les vrais clients gardent le verrouillage)
 var _PB_TEST = /[?&]test=1/i.test(location.search||'');
 if(_PB_TEST){
@@ -1290,7 +1304,7 @@ function renderPlanningGrid(){
 
 // Navigue vers la commande avec l'emplacement pré-sélectionné
 function orderFromEmp(emp){
-  var creneaux=emp.horaires.indexOf('11h')>=0?['11h30','11h45','12h00','12h15','12h30','12h45','13h00','13h15','13h30']:['19h00','19h15','19h30','19h45','20h00','20h15','20h30'];
+  var creneaux=_crxPourHoraires(emp.horaires).slice();
   var svcKey=getServiceType(emp.horaires);
   selectedSpot=Object.assign({},emp,{id:emp.jour+'_'+emp.cam+'_'+svcKey,creneaux:creneaux});
   go('order');
@@ -1313,13 +1327,13 @@ function renderOrderTable(){
     if(data.c1){data.c1.forEach(function(s){
       var key=getServiceType(s.horaires);
       var com=isSlotCommandable(j,s.horaires);
-      var slot=Object.assign({id:j+'_c1_'+key,cam:'c1',jour:j,commandable:com,ouvreLe:com?null:_ouvreLePb(j,s.horaires),dateSlot:_dateSlotPb(j,s.horaires)},s,{creneaux:s.horaires.indexOf('11h')>=0?['11h30','11h45','12h00','12h15','12h30','12h45','13h00','13h15','13h30']:['19h00','19h15','19h30','19h45','20h00','20h15','20h30']});
+      var slot=Object.assign({id:j+'_c1_'+key,cam:'c1',jour:j,commandable:com,ouvreLe:com?null:_ouvreLePb(j,s.horaires),dateSlot:_dateSlotPb(j,s.horaires)},s,{creneaux:_crxPourHoraires(s.horaires).slice()});
       map[j][key].c1=slot; if(com) window._orderSlots[slot.id]=slot;
     });}
     if(data.c2){data.c2.forEach(function(s){
       var key=getServiceType(s.horaires);
       var com=isSlotCommandable(j,s.horaires);
-      var slot=Object.assign({id:j+'_c2_'+key,cam:'c2',jour:j,commandable:com,ouvreLe:com?null:_ouvreLePb(j,s.horaires),dateSlot:_dateSlotPb(j,s.horaires)},s,{creneaux:s.horaires.indexOf('11h')>=0?['11h30','11h45','12h00','12h15','12h30','12h45','13h00','13h15','13h30']:['19h00','19h15','19h30','19h45','20h00','20h15','20h30']});
+      var slot=Object.assign({id:j+'_c2_'+key,cam:'c2',jour:j,commandable:com,ouvreLe:com?null:_ouvreLePb(j,s.horaires),dateSlot:_dateSlotPb(j,s.horaires)},s,{creneaux:_crxPourHoraires(s.horaires).slice()});
       map[j][key].c2=slot; if(com) window._orderSlots[slot.id]=slot;
     });}
   });
@@ -1606,7 +1620,7 @@ function validerCommande(){
     cart=[];selectedSpot=null;updatePill();
     go('confirm');
     var c=document.getElementById('confirm-wrap');if(!c)return;
-    c.innerHTML='<div class="confirm-card"><div style="font-size:2.5rem;margin-bottom:1rem">🎉</div><h2>Commande confirmée !</h2><p style="color:var(--ink2);margin-bottom:0.5rem">Merci <strong>'+_lastOrder.prenom+'</strong>, votre poké vous attend.</p><div class="confirm-num">'+_lastOrder.num+'</div><div class="confirm-details"><div class="confirm-row"><span>📅 Date</span><span>'+_labelDateCmd(_lastOrder)+'</span></div><div class="confirm-row"><span>🕐 Retrait</span><span>'+_lastOrder.heure+'</span></div><div class="confirm-row"><span>📍 Lieu</span><span>'+_lastOrder.emplacement+'</span></div><div class="confirm-row"><span>🚐 Camion</span><span>'+_lastOrder.camion+'</span></div><div class="confirm-row"><span>🥗 Articles</span><span>'+_lastOrder.items.map(function(i){return i.nom+' ×'+i.qty;}).join(', ')+'</span></div><div class="confirm-row"><span>💶 Total</span><span style="color:var(--grn);font-family:Playfair Display,serif;font-weight:800;font-size:1.1rem">'+_lastOrder.total.toFixed(2).replace('.',',')+'\u202f€</span></div><div class="confirm-row"><span>💳 Paiement</span><span>Sur place au retrait</span></div></div><p style="font-size:0.78rem;color:var(--ink3);margin-bottom:1.5rem">SMS de confirmation au '+_lastOrder.tel+'</p><div class="confirm-actions"><button class="btn-light" onclick="go(\'mes-commandes\')">Suivre ma commande</button><button class="btn-main" onclick="go(\'home\')">Retour à l\u2019accueil</button></div></div>';
+    c.innerHTML='<div class="confirm-card"><div style="font-size:2.5rem;margin-bottom:1rem">🎉</div><h2>Commande confirmée !</h2><p style="color:var(--ink2);margin-bottom:0.5rem">Merci <strong>'+_lastOrder.prenom+'</strong>, votre poké vous attend.</p><div class="confirm-num">'+_lastOrder.num+'</div><div class="confirm-details"><div class="confirm-row"><span>📅 Date</span><span>'+_labelDateCmd(_lastOrder)+'</span></div><div class="confirm-row"><span>🕐 Retrait</span><span>'+_lastOrder.heure+'</span></div><div class="confirm-row"><span>📍 Lieu</span><span>'+_lastOrder.emplacement+'</span></div><div class="confirm-row"><span>🚐 Camion</span><span>'+_lastOrder.camion+'</span></div><div class="confirm-row"><span>🥗 Articles</span><span>'+_lastOrder.items.map(function(i){return i.nom+' ×'+i.qty;}).join(', ')+'</span></div><div class="confirm-row"><span>💶 Total</span><span style="color:var(--grn);font-family:Playfair Display,serif;font-weight:800;font-size:1.1rem">'+_lastOrder.total.toFixed(2).replace('.',',')+'\u202f€</span></div><div class="confirm-row"><span>💳 Paiement</span><span>Sur place au retrait</span></div></div>'+(_lastOrder.email?'<p style="font-size:0.78rem;color:var(--ink3);margin-bottom:1.5rem">\ud83d\udce7 Un email de confirmation sera envoy\u00e9 \u00e0 '+_lastOrder.email+' d\u00e8s validation par l\u2019\u00e9quipe.</p>':'<p style="font-size:0.78rem;color:var(--ink3);margin-bottom:1.5rem">Suivez votre commande depuis \u00ab Mes commandes \u00bb sur cet appareil.</p>')+'<div class="confirm-actions"><button class="btn-light" onclick="go(\'mes-commandes\')">Suivre ma commande</button><button class="btn-main" onclick="go(\'home\')">Retour à l\u2019accueil</button></div></div>';
   }).catch(function(e){var code=(e&&(e.code||e.message))||'erreur inconnue';try{console.error('Commande Firebase echouee:',e);}catch(_){}showToast('Echec envoi : '+code,'⚠');});
 }
 

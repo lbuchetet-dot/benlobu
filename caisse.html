@@ -1580,6 +1580,30 @@ function lancerCaisse(etabId, e, directCaisse){
         }
         _webOrders[k] = o;
       });
+      // ── RÉATTRIBUTION INTER-CAMION : alerter CE camion quand l'admin lui transfère
+      // une commande de l'autre camion. Fenêtre de 12 h pour ignorer l'historique,
+      // mémorisation locale pour ne jamais réafficher le même transfert.
+      if(_webCamionFiltre){
+        try{
+          const _vusKey = 'reattrib_vus_'+_webCamionFiltre.replace(/\s+/g,'');
+          const _vus = JSON.parse(localStorage.getItem(_vusKey)||'{}');
+          const _nouveaux = [];
+          const _limite = Date.now() - 12*3600*1000;
+          Object.keys(all).forEach(function(k){
+            const o = all[k]; if(!o) return;
+            if(o.camion !== _webCamionFiltre) return;              // transférée VERS ce camion
+            if(!o.reattribuee_le || o.reattribuee_le < _limite) return;
+            if(o.status === 'cancelled') return;
+            if(_vus[k] === o.reattribuee_le) return;               // déjà signalée
+            _vus[k] = o.reattribuee_le;
+            _nouveaux.push(Object.assign({id:k}, o));
+          });
+          if(_nouveaux.length){
+            localStorage.setItem(_vusKey, JSON.stringify(_vus));
+            afficherPopupReattrib(_nouveaux);
+          }
+        }catch(e){ console.error('reattrib popup:', e); }
+      }
       if(document.getElementById('screen-accueil').classList.contains('active')) renderWebOrdersAccueil();
       if(document.getElementById('modal-web-valider').classList.contains('open')) renderWebValiderSheet();
       if(document.getElementById('modal-web-preparer').classList.contains('open')) renderWebPreparerSheet();
@@ -5371,6 +5395,40 @@ function renderWebPreparerSheet(){
 }
 
 // ── PHASE 2 : envoyer une commande web validée dans le « Service en cours » ──
+// ── Popup plein écran : commande réattribuée depuis l'autre camion ──
+function afficherPopupReattrib(cmds){
+  try{ if(navigator.vibrate) navigator.vibrate([200,100,200]); }catch(e){}
+  let ov = document.getElementById('popup-reattrib');
+  if(!ov){
+    ov = document.createElement('div');
+    ov.id = 'popup-reattrib';
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(15,20,15,.72);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+    document.body.appendChild(ov);
+  }
+  const lignes = cmds.map(function(o){
+    const nb = Array.isArray(o.items) ? o.items.reduce(function(s,i){return s+(i.qty||i.qte||1);},0) : 0;
+    return '<div style="background:#f6faf7;border:1px solid #d7e8dd;border-radius:10px;padding:12px 14px;margin-bottom:10px;text-align:left">'
+      +'<div style="display:flex;justify-content:space-between;gap:10px;font-weight:800;font-size:16px"><span>'+(o.num||o.id)+'</span><span>'+(o.heure_retrait||o.heure||'')+'</span></div>'
+      +'<div style="font-size:13px;color:#3d5247;margin-top:3px">'+(((o.fname||o.prenom||'')+' '+(o.lname||o.nom||'')).trim()||'Client')+' · '+nb+' article'+(nb>1?'s':'')+' · '+((o.total||0).toFixed?fmtPrix(o.total||0):o.total)+'</div>'
+      +'<div style="font-size:12px;color:#7a8b80;margin-top:2px">Transférée depuis '+(o.reattribuee_par||'l\u2019autre camion')+' · retrait '+(o.jour||'')+'</div>'
+      +'</div>';
+  }).join('');
+  ov.innerHTML = '<div style="background:#fff;border-radius:18px;max-width:440px;width:100%;padding:24px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.35)">'
+    +'<div style="font-size:40px;margin-bottom:6px">🔄</div>'
+    +'<div style="font-size:19px;font-weight:800;margin-bottom:4px">'+(cmds.length>1?cmds.length+' commandes reçues':'Commande reçue')+' de l\u2019autre camion</div>'
+    +'<div style="font-size:13px;color:#5c6b60;margin-bottom:16px">L\u2019admin vous a transféré '+(cmds.length>1?'ces commandes':'cette commande')+' — elle'+(cmds.length>1?'s sont':' est')+' maintenant sous votre responsabilité.</div>'
+    +lignes
+    +'<button onclick="fermerPopupReattrib()" style="margin-top:8px;width:100%;padding:15px;background:var(--green);color:#fff;border:none;border-radius:12px;font-size:16px;font-weight:800;cursor:pointer">✓ Bien reçu</button>'
+    +'</div>';
+  ov.style.display = 'flex';
+}
+function fermerPopupReattrib(){
+  const ov = document.getElementById('popup-reattrib');
+  if(ov) ov.style.display = 'none';
+  // Rafraîchir les listes pour que la commande transférée apparaisse tout de suite
+  try{ renderWebOrdersAccueil(); renderWebDuJour(); }catch(e){}
+}
+
 function envoyerWebEnService(id){
   const o = _webOrders[id]; if(!o){ showNotif('Commande introuvable','error'); return; }
   if(o.service_cmd_key){ showNotif('Déjà envoyée en service','info'); return; }
