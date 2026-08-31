@@ -538,7 +538,7 @@ input,select,textarea{font-family:inherit;outline:none}
     <button class="onglet-btn active" onclick="showOnglet('caisse',this)" id="ong-caisse">🧾 Caisse</button>
     <button class="onglet-btn" onclick="showOnglet('service',this)" id="ong-service">⚡ Service en cours</button>
     <button class="onglet-btn" onclick="showOnglet('jour',this)" id="ong-jour">📊 Service du jour</button>
-    <button class="onglet-btn" onclick="showOnglet('web',this)" id="ong-web">🌐 Web du jour</button>
+    <button class="onglet-btn" onclick="showOnglet('web',this)" id="ong-web" style="position:relative">🌐 Web du jour<span id="pastille-web" style="display:none;position:absolute;top:2px;right:2px;min-width:20px;height:20px;padding:0 5px;background:#c0392b;color:#fff;border-radius:10px;font-size:12px;font-weight:800;line-height:20px;text-align:center;box-shadow:0 0 0 2px #fff">0</span></button>
     <button class="onglet-btn" onclick="showOnglet('pilotage',this)" id="ong-pilotage">📈 Pilotage</button>
   </div>
 
@@ -1604,6 +1604,7 @@ function lancerCaisse(etabId, e, directCaisse){
           }
         }catch(e){ console.error('reattrib popup:', e); }
       }
+      majBandeauWebPending();   // bandeau rouge visible sur TOUS les écrans (la tablette vit sur l'écran caisse en service)
       if(document.getElementById('screen-accueil').classList.contains('active')) renderWebOrdersAccueil();
       if(document.getElementById('modal-web-valider').classList.contains('open')) renderWebValiderSheet();
       if(document.getElementById('modal-web-preparer').classList.contains('open')) renderWebPreparerSheet();
@@ -5215,6 +5216,7 @@ function acquitterWebAnnul(id){
 // ----- Sheet À VALIDER -----
 function ouvrirWebValider(){
   renderWebValiderSheet();
+  majBandeauWebPending();
   document.getElementById('modal-web-valider').classList.add('open');
 }
 function _webCarte(o, actions){
@@ -5395,6 +5397,79 @@ function renderWebPreparerSheet(){
 }
 
 // ── PHASE 2 : envoyer une commande web validée dans le « Service en cours » ──
+// ── ALERTE NOUVELLE COMMANDE WEB ──
+// En service, la tablette reste sur l'écran caisse : une commande qui n'apparaît que
+// sur l'accueil est invisible. Deux signaux complémentaires :
+//   · un POP-UP plein écran à chaque NOUVELLE arrivée (impossible à rater)
+//   · une PASTILLE rouge permanente sur l'onglet « Web du jour » (état persistant,
+//     qui reste après la fermeture du pop-up tant que tout n'est pas validé)
+let _webVusIds = null;   // ids déjà signalés (null = premier passage, on n'alerte pas)
+
+function majBandeauWebPending(){
+  const pend = (typeof _webPending==='function') ? _webPending() : [];
+  const nb = pend.length;
+
+  // Pastille rouge sur l'onglet, toujours à jour
+  const past = document.getElementById('pastille-web');
+  if(past){
+    past.textContent = nb;
+    past.style.display = nb ? 'block' : 'none';
+  }
+
+  // Premier chargement : on mémorise sans alerter (sinon pop-up au démarrage)
+  const ids = pend.map(o=>o.id);
+  if(_webVusIds === null){ _webVusIds = ids.slice(); return; }
+
+  const nouveaux = pend.filter(o=>!_webVusIds.includes(o.id));
+  _webVusIds = ids.slice();
+  if(!nouveaux.length) return;
+
+  // Pas de pop-up si l'écran de validation est déjà sous les yeux
+  if(document.getElementById('modal-web-valider').classList.contains('open')){ renderWebValiderSheet(); return; }
+  afficherPopupNouvelleCommande(nouveaux);
+}
+
+function afficherPopupNouvelleCommande(cmds){
+  try{ if(navigator.vibrate) navigator.vibrate([300,120,300,120,300]); }catch(e){}
+  try{ if(typeof jouerBip==='function') jouerBip(); }catch(e){}
+  let ov = document.getElementById('popup-web-new');
+  if(!ov){
+    ov = document.createElement('div');
+    ov.id = 'popup-web-new';
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(20,10,8,.78);z-index:9998;display:flex;align-items:center;justify-content:center;padding:20px';
+    document.body.appendChild(ov);
+    const st = document.createElement('style');
+    st.textContent = '@keyframes pwnIn{from{transform:scale(.85);opacity:0}to{transform:scale(1);opacity:1}}'
+      + '@keyframes pwnGlow{0%,100%{box-shadow:0 0 0 0 rgba(192,57,43,.55)}50%{box-shadow:0 0 0 18px rgba(192,57,43,0)}}';
+    document.head.appendChild(st);
+  }
+  const lignes = cmds.slice(0,4).map(function(o){
+    const nb = Array.isArray(o.items) ? o.items.reduce(function(s,i){return s+(i.qty||i.qte||1);},0) : 0;
+    const nom = ((o.fname||o.prenom||'')+' '+(o.lname||o.nom||'')).trim() || 'Client';
+    return '<div style="background:#fff6f4;border:1px solid #f0cec6;border-radius:12px;padding:14px 16px;margin-bottom:10px;text-align:left">'
+      +'<div style="display:flex;justify-content:space-between;gap:10px;font-weight:800;font-size:18px"><span>'+(o.num||'')+'</span><span style="color:#c0392b">'+(o.heure_retrait||o.heure||'')+'</span></div>'
+      +'<div style="font-size:14px;color:#4a3b37;margin-top:4px">'+nom+' · '+nb+' article'+(nb>1?'s':'')+' · '+fmtPrix(o.total||0)+'</div>'
+      +(o.camion?'<div style="font-size:12px;color:#8a7a75;margin-top:2px">'+o.camion+'</div>':'')
+      +'</div>';
+  }).join('');
+  const reste = cmds.length>4 ? '<div style="font-size:13px;color:#8a7a75;margin-bottom:10px">+ '+(cmds.length-4)+' autre(s)</div>' : '';
+  ov.innerHTML = '<div style="background:#fff;border-radius:20px;max-width:460px;width:100%;padding:26px;text-align:center;box-shadow:0 24px 70px rgba(0,0,0,.4);animation:pwnIn .25s ease">'
+    +'<div style="font-size:52px;margin-bottom:4px;animation:pwnGlow 1.4s ease infinite;border-radius:50%;display:inline-block">🔔</div>'
+    +'<div style="font-size:22px;font-weight:900;color:#c0392b;margin-bottom:4px">'+(cmds.length>1?cmds.length+' NOUVELLES COMMANDES':'NOUVELLE COMMANDE WEB')+'</div>'
+    +'<div style="font-size:14px;color:#5c4b46;margin-bottom:18px">'+(cmds.length>1?'Elles attendent':'Elle attend')+' votre validation.</div>'
+    +lignes+reste
+    +'<button onclick="fermerPopupWebNew(true)" style="margin-top:6px;width:100%;padding:17px;background:#c0392b;color:#fff;border:none;border-radius:14px;font-size:17px;font-weight:900;cursor:pointer">✓ Voir et valider</button>'
+    +'<button onclick="fermerPopupWebNew(false)" style="margin-top:8px;width:100%;padding:12px;background:none;color:#8a7a75;border:none;font-size:14px;cursor:pointer">Plus tard</button>'
+    +'</div>';
+  ov.style.display = 'flex';
+}
+
+function fermerPopupWebNew(ouvrir){
+  const ov = document.getElementById('popup-web-new');
+  if(ov) ov.style.display = 'none';
+  if(ouvrir) ouvrirWebValider();
+}
+
 // ── Popup plein écran : commande réattribuée depuis l'autre camion ──
 function afficherPopupReattrib(cmds){
   try{ if(navigator.vibrate) navigator.vibrate([200,100,200]); }catch(e){}
