@@ -1869,6 +1869,20 @@ function applyCaptfishLogo(url){
 // DÉFINITIVEMENT — il ne réessaie jamais, même quand l'auth aboutit ensuite.
 // C'était la cause de la page d'accueil figée sur ses textes par défaut.
 function initSiteConfigListeners(){
+  // Paramétrage commandes (admin → Commandes Capt&Fish → ⚙️ Paramètres).
+  // DOIT rester ici : site_config exige auth != null, et un listener refusé avant
+  // l'auth anonyme est annulé définitivement par Firebase, sans erreur visible.
+  db.ref('site_config/captfish/commande_config').on('value', function(sn){
+    var c = sn.val(); if(!c) return;
+    if(c.cutoff_midi) CUTOFF.midi = c.cutoff_midi;
+    if(c.cutoff_soir) CUTOFF.soir = c.cutoff_soir;
+    ['midi_debut','midi_fin','soir_debut','soir_fin'].forEach(function(k){ if(c[k]) SLOTS_CFG[k]=c[k]; });
+    if(c.pas) SLOTS_CFG.pas = c.pas;
+    if(c.capacite) SLOTS_CFG.capacite = c.capacite;
+    // Recalcul complet : l'ouvrabilité de chaque service dépend du cutoff.
+    try{ refreshFromData(); }catch(e){}
+  }, function(err){ console.error('[site_config] commande_config refusée :', err && err.message); });
+
   db.ref('site_config/captfish/logo').on('value', snap => applyCaptfishLogo(snap.val()));
 
   // Chargement dynamique du hero depuis Firebase
@@ -1915,19 +1929,8 @@ const CARTE = 'burger';
 // Heures limites de commande
 var CUTOFF = { midi: '09:30', soir: '17:00' };   // surchargé par l'admin
 var SLOTS_CFG = { midi_debut:'11:45', midi_fin:'13:15', soir_debut:'18:30', soir_fin:'20:15', pas:10, capacite:6 };
-db.ref('site_config/captfish/commande_config').on('value', function(sn){
-  var c = sn.val(); if(!c) return;
-  if(c.cutoff_midi) CUTOFF.midi = c.cutoff_midi;
-  if(c.cutoff_soir) CUTOFF.soir = c.cutoff_soir;
-  ['midi_debut','midi_fin','soir_debut','soir_fin'].forEach(function(k){ if(c[k]) SLOTS_CFG[k]=c[k]; });
-  if(c.pas) SLOTS_CFG.pas = c.pas;
-  if(c.capacite) SLOTS_CFG.capacite = c.capacite;
-  // ⚠️ L'ouverture de chaque service (ouvrable / cutoff dépassé) est calculée dans
-  // buildSpots() au moment où le planning arrive. Si la config arrive APRÈS, il faut
-  // tout recalculer — sinon l'ancien cutoff reste appliqué jusqu'au rechargement.
-  try{ if(typeof refreshFromData==='function') refreshFromData(); }catch(e){}
-  try{ if(typeof renderTimeSlots==='function') renderTimeSlots(); }catch(e){}
-});
+// (écouteur commande_config déplacé dans initSiteConfigListeners — voir plus bas :
+//  posé ici, il partait AVANT l'auth anonyme et Firebase l'annulait définitivement.)
 function _hm(t){ var p=String(t||'0:0').split(':'); return (parseInt(p[0])||0)*60+(parseInt(p[1])||0); }
 // Fenêtre d'ouverture des commandes : au plus tôt 6 jours avant la date
 // (= le lendemain du passage précédent). Paramétrable ici.
