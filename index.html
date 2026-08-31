@@ -1922,6 +1922,10 @@ db.ref('site_config/captfish/commande_config').on('value', function(sn){
   ['midi_debut','midi_fin','soir_debut','soir_fin'].forEach(function(k){ if(c[k]) SLOTS_CFG[k]=c[k]; });
   if(c.pas) SLOTS_CFG.pas = c.pas;
   if(c.capacite) SLOTS_CFG.capacite = c.capacite;
+  // ⚠️ L'ouverture de chaque service (ouvrable / cutoff dépassé) est calculée dans
+  // buildSpots() au moment où le planning arrive. Si la config arrive APRÈS, il faut
+  // tout recalculer — sinon l'ancien cutoff reste appliqué jusqu'au rechargement.
+  try{ if(typeof refreshFromData==='function') refreshFromData(); }catch(e){}
   try{ if(typeof renderTimeSlots==='function') renderTimeSlots(); }catch(e){}
 });
 function _hm(t){ var p=String(t||'0:0').split(':'); return (parseInt(p[0])||0)*60+(parseInt(p[1])||0); }
