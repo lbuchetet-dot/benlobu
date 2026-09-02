@@ -23,6 +23,38 @@
     --g1:#141414; --g2:#1f1f1f; --g3:#2d2d2d; --g4:#444;
     --success:#4caf50; --error:#f44336;
   }
+  /* ══ MODE JOUR ══════════════════════════════════════════
+     En plein soleil un fond noir se comporte comme un miroir : la lumière
+     ambiante domine la lumière émise. Du texte sombre sur fond clair reste
+     lisible. On inverse donc les variables plutôt que de monter la luminosité.
+     L'orange est assombri (#b23c15) : #e1512d sur blanc tombe sous le seuil
+     de contraste AA pour le petit texte. */
+  body.jour {
+    --black:#ffffff; --white:#111111;
+    --cream:#1a1a1a;
+    --orange:#b23c15; --orange-dark:#8f2f10; --orange-light:#d1481a;
+    --g1:#f4f4f4; --g2:#e9e9e9; --g3:#dcdcdc; --g4:#9a9a9a;
+    --success:#1b7f22; --error:#c62828;
+  }
+  /* Rattrapage des couleurs écrites en dur dans les styles inline */
+  body.jour [style*="color:#fff"]{ color:#111 !important; }
+  body.jour [style*="color:#888"]{ color:#4a4a4a !important; }
+  body.jour [style*="color:#666"]{ color:#3d3d3d !important; }
+  body.jour [style*="color:#bbb"]{ color:#444 !important; }
+  body.jour [style*="color:#aaa"]{ color:#444 !important; }
+  body.jour [style*="color:#777"]{ color:#444 !important; }
+  body.jour [style*="color:#555"]{ color:#333 !important; }
+  body.jour [style*="background:#1"]{ background:#f0f0f0 !important; }
+  body.jour [style*="background:#2"]{ background:#e6e6e6 !important; }
+  body.jour img[src^="data:image/jpeg"]{ background:#111; border-radius:12px; padding:6px; }
+  /* Bouton bascule : toujours accessible, coin haut droit */
+  #theme-btn {
+    position:fixed; top:10px; right:10px; z-index:99997;
+    width:52px; height:52px; border-radius:50%; border:2px solid var(--g4);
+    background:var(--g1); color:var(--white);
+    font-size:24px; line-height:1; cursor:pointer; opacity:.75;
+  }
+  #theme-btn:active { opacity:1; }
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   body {
     background:var(--black); color:var(--white);
@@ -255,7 +287,7 @@
   <div>
     <div class="phone-row">
       <div class="country">🇫🇷 +33</div>
-      <div class="numpad-display" id="np-display"><span class="ph">6 _ _ _ _ _ _ _ _</span></div>
+      <div class="numpad-display" id="np-display"><span class="ph">0 6 _ _ _ _ _ _ _ _</span></div>
     </div>
     <div class="numpad-grid">
       <button class="key" onclick="np('1')">1</button>
@@ -611,14 +643,28 @@ async function syncOffline(){
 setInterval(syncOffline, 20000);
 
 // NUMPAD
-window.np=(d)=>{ if(npVal.length>=9) return; npVal+=d; npDisp(); };
+window.np=(d)=>{
+  // Le client saisit son numéro tel qu'il le connaît : 0 6 xx xx xx xx.
+  // Filet : s'il attaque directement par 6 ou 7 (ancien réflexe de l'app),
+  // on insère le 0 pour lui au lieu de refuser la saisie.
+  if(npVal.length===0 && d!=='0'){
+    if(d==='6'||d==='7'){ npVal='0'+d; npDisp(); return; }
+    return; // un numéro FR commence toujours par 0
+  }
+  if(npVal.length>=10) return;
+  npVal+=d; npDisp();
+};
 window.npDel=()=>{ npVal=npVal.slice(0,-1); npDisp(); };
 function npDisp(){
   const el=document.getElementById('np-display'), btn=document.getElementById('np-btn');
-  if(!npVal.length){ el.innerHTML='<span class="ph">6 _ _ _ _ _ _ _ _</span>'; el.classList.remove('has-value'); btn.disabled=true; }
-  else { el.textContent='0'+npVal; el.classList.add('has-value'); btn.disabled=npVal.length<9; }
+  if(!npVal.length){ el.innerHTML='<span class="ph">0 6 _ _ _ _ _ _ _ _</span>'; el.classList.remove('has-value'); btn.disabled=true; }
+  else {
+    el.textContent = npVal.replace(/(\d{2})(?=\d)/g,'$1 ').trim();
+    el.classList.add('has-value');
+    btn.disabled = !/^0[1-9][0-9]{8}$/.test(npVal);
+  }
 }
-function telKey(){ return '0'+npVal; }
+function telKey(){ return npVal; }
 
 // SEARCH
 window.searchClient=async()=>{
@@ -746,16 +792,27 @@ function showProfile(){
 }
 
 // QUESTIONS
+// L'état actif/inactif vit dans Firebase (fidelite_questions/<id>_active), pas
+// seulement en mémoire : sans ça, couper une question ne survivait pas au
+// rechargement de la page.
+function qActive(id){
+  const v = qState[id+'_active'];
+  if(v !== undefined) return !!v;
+  const q = QUESTIONS.find(x=>x.id===id);
+  return q ? !!q.active : false;
+}
 async function showQuestion(){
   const z=document.getElementById('p-qzone'); z.style.display='none'; z.innerHTML='';
   try{ const s=await get(ref(db,'fidelite_questions')); if(s.exists()) qState=s.val(); }catch(e){}
+  // Interrupteur général : aucune question posée, quel que soit le réglage unitaire.
+  if(qState.toutes_off) return;
   const c=cur; let q=null;
   if(qState.manuel_active && qState.manuel_text) q={...QUESTIONS.find(x=>x.id==='manuel'), text:qState.manuel_text};
   if(!q && c.derniere_visite){
     const days=(Date.now()-c.derniere_visite)/86400000;
-    if(days>=ABSENCE_Q_DAYS && !c.profile?.absent_asked){ const aq=QUESTIONS.find(x=>x.id==='absent'); if(aq.active) q=aq; }
+    if(days>=ABSENCE_Q_DAYS && !c.profile?.absent_asked){ const aq=QUESTIONS.find(x=>x.id==='absent'); if(qActive('absent')) q=aq; }
   }
-  if(!q){ const m=QUESTIONS.filter(x=>x.trigger==='missing'&&x.active&&!c.profile?.[x.id]); if(m.length) q=m[0]; }
+  if(!q){ const m=QUESTIONS.filter(x=>x.trigger==='missing'&&qActive(x.id)&&!c.profile?.[x.id]); if(m.length) q=m[0]; }
   if(!q) return;
   let h=`<div class="qbox"><div class="q-lab">✨ Une petite question</div><div class="q-text">${q.text}</div>`;
   if(q.type==='date') h+=`<input class="input" type="date" id="q-in">`;
@@ -915,8 +972,13 @@ function renderSeg(){
   document.getElementById('seg-inactifs').innerHTML=inact.length?inact.map(([t,c])=>cliRow(t,c)).join(''):'<div style="color:#666;font-size:13px">Aucun</div>';
 }
 function renderQuest(){
-  document.getElementById('quest-list').innerHTML=QUESTIONS.map(q=>{
-    const on=q.id==='manuel'?(qState.manuel_active||false):q.active;
+  const off = !!qState.toutes_off;
+  const master = `<div class="qm" style="border:1px solid #5a2418;background:#1a0d0a;border-radius:10px;padding:10px;margin-bottom:14px">
+      <div class="qt"><b style="color:var(--orange-light)">🚫 Suspendre toutes les questions</b><br>
+      <span style="font-size:12px;color:#888">Aucune question ne sera posée aux clients, quels que soient les réglages ci-dessous.</span></div>
+      <button class="toggle ${off?'on':''}" onclick="togAllQ(this)"></button></div>`;
+  document.getElementById('quest-list').innerHTML = master + QUESTIONS.map(q=>{
+    const on=q.id==='manuel'?(qState.manuel_active||false):qActive(q.id);
     const extra=q.id==='manuel'?`<input class="input" type="text" id="manuel-text" placeholder="Texte de la question du jour..." value="${qState.manuel_text||''}" style="margin-top:8px">`:'';
     const lab=q.id==='manuel'?'📢 Question manuelle du jour':q.text;
     return `<div class="qm"><div class="qt">${lab}${extra}</div><button class="toggle ${on?'on':''}" onclick="togQ('${q.id}',this)"></button></div>`;
@@ -924,9 +986,27 @@ function renderQuest(){
 }
 window.togQ=async(id,el)=>{
   el.classList.toggle('on'); const on=el.classList.contains('on'); const u={};
-  if(id==='manuel'){ u['fidelite_questions/manuel_active']=on; u['fidelite_questions/manuel_text']=document.getElementById('manuel-text')?.value||''; }
-  else { const q=QUESTIONS.find(x=>x.id===id); if(q) q.active=on; }
-  try{ await update(ref(db),u); qState={...qState,manuel_active:u['fidelite_questions/manuel_active']??qState.manuel_active,manuel_text:u['fidelite_questions/manuel_text']??qState.manuel_text}; }catch(e){ toast('Erreur','error'); }
+  if(id==='manuel'){
+    u['fidelite_questions/manuel_active']=on;
+    u['fidelite_questions/manuel_text']=document.getElementById('manuel-text')?.value||'';
+  } else {
+    // Persisté, sinon le réglage était perdu au rechargement.
+    u['fidelite_questions/'+id+'_active']=on;
+    const q=QUESTIONS.find(x=>x.id===id); if(q) q.active=on;
+  }
+  try{
+    await update(ref(db),u);
+    Object.keys(u).forEach(k=>{ qState[k.split('/').pop()] = u[k]; });
+    toast(on?'Question activée':'Question désactivée','ok');
+  }catch(e){ el.classList.toggle('on'); toast('Erreur d\'enregistrement','error'); }
+};
+window.togAllQ=async(el)=>{
+  el.classList.toggle('on'); const off=el.classList.contains('on');
+  try{
+    await update(ref(db),{'fidelite_questions/toutes_off':off});
+    qState.toutes_off=off;
+    toast(off?'Questions suspendues':'Questions réactivées','ok');
+  }catch(e){ el.classList.toggle('on'); toast('Erreur d\'enregistrement','error'); }
 };
 window.tab=(t)=>{
   ['dash','clients','seg','quest','import'].forEach(x=>document.getElementById('t-'+x).style.display=x===t?'block':'none');
@@ -1200,6 +1280,20 @@ function clientDepuisCache(tel){
 // comme le fait une app native. Le verrou est relâché par Android dès que
 // l'onglet passe en arrière-plan → on le redemande au retour au premier plan.
 // ══════════════════════════════════════════════════════════
+// ══ Bascule jour / nuit — mémorisée par tablette ══
+function appliquerTheme(mode){
+  document.body.classList.toggle('jour', mode === 'jour');
+  const b = document.getElementById('theme-btn');
+  if(b) b.textContent = (mode === 'jour') ? '🌙' : '☀️';
+  const m = document.querySelector('meta[name="theme-color"]');
+  if(m) m.setAttribute('content', mode === 'jour' ? '#ffffff' : '#000000');
+  try{ localStorage.setItem('pb_theme', mode); }catch(e){}
+}
+window.toggleTheme = () => {
+  appliquerTheme(document.body.classList.contains('jour') ? 'nuit' : 'jour');
+};
+try{ appliquerTheme(localStorage.getItem('pb_theme') || 'nuit'); }catch(e){}
+
 let _wakeLock = null;
 async function garderEcranAllume(){
   if(!('wakeLock' in navigator)) return;
@@ -1266,6 +1360,7 @@ updateVeilleCamion();
   </div>
 </div>
 
+<button id="theme-btn" onclick="toggleTheme()" title="Mode jour / nuit">☀️</button>
 <button id="rgpd-reopen" onclick="rgpdOpen()" style="display:none;position:fixed;left:12px;bottom:12px;z-index:9998;background:#11161d;color:#fff;border:none;border-radius:50px;padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer;opacity:.85">🍪 Cookies</button>
 
 <script>
