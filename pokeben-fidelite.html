@@ -561,12 +561,36 @@ let offlineQ = JSON.parse(localStorage.getItem('pb_offq')||'[]');
 window.addEventListener('online', ()=>{ document.getElementById('offline').classList.remove('show'); syncOffline(); });
 window.addEventListener('offline', ()=> document.getElementById('offline').classList.add('show'));
 
-async function syncOffline(){
-  if(!offlineQ.length) return;
-  const q=[...offlineQ]; offlineQ=[]; localStorage.setItem('pb_offq','[]');
-  for(const a of q) await doPassage(a.tel, a.ts);
-  toast(`✅ ${q.length} passage(s) synchronisé(s)`,'ok');
+let _syncing = false;
+// File de passages hors-ligne : ajout + persistance
+function enqueuePassage(tel, ts){
+  if(!tel) return;
+  if(offlineQ.some(a=>a.tel===tel && a.ts===ts)) return;
+  offlineQ.push({tel, ts});
+  localStorage.setItem('pb_offq', JSON.stringify(offlineQ));
 }
+// On ne retire un passage de la file QUE s'il a réellement été écrit.
+// (avant : la file était vidée d'avance → un échec de synchro perdait le passage)
+async function syncOffline(){
+  if(!offlineQ.length || _syncing) return;
+  _syncing = true;
+  const q=[...offlineQ];
+  let ok=0;
+  for(const a of q){
+    const done = await doPassage(a.tel, a.ts, { silent:true });
+    if(done){
+      offlineQ = offlineQ.filter(x=>!(x.tel===a.tel && x.ts===a.ts));
+      localStorage.setItem('pb_offq', JSON.stringify(offlineQ));
+      ok++;
+    } else {
+      break; // réseau toujours KO : on garde le reste pour le prochain essai
+    }
+  }
+  _syncing = false;
+  if(ok) toast(`✅ ${ok} passage(s) synchronisé(s)`,'ok');
+}
+// Filet : retente la file toutes les 20 s même sans événement 'online'
+setInterval(syncOffline, 20000);
 
 // NUMPAD
 window.np=(d)=>{ if(npVal.length>=9) return; npVal+=d; npDisp(); };
@@ -742,14 +766,27 @@ window.validatePassage=async()=>{
   await saveQ();
   document.getElementById('p-passbtn').disabled=true;
   if(!navigator.onLine){
-    offlineQ.push({tel:curTel,ts:Date.now()}); localStorage.setItem('pb_offq',JSON.stringify(offlineQ));
+    enqueuePassage(curTel, Date.now());
     showSuccess(true); return;
   }
   await doPassage(curTel, Date.now());
 };
-async function doPassage(tel, ts){
+// Renvoie true si le passage a bien été pris en compte (écrit ou mis en file).
+// opts.silent = appel depuis la synchro (pas d'écran de succès).
+async function doPassage(tel, ts, opts){
+  const silent = !!(opts && opts.silent);
   try{
-    const snap=await get(ref(db,'clients_fidelite/'+tel)); if(!snap.exists()) return;
+    // Réseau "présent mais mort" (4G une barre, wifi sans débit) : navigator.onLine
+    // reste à true. On borne donc la lecture, comme le fait déjà searchClient.
+    const snap=await Promise.race([
+      get(ref(db,'clients_fidelite/'+tel)),
+      new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')), 4000))
+    ]);
+    if(!snap.exists()){
+      // Client inexistant : ce n'est pas un problème réseau, ne pas remettre en file.
+      if(!silent){ toast('Client introuvable','error'); const b=document.getElementById('p-passbtn'); if(b) b.disabled=false; }
+      return true;
+    }
     const c=snap.val();
     const visites=(c.visites||0)+1;
     const points=(c.points||0)+POINTS_PER_PASSAGE;
@@ -763,9 +800,17 @@ async function doPassage(tel, ts){
     hist.push(he);
     ecrireFiableF('clients_fidelite/'+tel, {visites,points,derniere_visite:ts,history:hist,camions}, 'update');
     cur={...c,visites,points,derniere_visite:ts,camions};
-    if(isGift) showScreen('screen-gift');
-    else showSuccess(false, visites%PASSAGES_FOR_REWARD);
-  }catch(e){ toast('Erreur réseau','error'); document.getElementById('p-passbtn').disabled=false; }
+    if(!silent){
+      if(isGift) showScreen('screen-gift');
+      else showSuccess(false, visites%PASSAGES_FOR_REWARD);
+    }
+    return true;
+  }catch(e){
+    // Échec réseau → le passage n'est JAMAIS perdu : il part en file locale.
+    enqueuePassage(tel, ts);
+    if(!silent) showSuccess(true);
+    return false;
+  }
 }
 function showSuccess(offline, stamps){
   document.querySelector('#screen-success .boom').textContent=offline?'📴':'BOOM !';
