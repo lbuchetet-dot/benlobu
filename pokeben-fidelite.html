@@ -5,6 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Fidélité">
+<meta name="theme-color" content="#000000">
+<!-- PWA : manifest DÉDIÉ à cette page (id + start_url propres) pour que
+     l'icône fidélité n'entre pas en collision avec celle de Capt&Fish,
+     les deux marques étant servies depuis le même hébergement Netlify. -->
+<link rel="manifest" href="/pokeben-fidelite.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="/icons/pokeben-fid-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="/icons/pokeben-fid-512.png">
+<link rel="apple-touch-icon" href="/icons/pokeben-fid-192.png">
 <title>Pok&Ben Fidélité</title>
 <style>
   :root {

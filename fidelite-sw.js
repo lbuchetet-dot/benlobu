@@ -1,10 +1,14 @@
 // ══════════════════════════════════════════════════════════
 // Service worker TABLETTE FIDÉLITÉ Pok&Ben — mode hors-ligne
 // ══════════════════════════════════════════════════════════
-const CACHE = 'pokben-fidelite-v1';
+const CACHE = 'pokben-fidelite-v2';
 
 const ASSETS = [
   './pokeben-fidelite.html',
+  '/pokeben-fidelite.webmanifest',
+  '/icons/pokeben-fid-192.png',
+  '/icons/pokeben-fid-512.png',
+  '/icons/pokeben-fid-maskable-512.png',
   'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js',
   'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js',
   'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js'
