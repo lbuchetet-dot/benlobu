@@ -409,7 +409,15 @@
   </div>
   <div id="t-import" style="display:none">
     <div style="font-size:14px;color:var(--cream);font-weight:600;margin-bottom:6px">Import clients Pongo</div>
-    <div style="font-size:13px;color:#888;margin-bottom:12px">Exporte tes clients Pongo en CSV. Doublons (même numéro) fusionnés automatiquement.</div>
+    <div style="font-size:13px;color:#888;margin-bottom:12px">Exporte tes clients Pongo en CSV. Doublons (même numéro) ignorés par défaut.</div>
+    <label style="display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:10px;border:1px solid #5a2418;border-radius:8px;background:#1a0d0a;cursor:pointer">
+      <input type="checkbox" id="csv-ecraser" style="width:20px;height:20px;flex:none">
+      <span style="font-size:13px;color:#e8a08a;line-height:1.35">
+        <b style="color:var(--orange-light)">Écraser les fiches existantes</b><br>
+        Remplace prénom, points et visites des clients déjà présents.<br>
+        <b>Efface leur historique et leurs récompenses.</b> Irréversible.
+      </span>
+    </label>
     <label for="csv" class="drop"><div class="ic">📁</div><div>Sélectionner un fichier CSV</div><div style="font-size:12px;margin-top:4px;color:#666">Prénom, Téléphone, Points, Visites</div></label>
     <input type="file" id="csv" accept=".csv" style="display:none" onchange="importCSV(event)">
     <div id="import-res" style="font-size:13px;color:var(--success);display:none;margin-top:12px"></div>
@@ -960,17 +968,45 @@ window.importCSV=(ev)=>{
   const f=ev.target.files[0]; if(!f) return;
   const r=new FileReader();
   r.onload=async(e)=>{
-    const lines=e.target.result.split('\n').filter(l=>l.trim()); let imp=0,skip=0;
+    const lines=e.target.result.split('\n').filter(l=>l.trim());
+    let imp=0, skip=0, ecrases=0, refus=0; const invalides=[];
+    const ecraser = !!(document.getElementById('csv-ecraser')||{}).checked;
+    if(ecraser){
+      const nb = Object.keys(all).length;
+      const ok = window.confirm(
+        `MODE ÉCRASEMENT\n\n`+
+        `Les clients du CSV déjà présents seront REMPLACÉS :\n`+
+        `points, visites, historique et récompenses remis aux valeurs du fichier.\n\n`+
+        `${nb} fiche(s) actuellement en base.\n\n`+
+        `Cette action est IRRÉVERSIBLE. Continuer ?`);
+      if(!ok){ ev.target.value=''; return; }
+      const ok2 = window.prompt('Confirme en tapant ECRASER (en majuscules) :');
+      if(ok2 !== 'ECRASER'){ ev.target.value=''; toast('Import annulé','error'); return; }
+    }
     for(let i=1;i<lines.length;i++){
       const cols=lines[i].split(/[,;]/).map(c=>c.trim().replace(/"/g,''));
       const prenom=cols[0]; let tel=(cols[1]||'').replace(/\s/g,'').replace(/^(\+33|0033)/,'0');
       const points=parseInt(cols[2])||0; const visites=parseInt(cols[3])||0;
-      if(!prenom||tel.length<10){ skip++; continue; }
-      if(all[tel]){ skip++; continue; }
+      // Numéro FR à 10 chiffres : au-delà, la règle Firebase rejette l'écriture
+      // silencieusement — on filtre ici pour que le compteur reste sincère.
+      if(!prenom || !/^0[1-9][0-9]{8}$/.test(tel)){ skip++; invalides.push(lines[i].slice(0,40)); continue; }
+      if(all[tel] && !ecraser){ skip++; continue; }
+      const existe = !!all[tel];
       const c={prenom,telephone:tel,sexe:null,date_naissance:null,points,visites,rewards_used:Math.floor(visites/PASSAGES_FOR_REWARD),consent_marketing:false,date_inscription:todayKey(),derniere_visite:null,profile:{},history:[]};
-      await set(ref(db,'clients_fidelite/'+tel),c); all[tel]=c; imp++;
+      try{
+        await set(ref(db,'clients_fidelite/'+tel),c);
+        all[tel]=c;
+        if(existe) ecrases++; else imp++;
+      }catch(err){ skip++; refus++; }
     }
-    const res=document.getElementById('import-res'); res.style.display='block'; res.textContent=`✅ ${imp} importés, ${skip} ignorés (doublons / invalides)`;
+    const res=document.getElementById('import-res'); res.style.display='block';
+    let txt = `✅ ${imp} créés`;
+    if(ecraser) txt += `, ${ecrases} écrasés`;
+    txt += `, ${skip} ignorés`;
+    if(refus) txt += ` (dont ${refus} refusés par le serveur)`;
+    if(invalides.length) txt += ` — ${invalides.length} ligne(s) au format invalide`;
+    res.textContent = txt;
+    if(invalides.length) console.warn('Lignes CSV invalides :', invalides);
     renderClients();
   };
   r.readAsText(f);
