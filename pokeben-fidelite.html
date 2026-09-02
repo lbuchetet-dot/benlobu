@@ -1046,6 +1046,33 @@ setInterval(precacheClients, 5*60*1000);
 function clientDepuisCache(tel){
   try{ const c = JSON.parse(localStorage.getItem(FCACHE_KEY)||'{}'); return c[tel]||null; }catch(e){ return null; }
 }
+// ══════════════════════════════════════════════════════════
+// ÉCRAN TOUJOURS ALLUMÉ (Screen Wake Lock)
+// Une PWA est traitée comme une page web : Android applique sa mise en veille
+// normale. On demande donc explicitement au système de garder l'écran allumé,
+// comme le fait une app native. Le verrou est relâché par Android dès que
+// l'onglet passe en arrière-plan → on le redemande au retour au premier plan.
+// ══════════════════════════════════════════════════════════
+let _wakeLock = null;
+async function garderEcranAllume(){
+  if(!('wakeLock' in navigator)) return;
+  if(_wakeLock) return;
+  try{
+    _wakeLock = await navigator.wakeLock.request('screen');
+    _wakeLock.addEventListener('release', ()=>{ _wakeLock = null; });
+  }catch(e){ _wakeLock = null; }
+}
+// 1. au démarrage
+garderEcranAllume();
+// 2. au retour au premier plan (le verrou est perdu à chaque mise en arrière-plan)
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState === 'visible') garderEcranAllume();
+});
+// 3. filet : certains navigateurs exigent une interaction avant d'accorder le verrou
+document.addEventListener('pointerdown', ()=>{ garderEcranAllume(); }, { passive:true });
+// 4. filet de sécurité : re-tentative périodique si le verrou a été refusé
+setInterval(garderEcranAllume, 60000);
+
 // Service worker : la tablette démarre sans réseau
 if('serviceWorker' in navigator){
   window.addEventListener('load', ()=>{ navigator.serviceWorker.register('fidelite-sw.js').catch(()=>{}); });
