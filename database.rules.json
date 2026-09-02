@@ -12,8 +12,8 @@
     //     perdent l'accès en écriture des commandes).
     //  ⚠️ Plus de date d'expiration : fini la coupure du 17 juillet.
     // ─────────────────────────────────────────────────────────────────────
-    ".read": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous'",
-    ".write": "auth != null",
+    ".read":  "auth != null && auth.token.firebase.sign_in_provider != 'anonymous'",
+    ".write": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous'",
 
     // ─── NŒUDS PUBLICS : lecture autorisée aux clients anonymes (aucune PII) ───
     "cartes":                  { ".read": "auth != null" },
@@ -30,6 +30,8 @@
     //  Les clients anonymes peuvent toujours créer/annuler (write racine),
     //  mais ne peuvent plus LIRE la PII des commandes. Validations conservées.
     "commandes_web": {
+      // Seul noeud ouvert en ECRITURE aux clients anonymes (creation / annulation).
+      ".write": "auth != null",
       "$etab": {
         "$orderId": {
           // À la création, statut forcément "pending" (pas d'auto-confirmation).
@@ -58,9 +60,17 @@
       }
     },
 
+    // ─── FIDÉLITÉ : staff uniquement en lecture ET en écriture ───
+    //  La tablette fidélité se connecte en email/mot de passe → OK.
+    //  Un visiteur anonyme des sites publics ne peut ni lire ni écrire.
+    "clients_fidelite":   { ".write": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous'" },
+    "fidelite_questions": { ".write": "auth != null && auth.token.firebase.sign_in_provider != 'anonymous'" },
+
     // ─── CLIENTS WEB (auto-remplissage) : forme verrouillée ───
     //  Pas de ".read" ici → hérite de la racine = STAFF SEULEMENT (PII protégée).
     "clients_web": {
+      // Ecriture anonyme conservee (auto-remplissage) ; forme verrouillee ci-dessous.
+      ".write": "auth != null",
       "$phone": {
         ".validate": "newData.hasChildren()",
         "fname":  { ".validate": "newData.isString()" },
