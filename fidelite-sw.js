@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════════════════
 // Service worker TABLETTE FIDÉLITÉ Pok&Ben — mode hors-ligne
 // ══════════════════════════════════════════════════════════
-const CACHE = 'pokben-fidelite-v5';
+const CACHE = 'pokben-fidelite-v6';
 
 const ASSETS = [
   './pokeben-fidelite.html',

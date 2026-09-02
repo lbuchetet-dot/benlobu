@@ -964,50 +964,161 @@ window.useReward=async()=>{
 };
 
 // CSV
+// ══════════════════════════════════════════════════════════
+// IMPORT CSV PONGO — lecture par NOM DE COLONNE (pas par position)
+// L'export Pongo compte 19 colonnes : id, public_id, phone, last_checkin_date,
+// register_date, birthday, firstname, lastname, email, gender, has_optin_sms,
+// has_optin_email, audiences, points, checkin_count, store, city, postal_code,
+// old_loyalty_card_number. On mappe par en-tête pour rester robuste si Pongo
+// change l'ordre ou ajoute une colonne.
+// ══════════════════════════════════════════════════════════
+
+// Découpe une ligne CSV en respectant les guillemets ("2026-09-01 20:17:21" contient des espaces,
+// et un champ peut contenir une virgule). L'ancien split(/[,;]/) cassait dessus.
+function _csvSplit(line, sep){
+  const out=[]; let cur='', q=false;
+  for(let i=0;i<line.length;i++){
+    const ch=line[i];
+    if(q){
+      if(ch==='"'){ if(line[i+1]==='"'){ cur+='"'; i++; } else q=false; }
+      else cur+=ch;
+    } else {
+      if(ch==='"') q=true;
+      else if(ch===sep){ out.push(cur); cur=''; }
+      else cur+=ch;
+    }
+  }
+  out.push(cur);
+  return out.map(v=>v.trim());
+}
+
+// 06 12 34 56 78 / +33612345678 / 33612345678 / 0033... → 0612345678
+function _normTel(v){
+  let t=String(v||'').replace(/[^\d+]/g,'');
+  if(t.startsWith('+33')) t='0'+t.slice(3);
+  else if(t.startsWith('0033')) t='0'+t.slice(4);
+  else if(t.startsWith('33') && t.length===11) t='0'+t.slice(2);
+  return t.replace(/\D/g,'');
+}
+// "2024-09-17 19:48:53" → "2024-09-17"
+function _dateOnly(v){ const m=String(v||'').match(/^(\d{4}-\d{2}-\d{2})/); return m?m[1]:null; }
+// "2026-09-01 20:17:21" → timestamp ms
+function _toTs(v){ const d=_dateOnly(v); if(!d) return null; const t=Date.parse(String(v).replace(' ','T')); return isNaN(t)?Date.parse(d):t; }
+// "POK&BEN 1" → pokeC1 ; "POK&BEN 2" → pokeC2 ; sinon Capt&Fish
+function _storeToCamion(v){
+  const t=String(v||'').toUpperCase();
+  if(t.includes('CAPT') || t.includes('FISH')) return 'captn';
+  if(/2/.test(t)) return 'pokeC2';
+  if(/1/.test(t)) return 'pokeC1';
+  return null;
+}
+
 window.importCSV=(ev)=>{
   const f=ev.target.files[0]; if(!f) return;
   const r=new FileReader();
   r.onload=async(e)=>{
-    const lines=e.target.result.split('\n').filter(l=>l.trim());
+    const txtRaw=String(e.target.result||'').replace(/^\uFEFF/,'');
+    const lines=txtRaw.split(/\r?\n/).filter(l=>l.trim());
+    const res=document.getElementById('import-res'); res.style.display='block';
+    if(lines.length<2){ res.textContent='❌ Fichier vide'; return; }
+
+    // Séparateur : celui qui découpe l'en-tête en le plus de colonnes
+    const sep = _csvSplit(lines[0],';').length > _csvSplit(lines[0],',').length ? ';' : ',';
+    const head = _csvSplit(lines[0],sep).map(h=>h.toLowerCase().replace(/^"|"$/g,''));
+    const col = n => head.indexOf(n);
+
+    const iTel = col('phone')      >=0 ? col('phone')      : col('telephone');
+    const iPre = col('firstname')  >=0 ? col('firstname')  : col('prenom');
+    const iNom = col('lastname');
+    const iPts = col('points');
+    const iVis = col('checkin_count')>=0 ? col('checkin_count') : col('visites');
+    const iBir = col('birthday');
+    const iReg = col('register_date');
+    const iLast= col('last_checkin_date');
+    const iSms = col('has_optin_sms');
+    const iSex = col('gender');
+    const iSto = col('store');
+    const iMail= col('email');
+    const iCity= col('city');
+    const iCp  = col('postal_code');
+    const iCard= col('old_loyalty_card_number');
+
+    if(iTel<0){ res.textContent='❌ Colonne téléphone introuvable dans l\'en-tête ('+head.join(', ')+')'; return; }
+
     let imp=0, skip=0, ecrases=0, refus=0; const invalides=[];
     const ecraser = !!(document.getElementById('csv-ecraser')||{}).checked;
     if(ecraser){
       const nb = Object.keys(all).length;
       const ok = window.confirm(
-        `MODE ÉCRASEMENT\n\n`+
-        `Les clients du CSV déjà présents seront REMPLACÉS :\n`+
-        `points, visites, historique et récompenses remis aux valeurs du fichier.\n\n`+
-        `${nb} fiche(s) actuellement en base.\n\n`+
-        `Cette action est IRRÉVERSIBLE. Continuer ?`);
+        'MODE ÉCRASEMENT\n\n'+
+        'Les clients du CSV déjà présents seront REMPLACÉS :\n'+
+        'points, visites, historique et récompenses remis aux valeurs du fichier.\n\n'+
+        nb+' fiche(s) actuellement en base.\n\n'+
+        'Cette action est IRRÉVERSIBLE. Continuer ?');
       if(!ok){ ev.target.value=''; return; }
       const ok2 = window.prompt('Confirme en tapant ECRASER (en majuscules) :');
       if(ok2 !== 'ECRASER'){ ev.target.value=''; toast('Import annulé','error'); return; }
     }
+
+    res.textContent='⏳ Import en cours…';
     for(let i=1;i<lines.length;i++){
-      const cols=lines[i].split(/[,;]/).map(c=>c.trim().replace(/"/g,''));
-      const prenom=cols[0]; let tel=(cols[1]||'').replace(/\s/g,'').replace(/^(\+33|0033)/,'0');
-      const points=parseInt(cols[2])||0; const visites=parseInt(cols[3])||0;
-      // Numéro FR à 10 chiffres : au-delà, la règle Firebase rejette l'écriture
-      // silencieusement — on filtre ici pour que le compteur reste sincère.
-      if(!prenom || !/^0[1-9][0-9]{8}$/.test(tel)){ skip++; invalides.push(lines[i].slice(0,40)); continue; }
+      const c0=_csvSplit(lines[i],sep);
+      const tel=_normTel(c0[iTel]);
+      if(!/^0[1-9][0-9]{8}$/.test(tel)){ skip++; invalides.push('L'+(i+1)+': '+lines[i].slice(0,50)); continue; }
       if(all[tel] && !ecraser){ skip++; continue; }
-      const existe = !!all[tel];
-      const c={prenom,telephone:tel,sexe:null,date_naissance:null,points,visites,rewards_used:Math.floor(visites/PASSAGES_FOR_REWARD),consent_marketing:false,date_inscription:todayKey(),derniere_visite:null,profile:{},history:[]};
+      const existe=!!all[tel];
+
+      // 63 % des fiches Pongo n'ont pas de prénom → repli sur le nom, puis "Client"
+      let prenom=(iPre>=0?c0[iPre]:'')||'';
+      if(!prenom && iNom>=0) prenom=c0[iNom]||'';
+      prenom=(prenom||'Client').slice(0,40);
+
+      const points =Math.max(0, parseInt(iPts>=0?c0[iPts]:0,10)||0);
+      const visites=Math.max(0, parseInt(iVis>=0?c0[iVis]:0,10)||0);
+      const camion  = iSto>=0 ? _storeToCamion(c0[iSto]) : null;
+      const naiss   = iBir>=0 ? _dateOnly(c0[iBir]) : null;
+      const inscr   = (iReg>=0 ? _dateOnly(c0[iReg]) : null) || todayKey();
+      const derniere= iLast>=0 ? _toTs(c0[iLast]) : null;
+      const gRaw    = iSex>=0 ? String(c0[iSex]||'').toLowerCase() : '';
+      const sexe    = gRaw==='woman'?'F' : gRaw==='man'?'H' : null;
+
+      const c={
+        prenom, telephone:tel, points, visites,
+        // Pas de repas offert rétroactif : on considère les repas déjà acquis comme consommés.
+        rewards_used: Math.floor(visites/PASSAGES_FOR_REWARD),
+        consent_marketing: iSms>=0 ? (String(c0[iSms]).trim()==='1') : false,
+        date_inscription: inscr,
+        profile:{}, history:[]
+      };
+      if(naiss)    c.date_naissance = naiss;
+      if(derniere) c.derniere_visite = derniere;
+      if(sexe)     c.sexe = sexe;
+      if(camion){ c.acquisition_camion = camion; c.camions = { [camion]: visites }; }
+      // Traçabilité de l'origine (champ "pongo" autorisé par les règles)
+      const meta={};
+      if(iMail>=0 && c0[iMail]) meta.email=c0[iMail];
+      if(iCity>=0 && c0[iCity]) meta.ville=c0[iCity];
+      if(iCp  >=0 && c0[iCp])   meta.cp=c0[iCp];
+      if(iCard>=0 && c0[iCard]) meta.carte=c0[iCard];
+      meta.importe_le=todayKey();
+      c.pongo=meta;
+
       try{
         await set(ref(db,'clients_fidelite/'+tel),c);
         all[tel]=c;
         if(existe) ecrases++; else imp++;
       }catch(err){ skip++; refus++; }
+      if(i%100===0) res.textContent='⏳ '+i+' / '+(lines.length-1)+'…';
     }
-    const res=document.getElementById('import-res'); res.style.display='block';
-    let txt = `✅ ${imp} créés`;
-    if(ecraser) txt += `, ${ecrases} écrasés`;
-    txt += `, ${skip} ignorés`;
-    if(refus) txt += ` (dont ${refus} refusés par le serveur)`;
-    if(invalides.length) txt += ` — ${invalides.length} ligne(s) au format invalide`;
-    res.textContent = txt;
+
+    let out='✅ '+imp+' créés';
+    if(ecraser) out+=', '+ecrases+' écrasés';
+    out+=', '+skip+' ignorés';
+    if(refus) out+=' (dont '+refus+' refusés par le serveur)';
+    if(invalides.length) out+=' — '+invalides.length+' ligne(s) au format invalide';
+    res.textContent=out;
     if(invalides.length) console.warn('Lignes CSV invalides :', invalides);
-    renderClients();
+    renderClients(); renderDash();
   };
   r.readAsText(f);
 };
