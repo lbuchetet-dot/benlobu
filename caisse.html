@@ -5579,7 +5579,7 @@ function imprimerEtEnvoyerService(){
       list.forEach((o, idx)=>{
         const num = startNum + idx;
         const hRetrait = _webHeure(o) || now.toTimeString().substring(0,5);
-        const articles = (o.items||[]).map(it=>({prodId:it.id||'', nom:it.nomBase||it.nom||'', taille:'', prix:it.prix||0, prixBase:(it.prixBase!=null?it.prixBase:(it.prix||0)), supplements:it.supplements||[], type:it.type||null, composition:it.composition||null, commentaire:'', qte:it.qty||1, _dejaEnvoye:true}));
+        const articles = (o.items||[]).map(it=>({prodId:it.id||'', nom:it.nomBase||it.nom||'', taille:(it.taille||''), prix:it.prix||0, prixBase:(it.prixBase!=null?it.prixBase:(it.prix||0)), supplements:it.supplements||[], type:it.type||null, composition:it.composition||null, commentaire:'', qte:it.qty||1, _dejaEnvoye:true}));
         const couverts = (o.items||[]).reduce((s,it)=>s+(it.qty||1),0)||1;
         const nomClient = ((o.fname||o.prenom||'')+' '+(o.lname||o.nom||'')).trim() || (o.num||'Client web');
         const cmdKey = 'web_'+String(o.id);

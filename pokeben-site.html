@@ -306,6 +306,8 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;height:64px;background:rgba(
 .cart-item-main{flex:1;min-width:0;}
 .cart-item-main .cart-item-name{flex:none;}
 .cart-item-sups{font-size:0.7rem;color:var(--grn);margin-top:2px;line-height:1.3;}
+.cart-item-edit{background:none;border:none;padding:0;margin-top:3px;font-family:inherit;font-size:0.66rem;font-weight:800;letter-spacing:0.6px;text-transform:uppercase;color:var(--ink3);cursor:pointer;text-decoration:underline;}
+.cart-item-edit:hover{color:var(--coral);}
 .cart-qty{display:flex;align-items:center;gap:0.4rem;}
 .qty-btn{width:24px;height:24px;border-radius:50%;border:1.5px solid var(--border2);background:var(--cream);color:var(--ink2);cursor:pointer;font-size:0.9rem;display:flex;align-items:center;justify-content:center;transition:all 0.15s;}
 .qty-btn:hover{border-color:var(--grn);color:var(--grn);}
@@ -449,16 +451,53 @@ footer{background:var(--ink);color:#fff;padding:3.5rem 2.5rem 2rem;}
 .fm-slot-select{width:100%;padding:0.65rem 0.8rem;border:1.5px solid var(--border);background:var(--cream);color:var(--ink);border-radius:10px;font-family:inherit;font-size:0.9rem;outline:none;}
 .fm-slot-select:focus{border-color:var(--grn);}
 .prod-suggest{text-align:left;margin-bottom:0.2rem;}
+.pb-sugg-add{width:32px;height:32px;min-width:32px;border-radius:50%;border:none;background:var(--ink);color:#fff;font-size:1.05rem;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.pb-sugg-add:active{transform:scale(0.94);}
 .pb-sugg-row{display:flex;align-items:center;gap:0.6rem;padding:0.5rem 0.7rem;border:1px solid var(--border);border-radius:10px;margin-bottom:0.4rem;}
 .pb-sugg-name{flex:1;font-size:0.85rem;color:var(--ink);font-weight:600;}
 .pb-sugg-price{font-size:0.8rem;color:var(--ink3);white-space:nowrap;}
 .pb-sugg-add{width:30px;height:30px;border-radius:50%;border:1.5px solid var(--grn);background:none;color:var(--grn);font-size:1.1rem;cursor:pointer;line-height:1;flex-shrink:0;}
 .pb-sugg-add:active{background:var(--grn);color:#fff;}
+.pb-carte-etat{grid-column:1/-1;text-align:center;padding:2rem 1rem;}
+.pb-carte-etat-t{font-family:"Playfair Display",serif;font-weight:900;font-size:1.15rem;color:var(--ink);margin-bottom:0.4rem;}
+.pb-carte-etat-d{font-size:0.85rem;color:var(--ink3);line-height:1.5;margin:0.6rem auto 1rem;max-width:380px;}
+.pb-skel{height:14px;border-radius:8px;background:linear-gradient(90deg,var(--cream2),var(--border),var(--cream2));background-size:200% 100%;animation:pbSkel 1.2s ease infinite;margin:0 auto 0.6rem;max-width:320px;}
+.pb-skel:nth-child(2){max-width:260px;}
+.pb-skel:nth-child(3){max-width:190px;}
+@keyframes pbSkel{0%{background-position:200% 0}100%{background-position:-200% 0}}
 #cart-relance{padding:0 1.5rem;}
+/* Formules : composition et bascule depuis le panier */
+.fm-slot{margin-bottom:1rem;}
+.fm-slot-lbl{font-size:0.62rem;font-weight:800;letter-spacing:1.4px;text-transform:uppercase;color:var(--ink3);margin-bottom:0.5rem;}
+.fm-slot-fixed{font-size:0.85rem;font-weight:600;color:var(--ink2);padding:0.55rem 0.7rem;background:var(--cream2);border-radius:10px;}
+.fm-sub{margin:0.5rem 0 0 0.4rem;padding-left:0.8rem;border-left:2px solid var(--grn);}
+.fm-sub .pb-step{margin-bottom:0.7rem;}
+.fm-bascule{margin:0.6rem 0 0.4rem;padding:0.85rem 1rem;background:var(--grn-bg);border:1.5px solid var(--grn);border-radius:12px;}
+.fm-bascule-t{font-size:0.85rem;font-weight:800;color:var(--ink);margin-bottom:0.2rem;}
+.fm-bascule-d{font-size:0.78rem;color:var(--ink2);margin-bottom:0.55rem;line-height:1.45;}
+.fm-bascule-btn{width:100%;background:var(--grn);color:#fff;border:none;border-radius:30px;padding:0.6rem 1rem;font-family:inherit;font-weight:800;font-size:0.72rem;letter-spacing:0.8px;text-transform:uppercase;cursor:pointer;}
+
 .relance-block{padding:0.7rem 0;border-top:1px dashed var(--border);}
 .relance-lbl{font-size:0.8rem;color:var(--coral);font-weight:700;margin-bottom:0.5rem;}
 .relance-chip{display:inline-block;margin:0 0.4rem 0.4rem 0;padding:0.4rem 0.7rem;border:1px solid var(--border);background:var(--cream);color:var(--ink);border-radius:20px;font-family:inherit;font-size:0.76rem;cursor:pointer;}
 .relance-chip:active{border-color:var(--grn);color:var(--grn);}
+/* ── Configurateur produit (taille → protéine → suppléments) ── */
+.prod-modal{display:flex;flex-direction:column;max-height:88vh;}
+.prod-modal-top{flex-shrink:0;}
+.prod-modal-actions{overflow-y:auto;flex:1;padding-bottom:0.5rem;}
+.pb-step{margin-bottom:1.1rem;}
+.pb-step-lbl{font-size:0.62rem;font-weight:800;letter-spacing:1.4px;text-transform:uppercase;color:var(--ink3);margin-bottom:0.5rem;display:flex;align-items:center;gap:0.5rem;}
+.pb-opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:0.45rem;}
+.pb-opt{display:flex;flex-direction:column;align-items:center;gap:2px;padding:0.6rem 0.5rem;border:1.5px solid var(--border);border-radius:12px;background:var(--cream2);cursor:pointer;transition:border-color .15s,background .15s;font-family:inherit;}
+.pb-opt:hover{border-color:var(--grn);}
+.pb-opt.on{border-color:var(--grn);background:var(--grn-bg);}
+.pb-opt-nom{font-size:0.85rem;font-weight:800;color:var(--ink);}
+.pb-opt-ec{font-size:0.7rem;font-weight:700;color:var(--ink3);}
+.pb-opt.off{opacity:0.4;cursor:not-allowed;background:var(--cream);}
+.pb-opt.off:hover{border-color:var(--border);}
+.pb-sticky{position:sticky;bottom:0;background:var(--cream);padding-top:0.6rem;margin-top:0.2rem;border-top:1px solid var(--border);}
+.btn-add-panier{display:flex;justify-content:space-between;align-items:center;gap:1rem;}
+.btn-add-panier .pb-btn-tot{font-variant-numeric:tabular-nums;opacity:.92;}
 .prod-modal-qty{display:flex;align-items:center;justify-content:center;gap:1rem;margin-bottom:0.25rem;}
 .prod-modal-qty button{width:38px;height:38px;border-radius:50%;border:1.5px solid var(--border2);background:var(--cream2);font-size:1.2rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s;}
 .prod-modal-qty button:hover{border-color:var(--grn);color:var(--grn);}
@@ -581,6 +620,66 @@ footer{background:var(--ink);color:#fff;padding:3.5rem 2.5rem 2rem;}
 @media(max-width:380px){
   .order-page .order-table thead th:not(:first-child),
   .order-page .order-table tbody td:not(:first-child){min-width:138px !important;}
+}
+
+/* ===== CONFIGURATEUR : TABLETTE & SMARTPHONE ===== */
+/* Tablette : le panier reste visible en colonne unique au lieu de filer en bas de page */
+@media(min-width:601px) and (max-width:900px){
+  .order-layout{grid-template-columns:1fr;}
+  .cart-box{position:sticky!important;top:76px!important;z-index:60;}
+  .prod-modal,.formule-modal{max-width:520px;}
+  .pb-opts{grid-template-columns:repeat(auto-fit,minmax(120px,1fr));}
+}
+/* Smartphone : la fiche produit devient une feuille ancrée en bas, plus facile au pouce */
+@media(max-width:600px){
+  .prod-modal-overlay{padding:0;align-items:flex-end;}
+  #formule-modal .prod-modal{max-width:100%;width:100%;border-radius:20px 20px 0 0;}
+  .prod-modal{max-width:100%;width:100%;border-radius:20px 20px 0 0;max-height:92svh;animation:pbSheet .22s ease;}
+  @keyframes pbSheet{from{transform:translateY(100%)}to{transform:translateY(0)}}
+  /* poignée de feuille */
+  .prod-modal-top::before{content:'';display:block;width:38px;height:4px;border-radius:4px;background:rgba(26,36,32,0.18);margin:-0.75rem auto 0.9rem;}
+  .prod-modal-top{padding:1.5rem 1.15rem 1rem;}
+  .prod-modal-name{font-size:1.35rem;}
+  .prod-modal-desc{font-size:0.82rem;}
+  .prod-modal-actions{padding:1rem 1.15rem 0;}
+  /* Tailles et protéines : toujours sur une seule ligne, cibles tactiles confortables */
+  .pb-opts{grid-template-columns:repeat(3,1fr);gap:0.4rem;}
+  .pb-opt{min-height:56px;padding:0.55rem 0.35rem;}
+  .pb-opt-nom{font-size:0.9rem;}
+  .pb-opt-ec{font-size:0.66rem;}
+  .pb-step-lbl{font-size:0.6rem;}
+  .prod-sup-row{padding:0.7rem 0.75rem;min-height:48px;}
+  .prod-sup-name{font-size:0.88rem;}
+  /* Zone d'action collée en bas, au-dessus de la barre système iOS */
+  .pb-sticky{padding-bottom:calc(1rem + env(safe-area-inset-bottom));background:linear-gradient(to bottom,rgba(247,245,241,0.85),var(--cream) 28%);}
+  .btn-add-panier{min-height:52px;font-size:0.8rem;}
+  .prod-modal-qty button{width:44px;height:44px;}
+  .btn-retour-menu{min-height:44px;}
+}
+/* Plus de 3 protéines : on repasse sur deux colonnes pour garder du texte lisible */
+@media(max-width:600px){
+  .pb-opts.pb-opts-4{grid-template-columns:repeat(2,1fr);}
+}
+/* Petits écrans : le libellé prime sur l'écart de prix */
+@media(max-width:360px){
+  .pb-opt{min-height:52px;}
+  .pb-opt-nom{font-size:0.82rem;}
+  .pb-opt-ec{font-size:0.6rem;}
+}
+/* Panier : lien Modifier et encart formule au doigt */
+@media(max-width:600px){
+  .cart-item-edit{padding:6px 0;font-size:0.68rem;}
+  .fm-bascule{padding:0.9rem;}
+  .fm-bascule-btn{min-height:46px;}
+  .relance-chip{padding:0.55rem 0.8rem;}
+  .qty-btn{width:32px;height:32px;}
+}
+/* Retour tactile */
+@media(hover:none){
+  .pb-opt:active{transform:scale(0.97);}
+  .prod-sup-row:active{filter:brightness(0.97);}
+  .btn-add-panier:active,.fm-bascule-btn:active{transform:scale(0.985);}
+  .cart-item-edit:active{opacity:0.6;}
 }
 </style>
 </head>
@@ -1049,20 +1148,21 @@ const PLANNING_DEFAULT={
 let PLANNING=PLANNING_DEFAULT;
 _pbWhenAuth(function(){ db.ref('spots_pokeben').on('value',function(snap){var v=snap.val();if(v){PLANNING=v;renderToday();renderPlanningGrid();}}); });
 
-let MENU=[
-  {id:'m1',cat:'Pokés',nom:"Chira d\u2019été",prix:13.90,desc:'Saumon mariné, avocat, tomate, sésame noir',badge:'Signature',col:'grn'},
-  {id:'m2',cat:'Pokés',nom:'Nouvelle Carte',prix:13.90,desc:'Burrata, jambon, tomates cerises, pesto, croutons',badge:'Nouveau',col:'coral'},
-  {id:'m3',cat:'Pokés',nom:'Poké du Moment',prix:13.90,desc:'Prosciutto, artichaut, edamame, pesto, tomate',badge:'Saison',col:'honey'},
-  {id:'m4',cat:'Pokés',nom:'Poké Nems',prix:12.90,desc:'Nems, champignons, carottes, chou rouge, sauce mangue',col:'grn'},
-  {id:'m5',cat:'Formule',nom:'Bowl + Boisson',prix:16.50,desc:'Pokébowl au choix + eau, jus ou soda',col:'coral'},
-  {id:'m6',cat:'Desserts',nom:'Mochi glacé',prix:3.50,desc:'2 mochis : matcha, fraise ou mangue',col:'honey'},
-  {id:'m7',cat:'Boissons',nom:'Jus de fruits',prix:2.50,desc:'Orange, pomme ou mangue — 33cl',col:'grn'},
-  {id:'m8',cat:'Boissons',nom:'Eau minérale',prix:1.50,desc:'50cl',col:'coral'}
-];
-let CATS=['Pokés','Formule','Desserts','Boissons'];
-let activeCat='Pokés',cart=[],selectedSpot=null,_lastOrder=null,_lineSeq=1;
+// La carte vient exclusivement de Firebase (admin → BDD Produits). Aucune carte
+// de secours codée en dur : afficher de faux produits ferait commander des articles
+// inexistants à des prix faux. Tant que rien n'est chargé, on affiche un état clair.
+let MENU=[];
+let CATS=[];
+let activeCat=null,cart=[],selectedSpot=null,_lastOrder=null,_lineSeq=1;
 
 /* ===== CARTE POKÉ depuis Firebase (admin BDD Produits) ===== */
+var _PB_TAILLES=['S','M','L','XL','Petit','Moyen','Grand','Unique'];
+function _pbRangTaille(t){ var i=_PB_TAILLES.map(function(x){return x.toLowerCase();}).indexOf(String(t||'').toLowerCase()); return i<0?99:i; }
+function _pbDeduireAxes(nom){
+  var parts=String(nom||'').trim().split(/\s+/);
+  if(parts.length>1 && _pbRangTaille(parts[0])<99) return {taille:parts[0], proteine:parts.slice(1).join(' ')};
+  return {taille:String(nom||'').trim(), proteine:''};
+}
 var _cfgPoke={categories:{},articles:{}}, _prodsPoke=null;
 function _buildMenuPoke(){
   if(_prodsPoke===null) return;
@@ -1072,10 +1172,23 @@ function _buildMenuPoke(){
   Object.keys(_prodsPoke).forEach(function(id){
     var pr=_prodsPoke[id];
     if(!pr || pr.actif===false) return;
-    var tl=pr.tailles?Object.keys(pr.tailles).map(function(k){return pr.tailles[k];}):[];
+    // Variantes taille × protéine (admin). Le prix affiché sur la carte est le plus bas
+    // de la gamme, préfixé par « dès » quand il y a plusieurs variantes.
+    var variantes=[];
+    Object.keys(pr.tailles||{}).forEach(function(k){
+      var v=pr.tailles[k]||{};
+      var px=Number(v.prix); if(isNaN(px)) return;
+      var t=(v.taille||'').trim(), pt=(v.proteine||'').trim();
+      // Produits pas encore ré-enregistrés dans le nouvel admin : on lit « L Saumon »
+      if(!t && !pt){ var d=_pbDeduireAxes(k); t=d.taille; pt=d.proteine; }
+      variantes.push({nom:k, prix:px, taille:t, proteine:pt});
+    });
+    // Tailles dans l'ordre naturel S → M → L, puis prix croissant
+    variantes.sort(function(a,b){ var d=_pbRangTaille(a.taille)-_pbRangTaille(b.taille); return d!==0?d:a.prix-b.prix; });
     var prix=0;
-    if(tl.length){ prix=Number(tl[0].prix)||0; tl.forEach(function(t){var v=Number(t.prix); if(!isNaN(v)&&v<prix)prix=v;}); }
+    if(variantes.length){ prix=variantes[0].prix; variantes.forEach(function(v){ if(v.prix<prix)prix=v.prix; }); }
     arr.push({id:id, cat:(pr.categorie||'Autres'), nom:(pr.nom||''), prix:prix, desc:(pr.description||''),
+              variantes:variantes,
               supplements:(pr.supplements||{}),
               suggestions:(pr.suggestions||[]),
               photo:(pr.photo||''),
@@ -1136,6 +1249,9 @@ function addUneToCart(){
 _pbWhenAuth(function(){ db.ref('site_config/pokeben/poke_moment').on('value',function(sn){ pokeMoment=sn.val(); try{renderUne();}catch(e){} }); });
 _pbWhenAuth(function(){ db.ref('parametres/carte_config/poke').on('value',function(sn){ _cfgPoke=sn.val()||{categories:{},articles:{}}; _buildMenuPoke(); }); });
 _pbWhenAuth(function(){ db.ref('cartes/poke/produits').on('value',function(sn){ _prodsPoke=sn.val()||{}; _buildMenuPoke(); }); });
+// Sauces communes à toute la carte Poké (admin → « Sauces de la carte ») : 1 incluse, les suivantes facturées
+var SAUCES_POKE={liste:[],prix_extra:0.5};
+_pbWhenAuth(function(){ db.ref('parametres/sauces/poke').on('value',function(sn){ var v=sn.val()||{}; SAUCES_POKE={liste:Array.isArray(v.liste)?v.liste:[], prix_extra:Number(v.prix_extra)||0}; }); });
 
 /* ===== FORMULES / MENUS (poke) ===== */
 var _formulesPoke=null, FORMULES=[];
@@ -1164,61 +1280,205 @@ function renderFormulesPoke(containerId){
 }
 
 var _fmIdPoke=null;
+// ── Formules ──
+// Le prix d'une formule est fixé pour la plus petite taille et la protéine de base.
+// Si le client choisit M/L ou une protéine plus chère, l'écart de la grille est
+// répercuté : plus de L Saumon vendu au prix d'un menu S.
+var _fmSel={};   // slotIndex -> {prodId, taille, proteine}
+function _fmEcart(prodId,taille,proteine){
+  var m=MENU.find(function(x){return x.id===prodId;}); if(!m) return 0;
+  var v=_pbVar(m,taille,proteine); if(!v) return 0;
+  return Math.max(0, v.prix-_pbPrixMin(m));
+}
+function _fmPrix(f){
+  var p=f.prix;
+  Object.keys(_fmSel).forEach(function(si){ var c=_fmSel[si]; if(c&&c.prodId) p+=_fmEcart(c.prodId,c.taille,c.proteine); });
+  return p;
+}
 function openFormulePoke(id){
   var f=FORMULES.find(function(x){return x.id===id;}); if(!f)return;
-  _fmIdPoke=id;
-  var slotsHtml=f.slots.map(function(s,si){
-    var opts=s.produits.filter(function(pid){return MENU.find(function(m){return m.id===pid;});});
-    if(s.mode==='fixe'){
-      var noms=opts.map(_pNomPoke).filter(Boolean).join(', ');
-      return '<div class="fm-slot"><div class="fm-slot-lbl">'+s.label+'</div><div class="fm-slot-fixed">✓ '+(noms||'—')+'</div></div>';
+  _fmIdPoke=id; _fmSel={}; _fmLignesABasculer=null;
+  f.slots.forEach(function(sl,si){
+    var opts=sl.produits.filter(function(pid){return MENU.find(function(m){return m.id===pid;});});
+    if(sl.mode==='fixe'){ _fmSel[si]={prodId:opts[0]||null,taille:null,proteine:null,fixe:true}; return; }
+    // Un seul produit possible → pré-sélectionné ; sinon le client choisit
+    _fmSel[si]={prodId:opts.length===1?opts[0]:null,taille:null,proteine:null};
+    if(_fmSel[si].prodId) _fmAutoAxes(si);
+  });
+  _fmRender();
+  document.getElementById('formule-modal').classList.add('open');
+  document.body.style.overflow='hidden';
+}
+// Taille/protéine unique → fixée d'office ; sinon laissée au choix (obligatoire)
+function _fmAutoAxes(si){
+  var c=_fmSel[si]; var m=MENU.find(function(x){return x.id===c.prodId;}); if(!m) return;
+  var T=_pbAxe(m,'taille'), P=_pbAxe(m,'proteine');
+  c.taille = T.length===1?T[0]:(T.length?null:(_pbVariantes(m)[0]||{}).taille||null);
+  c.proteine = P.length===1?P[0]:(P.length?null:(_pbVariantes(m)[0]||{}).proteine||null);
+}
+function _fmComplet(f){
+  return f.slots.every(function(sl,si){
+    var c=_fmSel[si]; if(!c||!c.prodId) return false;
+    var m=MENU.find(function(x){return x.id===c.prodId;}); if(!m) return false;
+    if(_pbAxe(m,'taille').length>1 && !c.taille) return false;
+    if(_pbAxe(m,'proteine').length>1 && !c.proteine) return false;
+    return true;
+  });
+}
+function _fmRender(){
+  var f=FORMULES.find(function(x){return x.id===_fmIdPoke;}); if(!f)return;
+  var html='';
+  f.slots.forEach(function(sl,si){
+    var c=_fmSel[si];
+    var opts=sl.produits.filter(function(pid){return MENU.find(function(m){return m.id===pid;});});
+    html+='<div class="fm-slot"><div class="fm-slot-lbl">'+(si+1)+' \u00b7 '+sl.label+'</div>';
+    if(sl.mode==='fixe'){ html+='<div class="fm-slot-fixed">\u2713 '+opts.map(_pNomPoke).join(', ')+'</div></div>'; return; }
+    // Choix du produit — boutons, pas de menu déroulant
+    html+='<div class="pb-opts'+(opts.length>3?' pb-opts-4':'')+'">'+opts.map(function(pid){
+      return '<button class="pb-opt'+(c.prodId===pid?' on':'')+'" onclick="fmChoixProduit('+si+',\''+pid+'\')"><span class="pb-opt-nom">'+_pNomPoke(pid)+'</span></button>';
+    }).join('')+'</div>';
+    // Sous-choix taille / protéine du produit sélectionné
+    if(c.prodId){
+      var m=MENU.find(function(x){return x.id===c.prodId;});
+      var T=_pbAxe(m,'taille'), P=_pbAxe(m,'proteine');
+      var base=_pbPrixMin(m);
+      var sub='';
+      if(T.length>1){
+        sub+='<div class="pb-step"><div class="pb-step-lbl">Taille</div><div class="pb-opts'+(T.length>3?' pb-opts-4':'')+'">'+T.map(function(t){
+          var vs=_pbVariantes(m).filter(function(x){return x.taille===t;});
+          var mini=vs.length?Math.min.apply(null,vs.map(function(x){return x.prix;})):null;
+          return '<button class="pb-opt'+(c.taille===t?' on':'')+'" onclick="fmChoixTaille('+si+',\''+encodeURIComponent(t)+'\')"><span class="pb-opt-nom">'+t+'</span><span class="pb-opt-ec">'+(mini==null?'\u2014':_ecart(mini-base))+'</span></button>';
+        }).join('')+'</div></div>';
+      }
+      if(P.length>1 && (T.length<=1 || c.taille)){
+        var ref=_pbVar(m,c.taille,P[0]);
+        sub+='<div class="pb-step"><div class="pb-step-lbl">Prot\u00e9ine</div><div class="pb-opts'+(P.length>3?' pb-opts-4':'')+'">'+P.map(function(pr){
+          var v=_pbVar(m,c.taille,pr);
+          return '<button class="pb-opt'+(c.proteine===pr?' on':'')+(v?'':' off')+'"'+(v?' onclick="fmChoixProt('+si+',\''+encodeURIComponent(pr)+'\')"':' disabled')+'><span class="pb-opt-nom">'+pr+'</span><span class="pb-opt-ec">'+(v?(ref?_ecart(v.prix-ref.prix):'inclus'):'indisponible')+'</span></button>';
+        }).join('')+'</div></div>';
+      }
+      if(sub) html+='<div class="fm-sub">'+sub+'</div>';
     }
-    var ch=opts.map(function(pid){return '<option value="'+pid+'">'+_pNomPoke(pid)+'</option>';}).join('');
-    return '<div class="fm-slot"><div class="fm-slot-lbl">'+s.label+' <span class="fm-req">à choisir</span></div><select class="fm-slot-select" data-si="'+si+'">'+ch+'</select></div>';
-  }).join('');
+    html+='</div>';
+  });
+  var pret=_fmComplet(f);
+  html+='<div class="pb-sticky">'
+    +'<button class="btn-add-panier" '+(pret?'onclick="fmAjouterPoke()"':'disabled style="opacity:.45;cursor:not-allowed"')+'>'+(pret?'Ajouter le menu':'Compl\u00e9tez votre menu')+' <span class="pb-btn-tot">'+(pret?_eur(_fmPrix(f)):'')+'</span></button>'
+    +'<button class="btn-retour-menu" onclick="closeFormuleModal()">\u2190 Retour</button></div>';
   document.getElementById('formule-modal-body').innerHTML=
     '<div class="prod-modal-top" style="background:var(--grn-bg)">'
     +'<div class="prod-modal-name">'+f.nom+'</div>'
     +(f.description?'<div class="prod-modal-desc">'+f.description+'</div>':'')
-    +'<div class="prod-modal-price">'+f.prix.toFixed(2).replace('.',',')+'&nbsp;€</div>'
-    +'</div>'
-    +'<div class="prod-modal-actions">'+slotsHtml
-    +'<button class="btn-add-panier" onclick="fmAjouterPoke()">Ajouter le menu au panier</button>'
-    +'<button class="btn-retour-menu" onclick="closeFormuleModal()">← Retour</button>'
-    +'</div>';
-  document.getElementById('formule-modal').classList.add('open');
-  document.body.style.overflow='hidden';
+    +'<div class="prod-modal-price">d\u00e8s '+_eur(f.prix)+'</div>'
+    +'</div><div class="prod-modal-actions">'+html+'</div>';
 }
-function closeFormuleModal(){ document.getElementById('formule-modal').classList.remove('open'); document.body.style.overflow=''; }
+function fmChoixProduit(si,pid){ _fmSel[si]={prodId:pid,taille:null,proteine:null}; _fmAutoAxes(si); _fmRender(); }
+function fmChoixTaille(si,t){ t=decodeURIComponent(t); var c=_fmSel[si]; c.taille=t; var m=MENU.find(function(x){return x.id===c.prodId;}); if(c.proteine&&!_pbVar(m,t,c.proteine)) c.proteine=null; _fmRender(); }
+function fmChoixProt(si,pr){ _fmSel[si].proteine=decodeURIComponent(pr); _fmRender(); }
+function closeFormuleModal(){ _fmLignesABasculer=null; document.getElementById('formule-modal').classList.remove('open'); document.body.style.overflow=''; }
 function fmAjouterPoke(){
-  var f=FORMULES.find(function(x){return x.id===_fmIdPoke;}); if(!f)return;
-  var composition=[],manque=false;
-  f.slots.forEach(function(s,si){
-    if(s.mode==='fixe'){
-      s.produits.filter(function(pid){return MENU.find(function(m){return m.id===pid;});}).forEach(function(pid){composition.push({label:s.label,prodId:String(pid),nom:_pNomPoke(pid)});});
-    } else {
-      var sel=document.querySelector('#formule-modal-body .fm-slot-select[data-si="'+si+'"]');
-      if(sel&&sel.value){composition.push({label:s.label,prodId:String(sel.value),nom:_pNomPoke(sel.value)});}
-      else manque=true;
-    }
+  var f=FORMULES.find(function(x){return x.id===_fmIdPoke;}); if(!f||!_fmComplet(f)) return;
+  var composition=f.slots.map(function(sl,si){
+    var c=_fmSel[si]; var m=MENU.find(function(x){return x.id===c.prodId;});
+    var v=m?_pbVar(m,c.taille,c.proteine):null;
+    return {label:sl.label,prodId:String(c.prodId),nom:_pNomPoke(c.prodId)+(v&&v.nom&&(_pbAxe(m,'taille').length>1||_pbAxe(m,'proteine').length>1)?' '+v.nom:''),taille:(v?v.nom:''),ecart:_fmEcart(c.prodId,c.taille,c.proteine)};
   });
-  if(manque){ showToast('Complétez votre menu','🥗'); return; }
+  if(_fmLignesABasculer){
+    cart.forEach(function(l){ if(_fmLignesABasculer.indexOf(l.lineId)>=0) l.qte-=1; });
+    cart=cart.filter(function(l){return l.qte>0;});
+    _fmLignesABasculer=null;
+  }
   _cartAddFormulePoke(f.id,composition,1);
   renderCart();updatePill();updateSteps();
   showToast('Menu ajouté','✓');
   closeFormuleModal();
 }
-function _compoSigPoke(c){return (c||[]).map(function(x){return x.prodId;}).join('>');}
+function _compoSigPoke(c){return (c||[]).map(function(x){return x.prodId+'#'+(x.taille||'');}).join('>');}
 function _cartAddFormulePoke(formuleId,composition,qte){
   var f=FORMULES.find(function(x){return x.id===formuleId;}); if(!f)return;
   qte=qte||1;
   var sig=_compoSigPoke(composition);
   var ex=cart.find(function(l){return l.type==='formule'&&l.formuleId===formuleId&&_compoSigPoke(l.composition)===sig;});
   if(ex){ex.qte+=qte;return;}
-  var compoLbl=composition.map(function(c){return c.nom;}).filter(Boolean).join(' · ');
-  cart.push({lineId:'l'+(_lineSeq++),type:'formule',formuleId:formuleId,prodId:String(formuleId),nom:f.nom,nomCompo:compoLbl,cat:'Formule',prixBase:f.prix,supplements:[],composition:composition,prixUnit:f.prix,qte:qte});
+  var prix=f.prix+composition.reduce(function(s,c){return s+(c.ecart||0);},0);
+  var compoLbl=composition.map(function(c){return c.nom;}).filter(Boolean).join(' \u00b7 ');
+  cart.push({lineId:'l'+(_lineSeq++),type:'formule',formuleId:formuleId,prodId:String(formuleId),nom:f.nom,nomCompo:compoLbl,cat:'Formule',prixBase:f.prix,supplements:[],composition:composition,prixUnit:prix,qte:qte});
 }
 
+// ── Détection formule depuis le panier ──
+// Dès qu'une ligne du panier remplit le premier emplacement d'une formule (le bowl),
+// on calcule ce que coûterait le menu avec les écarts taille/protéine, et ce qu'il
+// manque. Deux messages possibles :
+//   · tout est déjà là  → « économisez X € »
+//   · il manque des éléments → « ajoutez dessert + boisson pour +X € » (vs prix séparé)
+function _fmDetecter(lignes){
+  var meilleur=null;
+  FORMULES.forEach(function(f){
+    var pris={}, trouves=[], manquants=[], ecarts=0;
+    f.slots.forEach(function(sl){
+      if(sl.mode==='fixe') return;
+      var l=lignes.find(function(x){
+        return x.type!=='formule' && !pris[x.lineId] && sl.produits.indexOf(x.prodId)>=0;
+      });
+      if(l){
+        pris[l.lineId]=true; trouves.push({l:l,slot:sl});
+        // écart de taille/protéine + suppléments choisis : le menu les conserve, donc les facture
+        ecarts+=_fmEcart(l.prodId,l.taille,l.proteine)+(l.supplements||[]).reduce(function(a,sp){return a+(sp.prix||0);},0);
+      }
+      else manquants.push(sl);
+    });
+    if(!trouves.length) return;
+    // Le premier emplacement au choix (le plat) doit être présent : pas de menu proposé pour une boisson seule
+    var premier=f.slots.find(function(sl){return sl.mode!=='fixe';});
+    if(premier && !trouves.some(function(t){return t.slot===premier;})) return;
+    var prixSep=trouves.reduce(function(s,x){return s+x.l.prixUnit;},0);
+    var prixFm=f.prix+ecarts;
+    // Ce que coûteraient les manquants achetés à part (produit le moins cher de chaque emplacement)
+    var manquantsSep=manquants.reduce(function(s,sl){
+      var mins=sl.produits.map(function(pid){var m=MENU.find(function(x){return x.id===pid;});return m?_pbPrixMin(m):null;}).filter(function(x){return x!=null;});
+      return s+(mins.length?Math.min.apply(null,mins):0);
+    },0);
+    var eco = (prixSep+manquantsSep) - prixFm;   // économie vs tout acheter séparément
+    var supplement = prixFm - prixSep;            // ce que le client ajoute pour passer en menu
+    if(eco<=0.009) return;
+    if(!meilleur || eco>meilleur.eco) meilleur={f:f,lignes:trouves,manquants:manquants,eco:eco,prixFm:prixFm,supplement:supplement,manquantsSep:manquantsSep};
+  });
+  return meilleur;
+}
+var _fmLignesABasculer=null;
+function _fmCompositionDepuisLignes(f,trouves){
+  return f.slots.map(function(sl){
+    if(sl.mode==='fixe'){ var pid=sl.produits[0]; return {label:sl.label,prodId:String(pid),nom:_pNomPoke(pid),taille:'',ecart:0}; }
+    var u=trouves.find(function(x){return x.slot===sl;}); if(!u) return null;
+    var l=u.l, m=MENU.find(function(x){return x.id===l.prodId;});
+    var multi=m&&(_pbAxe(m,'taille').length>1||_pbAxe(m,'proteine').length>1);
+    var sups=(l.supplements||[]);
+    var lbl=l.nom+(multi&&l.variante?' '+l.variante:'')+(sups.length?' ('+sups.map(function(sp){return sp.nom;}).join(', ')+')':'');
+    return {label:sl.label,prodId:String(l.prodId),nom:lbl,taille:(l.variante||''),supplements:sups,
+            ecart:_fmEcart(l.prodId,l.taille,l.proteine)+sups.reduce(function(a,sp){return a+(sp.prix||0);},0)};
+  });
+}
+function fmBasculer(formuleId){
+  var lignes=cart.filter(function(l){return l.qte>0;});
+  var d=_fmDetecter(lignes); if(!d||d.f.id!==formuleId) return;
+  if(!d.manquants.length){
+    var composition=_fmCompositionDepuisLignes(d.f,d.lignes);
+    d.lignes.forEach(function(u){ u.l.qte-=1; });
+    cart=cart.filter(function(l){return l.qte>0;});
+    _cartAddFormulePoke(d.f.id,composition,1);
+    renderCart();updatePill();updateSteps();
+    showToast('Menu appliqué — '+_eur(d.eco)+' économisés','✓');
+    return;
+  }
+  // Il manque des éléments : on ouvre la formule pré-remplie avec ce qui est déjà dans le panier
+  openFormulePoke(d.f.id);
+  d.f.slots.forEach(function(sl,si){
+    var u=d.lignes.find(function(x){return x.slot===sl;}); if(!u) return;
+    _fmSel[si]={prodId:u.l.prodId,taille:u.l.taille||null,proteine:u.l.proteine||null};
+  });
+  _fmLignesABasculer=d.lignes.map(function(u){return u.l.lineId;});
+  _fmRender();
+}
 
 function go(p){
   document.querySelectorAll('.page').forEach(function(e){e.classList.remove('active');});
@@ -1260,15 +1520,28 @@ function renderToday(){
   g.innerHTML=html;
 }
 
+// État de la carte : squelette pendant le chargement, message clair si Firebase
+// ne répond pas (règles, réseau) — plutôt qu'une page vide sans explication.
+var _pbCarteKO=false;
+setTimeout(function(){ if(!MENU.length){ _pbCarteKO=true; try{renderCarte();renderCatsOrder();renderPokesHome();}catch(e){} } }, 9000);
+function _pbEtatCarte(){
+  if(MENU.length) return null;
+  if(_pbCarteKO) return '<div class="pb-carte-etat"><div class="pb-carte-etat-t">Carte momentan\u00e9ment indisponible</div>'
+    +'<div class="pb-carte-etat-d">Impossible de charger nos produits. R\u00e9essayez dans un instant, ou passez commande directement au camion.</div>'
+    +'<button class="fm-bascule-btn" style="max-width:220px;margin:0 auto" onclick="location.reload()">R\u00e9essayer</button></div>';
+  return '<div class="pb-carte-etat"><div class="pb-skel"></div><div class="pb-skel"></div><div class="pb-skel"></div>'
+    +'<div class="pb-carte-etat-d">Chargement de la carte\u2026</div></div>';
+}
+
 function pokeCardHTML(m){
   var badgeCol={Signature:'b-grn',Nouveau:'b-coral',Saison:'b-honey'};
   var top = m.photo
     ? '<div class="poke-top has-photo" style="background-image:url(\''+m.photo+'\')">'+(m.badge?'<div class="poke-badge '+(badgeCol[m.badge]||'b-coral')+'">'+m.badge+'</div>':'')+'<div class="poke-name">'+m.nom+'</div></div>'
     : '<div class="poke-top c-'+m.col+'">'+(m.badge?'<div class="poke-badge '+(badgeCol[m.badge]||'b-coral')+'">'+m.badge+'</div>':'')+'<div class="poke-name">'+m.nom+'</div></div>';
-  return '<div class="poke-card" onclick="openProdModal(\''+m.id+'\')">'+top+'<div class="poke-info"><div class="poke-desc">'+m.desc+'</div><div class="poke-foot"><div class="poke-price">'+m.prix.toFixed(2).replace('.',',')+' €</div><button class="poke-add" onclick="event.stopPropagation();addToCart(\''+m.id+'\')">+</button></div></div></div>';
+  return '<div class="poke-card" onclick="openProdModal(\''+m.id+'\')">'+top+'<div class="poke-info"><div class="poke-desc">'+m.desc+'</div><div class="poke-foot"><div class="poke-price">'+_pbPrefixeDes(m)+m.prix.toFixed(2).replace('.',',')+' €</div><button class="poke-add" onclick="event.stopPropagation();addToCart(\''+m.id+'\')">+</button></div></div></div>';
 }
 function _firstProdCatPoke(){ for(var i=0;i<CATS.length;i++){ if(CATS[i]!=='__menus__') return CATS[i]; } return 'Pokés'; }
-function renderPokesHome(){var g=document.getElementById('pokes-home');if(!g)return;var c=_firstProdCatPoke();g.innerHTML=MENU.filter(function(m){return m.cat===c;}).map(pokeCardHTML).join('');}
+function renderPokesHome(){var g=document.getElementById('pokes-home');if(!g)return;var etat=_pbEtatCarte();if(etat){g.innerHTML=etat;return;}var c=_firstProdCatPoke();g.innerHTML=MENU.filter(function(m){return m.cat===c;}).map(pokeCardHTML).join('');}
 function _catLabelPoke(c){ return c==='__menus__' ? 'Menus' : c; }
 function formuleCardHTMLPoke(f){
   var desc=f.description||f.slots.map(function(s){return s.label;}).join(' + ');
@@ -1278,6 +1551,8 @@ function renderCarte(){
   var cc=document.getElementById('cats-page'),mc=document.getElementById('menu-page');if(!cc||!mc)return;
   var cf=document.getElementById('carte-formules'); if(cf) cf.innerHTML='';
   cc.innerHTML=CATS.map(function(c){return '<button class="cat-btn'+(c===activeCat?' on':'')+'" onclick="setcat(\''+c+'\')">'+_catLabelPoke(c)+'</button>';}).join('');
+  var etat=_pbEtatCarte();
+  if(etat){ mc.innerHTML=etat; return; }
   if(activeCat==='__menus__'){ mc.innerHTML=FORMULES.map(formuleCardHTMLPoke).join(''); }
   else { mc.innerHTML=MENU.filter(function(m){return m.cat===activeCat;}).map(pokeCardHTML).join(''); }
 }
@@ -1430,6 +1705,8 @@ function renderCatsOrder(){
   var cc=document.getElementById('cats-order'),mc=document.getElementById('menu-order');if(!cc||!mc)return;
   var of=document.getElementById('order-formules'); if(of) of.innerHTML='';
   cc.innerHTML=CATS.map(function(c){return '<button class="cat-btn'+(c===activeCat?' on':'')+'" onclick="setcatO(\''+c+'\')">'+_catLabelPoke(c)+'</button>';}).join('');
+  var etat=_pbEtatCarte();
+  if(etat){ mc.innerHTML=etat; return; }
   if(activeCat==='__menus__'){ mc.innerHTML=FORMULES.map(formuleCardHTMLPoke).join(''); }
   else { mc.innerHTML=MENU.filter(function(m){return m.cat===activeCat;}).map(pokeCardHTML).join(''); }
 }
@@ -1483,18 +1760,30 @@ function updateSteps(){
 }
 
 function _supSig(sups){return (sups||[]).map(function(s){return s.nom+':'+(s.prix||0);}).sort().join('|');}
-function _cartAdd(id,sups,qte){
+function _cartAdd(id,sups,qte,variante){
   var it=MENU.find(function(m){return m.id===id;});
   if(!it)return;
-  sups=(sups||[]).map(function(s){return {nom:s.nom,prix:s.prix||0};});
+  sups=(sups||[]).map(function(s){var o={nom:s.nom,prix:s.prix||0}; if(s.sauce)o.sauce=true; return o;});
   qte=qte||1;
+  // Variante par défaut : la moins chère (ajout direct depuis la carte)
+  if(!variante){
+    var vs=(it.variantes||[]);
+    variante=vs.length?vs.reduce(function(a,b){return b.prix<a.prix?b:a;}):null;
+  }
+  var vNom=variante?variante.nom:'';
+  var prixBase=variante?variante.prix:(it.prix||0);
   var sig=_supSig(sups);
-  var ex=cart.find(function(l){return l.prodId===id&&_supSig(l.supplements)===sig;});
+  // Deux variantes différentes du même produit sont deux lignes distinctes
+  var ex=cart.find(function(l){return l.prodId===id&&(l.variante||'')===vNom&&_supSig(l.supplements)===sig;});
   if(ex){ex.qte+=qte;return;}
-  var prixUnit=(it.prix||0)+sups.reduce(function(s,x){return s+(x.prix||0);},0);
-  cart.push({lineId:'l'+(_lineSeq++),prodId:String(id),nom:(it.nom||''),cat:(it.cat||''),prixBase:(it.prix||0),supplements:sups,prixUnit:prixUnit,qte:qte});
+  var prixUnit=prixBase+sups.reduce(function(s,x){return s+(x.prix||0);},0);
+  cart.push({lineId:'l'+(_lineSeq++),prodId:String(id),nom:(it.nom||''),cat:(it.cat||''),
+             variante:vNom, taille:(variante?variante.taille:''), proteine:(variante?variante.proteine:''),
+             prixBase:prixBase,supplements:sups,prixUnit:prixUnit,qte:qte});
 }
 function addToCart(id){
+  var it=MENU.find(function(m){return m.id===id;});
+  if(it && (_pbAxe(it,'taille').length>1 || _pbAxe(it,'proteine').length>1)){ openProdModal(id); return; }
   var wasEmpty=cartCount()===0;
   _cartAdd(id,[],1);
   renderCart();updatePill();
@@ -1520,8 +1809,20 @@ function renderCart(){
   body.innerHTML=lignes.length?lignes.map(function(l){
     var detail='';
     if(l.type==='formule'){ detail=l.nomCompo?'<div class="cart-item-sups">'+l.nomCompo+'</div>':''; }
-    else if(l.supplements&&l.supplements.length){ detail='<div class="cart-item-sups">+ '+l.supplements.map(function(s){return s.nom;}).join(', ')+'</div>'; }
-    return '<div class="cart-item"><div class="cart-item-main"><div class="cart-item-name">'+l.nom+'</div>'+detail+'</div><div class="cart-qty"><button class="qty-btn" onclick="removeFromCart(\''+l.lineId+'\')">−</button><span class="qty-n">'+l.qte+'</span><button class="qty-btn" onclick="addLineQty(\''+l.lineId+'\')">+</button></div><div class="cart-item-price">'+(l.prixUnit*l.qte).toFixed(2).replace('.',',')+'&nbsp;€</div></div>';
+    else {
+      // Le client doit pouvoir relire exactement ce qu'il a composé avant de valider
+      var bits=[];
+      var _pm=MENU.find(function(m){return m.id===l.prodId;});
+      if(l.variante && _pbVariantes(_pm||{}).length>1) bits.push(l.variante);
+      var _sc=(l.supplements||[]).filter(function(s){return s.sauce;}), _su=(l.supplements||[]).filter(function(s){return !s.sauce;});
+      if(_sc.length) bits.push(_sc.map(function(s){return s.nom.replace(/^Sauce /,'');}).join(' & '));
+      if(_su.length) bits.push('+ '+_su.map(function(s){return s.nom;}).join(', '));
+      if(bits.length) detail='<div class="cart-item-sups">'+bits.join(' \u00b7 ')+'</div>';
+    }
+    var _pmm=MENU.find(function(m){return m.id===l.prodId;});
+    var editable = l.type!=='formule' && _pmm && (_pbVariantes(_pmm).length>1 || Object.keys(_pmm.supplements||{}).length || (_pbEstBowl(_pmm)&&_pbListeSauces().length));
+    var editHtml = editable ? '<button class="cart-item-edit" onclick="pbModifierLigne(\''+l.lineId+'\')">Modifier</button>' : '';
+    return '<div class="cart-item"><div class="cart-item-main"><div class="cart-item-name">'+l.nom+'</div>'+detail+editHtml+'</div><div class="cart-qty"><button class="qty-btn" onclick="removeFromCart(\''+l.lineId+'\')">−</button><span class="qty-n">'+l.qte+'</span><button class="qty-btn" onclick="addLineQty(\''+l.lineId+'\')">+</button></div><div class="cart-item-price">'+(l.prixUnit*l.qte).toFixed(2).replace('.',',')+'&nbsp;€</div></div>';
   }).join(''):'<div class="cart-empty">Ajoutez des pokébowls</div>';
   renderCartRelancePoke(lignes);
   var n=cartCount(),tot=cartTotal();
@@ -1607,7 +1908,11 @@ function validerCommande(){
       return {id:l.formuleId,prodId:l.formuleId,type:'formule',nom:nomF,nomBase:nomF,composition:(l.composition||[]),qty:l.qte,qte:l.qte,prix:l.prixUnit,prixBase:l.prixBase,prixTotal:l.prixUnit,supplements:[]};
     }
     var supLbl=(l.supplements&&l.supplements.length)?' (+ '+l.supplements.map(function(s){return s.nom;}).join(', ')+')':'';
-    return {id:l.prodId,prodId:l.prodId,nom:l.nom+supLbl,nomBase:l.nom,qty:l.qte,qte:l.qte,prix:l.prixUnit,prixBase:l.prixBase,prixTotal:l.prixUnit,supplements:(l.supplements||[])};
+    var _pm=MENU.find(function(m){return m.id===l.prodId;});
+    var varLbl=(l.variante&&_pbVariantes(_pm||{}).length>1)?' · '+l.variante:'';
+    return {id:l.prodId,prodId:l.prodId,nom:l.nom+varLbl+supLbl,nomBase:l.nom,
+            taille:(l.variante||''), proteine:(l.proteine||''),
+            qty:l.qte,qte:l.qte,prix:l.prixUnit,prixBase:l.prixBase,prixTotal:l.prixUnit,supplements:(l.supplements||[])};
   });
   // === SÉCURITÉ : validation stricte de toutes les entrées ===
   var heureVal = document.getElementById('o-heure').value;
@@ -1755,84 +2060,285 @@ function openSpotModalFromEmp(jour,cam,horaires){
 }
 
 // ===== MODAL FICHE PRODUIT =====
-var _prodQty=1,_pbSups={},_pbModalId=null;
+var _prodQty=1,_pbSups={},_pbModalId=null,_pbTaille=null,_pbProt=null,_pbSauces=[];
+
+function _pbVariantes(m){ return (m&&m.variantes)?m.variantes:[]; }
+// Axes distincts, dans l'ordre où l'admin les a saisis
+function _pbAxe(m,champ){
+  var out=[];
+  _pbVariantes(m).forEach(function(v){ var x=v[champ]||''; if(x && out.indexOf(x)<0) out.push(x); });
+  return out;
+}
+function _pbVar(m,t,p){
+  return _pbVariantes(m).find(function(v){ return (v.taille||'')===(t||'') && (v.proteine||'')===(p||''); });
+}
+function _pbPrixMin(m){ var v=_pbVariantes(m); return v.length?Math.min.apply(null,v.map(function(x){return x.prix;})):(m.prix||0); }
+function _pbPrefixeDes(m){ return (_pbVariantes(m).length>1) ? 'd\u00e8s ' : ''; }
+function _eur(n){ return n.toFixed(2).replace('.',',')+'\u202f\u20ac'; }
+// Écart de prix par rapport à la combinaison la moins chère : le client lit
+// « +3,00 € » plutôt qu'un prix absolu à recalculer dans sa tête.
+function _ecart(n){ return n>0 ? '+'+_eur(n) : (n<0 ? '\u2212'+_eur(-n) : 'inclus'); }
+
 function openProdModal(id){
   var m=MENU.find(function(x){return x.id===id;});
   if(!m)return;
   _prodQty=1;_pbSups={};_pbModalId=id;
+  var T=_pbAxe(m,'taille'), P=_pbAxe(m,'proteine');
+  // Pré-sélection : la première combinaison disponible, pour que le client pressé
+  // puisse ajouter en un geste sans rien choisir.
+  // Taille et protéine sont des choix obligatoires : rien n'est pré-coché quand il y a
+  // plusieurs options, pour qu'un client ne valide pas une taille qu'il n'a pas vue.
+  _pbTaille=null;_pbProt=null;
+  if(T.length===1) _pbTaille=T[0];
+  if(P.length===1) _pbProt=P[0];
+  if(!T.length && !P.length){ var v0=_pbVariantes(m)[0]; if(v0){_pbTaille=v0.taille||null;_pbProt=v0.proteine||null;} }
   var badgeCol={Signature:'b-grn',Nouveau:'b-coral',Saison:'b-honey'};
   var bgCol={grn:'var(--grn-bg)',coral:'var(--coral-bg)',honey:'var(--honey-bg)'};
-  var sups=Object.keys(m.supplements||{}).filter(function(k){return m.supplements[k]&&m.supplements[k].nom;});
-  var supsHtml='';
-  if(sups.length){
-    supsHtml='<div class="prod-sups"><div class="prod-sups-lbl">Suppléments</div>'+sups.map(function(k){
-      var s=m.supplements[k];
-      return '<div class="prod-sup-row" data-sid="'+k+'" onclick="pbToggleSup(\''+k+'\')"><span class="prod-sup-name"><span class="prod-sup-check">✓</span>'+s.nom+'</span><span class="prod-sup-price">+'+(s.prix||0).toFixed(2).replace('.',',')+'&nbsp;€</span></div>';
-    }).join('')+'</div>';
-  }
-  var sugg=(m.suggestions||[]).map(function(sid){return MENU.find(function(x){return x.id===sid;});}).filter(Boolean);
-  var suggHtml='';
-  if(sugg.length){
-    suggHtml='<div class="prod-suggest"><div class="prod-sups-lbl">On complète avec…</div>'+sugg.map(function(s){
-      return '<div class="pb-sugg-row"><span class="pb-sugg-name">'+s.nom+'</span><span class="pb-sugg-price">'+s.prix.toFixed(2).replace('.',',')+'&nbsp;€</span><button class="pb-sugg-add" onclick="pbAjouterSuggestion(\''+s.id+'\')">+</button></div>';
-    }).join('')+'</div>';
-  }
   var body=document.getElementById('prod-modal-body');
   body.innerHTML=
     '<div class="prod-modal-top" style="background:'+(bgCol[m.col]||'var(--cream2)')+';">'
     +(m.badge?'<div class="prod-modal-badge '+(badgeCol[m.badge]||'b-coral')+'">'+m.badge+'</div>':'')
     +'<div class="prod-modal-name">'+m.nom+'</div>'
     +'<div class="prod-modal-desc">'+m.desc+'</div>'
-    +'<div class="prod-modal-price" id="prod-modal-price">'+m.prix.toFixed(2).replace('.',',')+'&nbsp;€</div>'
     +'</div>'
-    +'<div class="prod-modal-actions">'
-    +supsHtml
-    +suggHtml
-    +'<div class="prod-modal-qty">'
-    +'<button onclick="changeProdQty(-1)">−</button>'
-    +'<span id="prod-qty-n">1</span>'
-    +'<button onclick="changeProdQty(1)">+</button>'
-    +'</div>'
-    +'<button class="btn-add-panier" onclick="addFromModal(\''+id+'\')">Ajouter au panier</button>'
-    +'<button class="btn-retour-menu" onclick="closeProdModal()">← Retour au menu</button>'
-    +'</div>';
+    +'<div class="prod-modal-actions" id="pb-conf"></div>';
+  _pbRenderConf();
   document.getElementById('prod-modal').classList.add('open');
   document.body.style.overflow='hidden';
 }
+
+function _pbRenderConf(){
+  var m=MENU.find(function(x){return x.id===_pbModalId;}); if(!m)return;
+  var el=document.getElementById('pb-conf'); if(!el)return;
+  var T=_pbAxe(m,'taille'), P=_pbAxe(m,'proteine');
+  var base=_pbPrixMin(m);
+  var tailleOk = (T.length<=1) || !!_pbTaille;
+  var protOk   = (P.length<=1) || !!_pbProt;
+  var html='', n=1;
+
+  // 1 · Taille — écart = prix mini de cette taille vs prix mini du produit (S inclus, M +3, L +6)
+  if(T.length>1){
+    html+='<div class="pb-step"><div class="pb-step-lbl">'+(n++)+' \u00b7 Choisissez votre taille</div><div class="pb-opts'+(T.length>3?' pb-opts-4':'')+'">'
+      +T.map(function(t){
+        var vs=_pbVariantes(m).filter(function(x){return x.taille===t;});
+        var mini=vs.length?Math.min.apply(null,vs.map(function(x){return x.prix;})):null;
+        return '<button class="pb-opt'+(t===_pbTaille?' on':'')+'" onclick="pbChoixTaille(\''+encodeURIComponent(t)+'\')">'
+          +'<span class="pb-opt-nom">'+t+'</span><span class="pb-opt-ec">'+(mini==null?'\u2014':_ecart(mini-base))+'</span></button>';
+      }).join('')+'</div></div>';
+  }
+
+  // 2 · Protéine — n'apparaît qu'une fois la taille choisie
+  if(P.length>1 && tailleOk){
+    var ref=_pbVar(m,_pbTaille,P[0]);
+    html+='<div class="pb-step"><div class="pb-step-lbl">'+(n++)+' \u00b7 Choisissez votre prot\u00e9ine</div><div class="pb-opts'+(P.length>3?' pb-opts-4':'')+'">'
+      +P.map(function(pr){
+        var v=_pbVar(m,_pbTaille,pr);
+        return '<button class="pb-opt'+(pr===_pbProt?' on':'')+(v?'':' off')+'"'
+          +(v?' onclick="pbChoixProt(\''+encodeURIComponent(pr)+'\')"':' disabled')
+          +'><span class="pb-opt-nom">'+pr+'</span><span class="pb-opt-ec">'+(v?(ref?_ecart(v.prix-ref.prix):'inclus'):'indisponible')+'</span></button>';
+      }).join('')+'</div></div>';
+  }
+
+  // 3 · Sauce — commune à la carte, la première incluse, les suivantes facturées
+  var estBowl=_pbEstBowl(m);
+  var LS=_pbListeSauces();
+  if(estBowl && LS.length && tailleOk && protOk){
+    var extra=_pbPrixSauceExtra();
+    html+='<div class="pb-step"><div class="pb-step-lbl">'+(n++)+' \u00b7 Votre sauce <span style="font-weight:600;letter-spacing:0;text-transform:none;color:var(--ink3)">(1 incluse'+(extra>0?', +'+_eur(extra)+' par sauce en plus':'')+')</span></div><div class="pb-opts'+(LS.length>3?' pb-opts-4':'')+'">'
+      +LS.map(function(sc,i){
+        var on=_pbSauces.indexOf(sc)>=0;
+        var rang=_pbSauces.indexOf(sc);
+        var ec=on?(rang===0?'incluse':'+'+_eur(extra)):(_pbSauces.length?'+'+_eur(extra):'incluse');
+        return '<button class="pb-opt'+(on?' on':'')+'" onclick="pbToggleSauce('+i+')"><span class="pb-opt-nom">'+sc+'</span><span class="pb-opt-ec">'+ec+'</span></button>';
+      }).join('')+'</div></div>';
+  }
+
+  // 4 · Suppléments — une fois le bowl défini
+  var sups=Object.keys(m.supplements||{}).filter(function(k){return m.supplements[k]&&m.supplements[k].nom;});
+  if(sups.length && tailleOk && protOk){
+    html+='<div class="pb-step"><div class="pb-step-lbl">'+(n++)+' \u00b7 Choisir son suppl\u00e9ment <span style="font-weight:600;letter-spacing:0;text-transform:none;color:var(--ink3)">pour les gourmands</span></div>'
+      +sups.map(function(k){
+        var sp=m.supplements[k];
+        return '<div class="prod-sup-row'+(_pbSups[k]?' selected':'')+'" data-sid="'+k+'" onclick="pbToggleSup(\''+k+'\')">'
+          +'<span class="prod-sup-name"><span class="prod-sup-check">\u2713</span>'+sp.nom+'</span>'
+          +'<span class="prod-sup-price">+'+_eur(sp.prix||0)+'</span></div>';
+      }).join('')+'</div>';
+  }
+
+  // Dernière étape · vente additionnelle — seulement quand le bowl est complet,
+  // et strictement filtrée : pas de doublon avec les suppléments du produit
+  // (« avocat 1,50 € » sous « avocat +2,00 € » sème le doute sur le prix réel),
+  // pas de sauce (déjà proposée plus haut), rien qui soit déjà au panier, 3 maxi.
+  if(pret_prealable(tailleOk,protOk)){
+    var sugg=_pbSuggestions(m);
+    if(sugg.length){
+      html+='<div class="pb-step"><div class="pb-step-lbl">'+(n++)+' \u00b7 On compl\u00e8te avec\u2026</div>'
+        +sugg.map(function(sg){
+          return '<div class="pb-sugg-row"><span class="pb-sugg-name">'+sg.nom+'</span>'
+            +'<span class="pb-sugg-price">'+_eur(_pbPrixMin(sg))+'</span>'
+            +'<button class="pb-sugg-add" onclick="pbAjouterSuggestion(\''+sg.id+'\')">+</button></div>';
+        }).join('')+'</div>';
+    }
+  }
+
+  var pret = tailleOk && protOk;
+  var libelle = !tailleOk ? 'Choisissez votre taille' : (!protOk ? 'Choisissez votre prot\u00e9ine' : (_pbLigneEnEdition?'Mettre \u00e0 jour':'Ajouter au panier'));
+  html+='<div class="pb-sticky">'
+    +(pret?'<div class="prod-modal-qty"><button onclick="changeProdQty(-1)">\u2212</button><span id="prod-qty-n">'+_prodQty+'</span><button onclick="changeProdQty(1)">+</button></div>':'')
+    +'<button class="btn-add-panier" '+(pret?'onclick="addFromModal(\''+m.id+'\')"':'disabled style="opacity:.45;cursor:not-allowed"')+'>'+libelle+' <span class="pb-btn-tot" id="pb-btn-tot"></span></button>'
+    +'<button class="btn-retour-menu" onclick="closeProdModal()">\u2190 Retour au menu</button>'
+    +'</div>';
+  el.innerHTML=html;
+  if(pret) _pbMajTotal();
+}
+
+function pbChoixTaille(t){
+  var m=MENU.find(function(x){return x.id===_pbModalId;});
+  t=decodeURIComponent(t); _pbTaille=t;
+  // La protéine déjà choisie est conservée si elle existe dans cette taille, sinon à rechoisir
+  if(_pbProt && !_pbVar(m,t,_pbProt)) _pbProt=null;
+  _pbRenderConf();
+}
+function pbChoixProt(pr){
+  pr=decodeURIComponent(pr); _pbProt=pr; _pbRenderConf();
+}
+function _pbVarCourante(){
+  var m=MENU.find(function(x){return x.id===_pbModalId;});
+  return m?(_pbVar(m,_pbTaille,_pbProt)||_pbVariantes(m)[0]||null):null;
+}
+// Un produit à sauces = un bowl (catégorie contenant « pok » ou « bowl »)
+function pret_prealable(tailleOk,protOk){ return tailleOk && protOk; }
+// Suggestions retenues : celles de l'admin, sinon un repli par catégorie (boisson,
+// dessert). Filtrées pour ne jamais contredire ce qui est déjà proposé au-dessus.
+function _pbSuggestions(m){
+  var supsNoms=Object.keys(m.supplements||{}).map(function(k){return String((m.supplements[k]||{}).nom||'').toLowerCase().trim();});
+  var sauces=_pbListeSauces().map(function(x){return String(x).toLowerCase().replace(/^sauce /,'').trim();});
+  var dejaPanier={};
+  (typeof cart!=='undefined'?cart:[]).forEach(function(l){ if(l.qte>0) dejaPanier[String(l.prodId)]=true; });
+  var vus={}, out=[], parCat={};
+  var base=(m.suggestions||[]).map(function(id){return MENU.find(function(x){return x.id===id;});}).filter(Boolean);
+  if(!base.length) base=MENU.filter(function(x){return /boisson|dessert/i.test(x.cat||'');});
+  base.forEach(function(sg){
+    if(out.length>=3) return;
+    var nom=String(sg.nom||'').toLowerCase().trim();
+    if(sg.id===m.id) return;                                   // pas le produit lui-même
+    if(vus[sg.id]) return;                                     // pas deux fois le même
+    if(dejaPanier[String(sg.id)]) return;                      // déjà au panier
+    if(/sauce/i.test(sg.cat||'') || sauces.indexOf(nom.replace(/^sauce /,''))>=0) return;  // déjà à l'étape sauce
+    if(supsNoms.indexOf(nom)>=0) return;                       // doublon avec un supplément
+    if(/suppl/i.test(sg.cat||'')) return;                      // les suppléments ne se vendent pas seuls ici
+    vus[sg.id]=true;
+    parCat[sg.cat]=parCat[sg.cat]||[]; parCat[sg.cat].push(sg);
+  });
+  // Une par catégorie d'abord (une boisson ET un dessert), puis on complète à 3 :
+  // trois boissons d'affilée ne rendent jamais service au client.
+  var cats=Object.keys(parCat), tour=0;
+  while(out.length<3){
+    var ajoute=false;
+    for(var i=0;i<cats.length && out.length<3;i++){
+      var lst=parCat[cats[i]];
+      if(lst[tour]){ out.push(lst[tour]); ajoute=true; }
+    }
+    if(!ajoute) break;
+    tour++;
+  }
+  return out;
+}
+function _pbEstBowl(m){ return /pok|bowl/i.test((m&&m.cat)||''); }
+// Liste des sauces : paramètre de carte en priorité, sinon les produits de catégorie « sauce »
+// déjà présents dans la carte (évite un écran vide tant que l'admin n'est pas renseigné).
+function _pbListeSauces(){
+  if(SAUCES_POKE.liste && SAUCES_POKE.liste.length) return SAUCES_POKE.liste;
+  return MENU.filter(function(m){return /sauce/i.test(m.cat||'');}).map(function(m){return m.nom;});
+}
+function _pbPrixSauceExtra(){
+  if(SAUCES_POKE.liste && SAUCES_POKE.liste.length) return SAUCES_POKE.prix_extra||0;
+  var sc=MENU.filter(function(m){return /sauce/i.test(m.cat||'');});
+  return sc.length?_pbPrixMin(sc[0]):0;
+}
+function pbToggleSauce(i){
+  var sc=_pbListeSauces()[i]; if(!sc) return;
+  var k=_pbSauces.indexOf(sc);
+  if(k>=0) _pbSauces.splice(k,1); else _pbSauces.push(sc);
+  _pbRenderConf();
+}
+function _pbPrixSauces(){ return Math.max(0,_pbSauces.length-1)*_pbPrixSauceExtra(); }
 function _pbUnitPrice(){
   var m=MENU.find(function(x){return x.id===_pbModalId;})||{};
-  var p=m.prix||0;
+  var v=_pbVarCourante();
+  var p=v?v.prix:(m.prix||0);
   Object.keys(_pbSups).forEach(function(k){p+=(_pbSups[k].prix||0);});
+  p+=_pbPrixSauces();
   return p;
+}
+function _pbMajTotal(){
+  var el=document.getElementById('pb-btn-tot');
+  if(el)el.textContent=_eur(_pbUnitPrice()*_prodQty);
 }
 function pbToggleSup(sid){
   var m=MENU.find(function(x){return x.id===_pbModalId;})||{};
-  var s=(m.supplements||{})[sid];
-  if(!s)return;
-  if(_pbSups[sid])delete _pbSups[sid];else _pbSups[sid]={nom:s.nom,prix:s.prix||0};
+  var sp=(m.supplements||{})[sid];
+  if(!sp)return;
+  if(_pbSups[sid])delete _pbSups[sid];else _pbSups[sid]={nom:sp.nom,prix:sp.prix||0};
   var row=document.querySelector('#prod-modal-body .prod-sup-row[data-sid="'+sid+'"]');
   if(row)row.classList.toggle('selected',!!_pbSups[sid]);
-  var pe=document.getElementById('prod-modal-price');
-  if(pe)pe.innerHTML=_pbUnitPrice().toFixed(2).replace('.',',')+'&nbsp;€';
+  _pbMajTotal();
 }
 function changeProdQty(d){
   _prodQty=Math.max(1,_prodQty+d);
   var el=document.getElementById('prod-qty-n');
   if(el)el.textContent=_prodQty;
+  _pbMajTotal();
+}
+// Modifier une ligne du panier : le configurateur se rouvre pré-rempli, et la ligne
+// est remplacée à la validation (la quantité est conservée).
+var _pbLigneEnEdition=null;
+function pbModifierLigne(lineId){
+  var l=cart.find(function(x){return x.lineId===lineId;}); if(!l) return;
+  openProdModal(l.prodId);
+  _pbLigneEnEdition=lineId;
+  _prodQty=l.qte||1;
+  if(l.taille) _pbTaille=l.taille;
+  if(l.proteine) _pbProt=l.proteine;
+  var m=MENU.find(function(x){return x.id===l.prodId;})||{};
+  _pbSups={}; _pbSauces=[];
+  (l.supplements||[]).forEach(function(sp){
+    if(sp.sauce){
+      var LS=_pbListeSauces();
+      var nu=sp.nom.replace(/^Sauce /,'');
+      var exact=LS.find(function(x){return x===sp.nom;}) || LS.find(function(x){return x===nu;}) || nu;
+      _pbSauces.push(exact); return;
+    }
+    var k=Object.keys(m.supplements||{}).find(function(x){return m.supplements[x].nom===sp.nom;});
+    if(k) _pbSups[k]={nom:sp.nom,prix:sp.prix||0};
+  });
+  _pbRenderConf();
 }
 function addFromModal(id){
-  _cartAdd(id,Object.keys(_pbSups).map(function(k){return _pbSups[k];}),_prodQty);
+  var v=_pbVarCourante();
+  var _edMode=!!_pbLigneEnEdition;
+  if(_pbLigneEnEdition){
+    var i=cart.findIndex(function(x){return x.lineId===_pbLigneEnEdition;});
+    if(i>=0) cart.splice(i,1);
+    _pbLigneEnEdition=null;
+  }
+  var etaitEdition=_edMode;
+  var sups=Object.keys(_pbSups).map(function(k){return _pbSups[k];});
+  var extra=_pbPrixSauceExtra();
+  _pbSauces.forEach(function(sc,i){ sups.push({nom:'Sauce '+sc, prix:(i===0?0:extra), sauce:true}); });
+  _cartAdd(id,sups,_prodQty,v);
   renderCart();updatePill();updateSteps();
   var i=MENU.find(function(m){return m.id===id;});
-  showToast(i?i.nom+' ajouté':'Ajouté','✓');
+  showToast((i?i.nom:'Article')+(etaitEdition?' mis \u00e0 jour':' ajout\u00e9'),'\u2713');
   closeProdModal();
 }
-function closeProdModal(){
+function closeProdModal(){ _pbLigneEnEdition=null;
   document.getElementById('prod-modal').classList.remove('open');
   document.body.style.overflow='';
 }
 function pbAjouterSuggestion(id){
   _cartAdd(id,[],1);
+  try{ if(document.getElementById('prod-modal').classList.contains('open')) _pbRenderConf(); }catch(e){}
   renderCart();updatePill();updateSteps();
   var i=MENU.find(function(m){return m.id===id;});
   showToast(i?i.nom+' ajouté':'Ajouté','✓');
@@ -1849,6 +2355,23 @@ function renderCartRelancePoke(lignes){
   if(!lignes||!lignes.length){el.innerHTML='';return;}
   var idsPanier={};lignes.forEach(function(l){if(l.type!=='formule')idsPanier[String(l.prodId)]=true;});
   var blocs='';
+  var d=_fmDetecter(lignes);
+  if(d){
+    var deja=d.lignes.map(function(u){var pm=MENU.find(function(m){return m.id===u.l.prodId;});return u.l.nom+((u.l.variante&&_pbVariantes(pm||{}).length>1)?' '+u.l.variante:'');}).join(' + ');
+    if(!d.manquants.length){
+      blocs+='<div class="fm-bascule"><div class="fm-bascule-t">🥗 Vous avez tout pour la '+d.f.nom+'</div>'
+        +'<div class="fm-bascule-d">'+deja+' → <strong>'+_eur(d.prixFm)+'</strong> au lieu de '+_eur(d.prixFm+d.eco)+'</div>'
+        +'<button class="fm-bascule-btn" onclick="fmBasculer(\''+d.f.id+'\')">Passer en menu · −'+_eur(d.eco)+'</button></div>';
+    } else {
+      var lbls=d.manquants.map(function(sl){return sl.label.toLowerCase();}).join(' + ');
+      var offert=d.supplement<=0.009;
+      blocs+='<div class="fm-bascule"><div class="fm-bascule-t">🥗 '+d.f.nom+' : '+lbls+(offert?' offert'+(d.manquants.length>1?'s':''):' pour +'+_eur(d.supplement))+'</div>'
+        +'<div class="fm-bascule-d">Menu complet à <strong>'+_eur(d.prixFm)+'</strong> au lieu de '+_eur(d.prixFm+d.eco)+' à la carte — vous économisez '+_eur(d.eco)+'</div>'
+        +'<button class="fm-bascule-btn" onclick="fmBasculer(\''+d.f.id+'\')">Compléter mon menu</button></div>';
+    }
+    // Quand un menu est proposé, les relances boisson/dessert séparées feraient concurrence : on les tait
+    el.innerHTML=blocs; return;
+  }
   [['boisson','une boisson 🥤'],['dessert','un dessert 🍰']].forEach(function(pair){
     var type=pair[0],lbl=pair[1];
     if(_panierContientTypePb(lignes,type))return;

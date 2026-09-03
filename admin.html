@@ -144,6 +144,26 @@ tr:hover td{background:var(--bg)}
 .modal-overlay.open{display:flex}
 .modal{background:var(--white);border-radius:var(--radius-xl);padding:28px;width:100%;max-width:560px;margin:20px;max-height:90vh;overflow-y:auto;box-shadow:var(--shadow-md)}
 .modal-title{font-size:18px;font-weight:600;margin-bottom:20px}
+#modal-produit .modal{max-width:900px;padding:0;max-height:92vh;display:flex;flex-direction:column;overflow:hidden}
+#modal-produit .modal-title{margin:0;padding:20px 28px;border-bottom:1px solid var(--border);font-size:19px}
+#modal-produit .mp-body{overflow-y:auto;padding:22px 28px;flex:1}
+#modal-produit .modal-actions{margin:0;padding:16px 28px;background:var(--bg)}
+/* Grille tarifaire : les axes se saisissent une seule fois, les lignes sont générées */
+.gt-wrap{border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--white)}
+.gt-axes{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:14px 16px;background:var(--bg);border-bottom:1px solid var(--border)}
+.gt-rule{display:grid;grid-template-columns:1fr 1fr auto;gap:14px;align-items:end;padding:12px 16px;border-bottom:1px solid var(--border);background:var(--bg)}
+.gt-hint{font-size:11.5px;color:var(--text-muted);padding:0 16px 12px;background:var(--bg);border-bottom:1px solid var(--border);line-height:1.5}
+.gt-table{width:100%;border-collapse:collapse}
+.gt-table th{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);font-weight:600;padding:10px 12px;text-align:left;border-bottom:1px solid var(--border)}
+.gt-table td{padding:7px 12px;border-bottom:1px solid var(--border);vertical-align:middle}
+.gt-table tr:last-child td{border-bottom:0}
+.gt-taille{font-weight:600;font-size:14px}
+.gt-cell{display:flex;gap:6px;align-items:center}
+.gt-cell input{width:100%;padding:7px 9px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-family:inherit;background:var(--white)}
+.gt-cell input:focus{outline:none;border-color:var(--accent,#e05a35)}
+.gt-cell .gt-cout{max-width:78px;color:var(--text-muted);font-size:12px}
+.gt-cell.gt-off input{background:var(--bg);opacity:.5}
+.gt-empty{padding:22px 16px;text-align:center;color:var(--text-muted);font-size:13px}
 .modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:24px;padding-top:16px;border-top:1px solid var(--border)}
 
 /* ETAB CARDS */
@@ -647,7 +667,7 @@ tr:hover td{background:var(--bg)}
       <div class="view" id="view-produits">
         <div class="page-header">
           <div class="page-header-left"><div class="page-title">Produits & Cartes</div><div class="page-sub">2 cartes : Poké et Burger</div></div>
-          <button class="btn btn-primary" onclick="ouvrirModalProduit(null)">+ Nouveau produit</button>
+          <div style="display:flex;gap:10px"><button class="btn btn-secondary" onclick="ouvrirModalTailles()">⚙ Tailles de la carte</button><button class="btn btn-secondary" onclick="ouvrirModalSauces()">🥫 Sauces de la carte</button><button class="btn btn-primary" onclick="ouvrirModalProduit(null)">+ Nouveau produit</button></div>
         </div>
         <div class="tabs" id="carte-tabs">
           <button class="tab-btn carte-tab active" onclick="switchCarte('poke',this)">🥗 Carte Poké</button>
@@ -1728,13 +1748,46 @@ tr:hover td{background:var(--bg)}
   <div id="rec-editeur"></div>
 </div></div>
 
+<div class="modal-overlay" id="modal-tailles">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-title">Tailles de la carte <span id="mt-carte-nom"></span></div>
+    <p style="font-size:13px;color:var(--text-muted);line-height:1.55;margin-bottom:16px">
+      Ces tailles s'appliquent à <strong>tous les produits de la carte</strong>. Le supplément
+      s'ajoute au prix de base de chaque produit : modifier un supplément ici met à jour
+      toute la carte, sans reprendre les produits un par un.
+    </p>
+    <div id="mt-list"></div>
+    <button class="btn btn-secondary btn-sm" onclick="mtAjouterLigne()" style="margin-top:6px">+ Taille</button>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="fermerModal('modal-tailles')">Annuler</button>
+      <button class="btn btn-primary" onclick="enregistrerTaillesCarte()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+<div class="modal-overlay" id="modal-sauces">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-title">Sauces de la carte <span id="ms-carte-nom"></span></div>
+    <p style="font-size:13px;color:var(--text-muted);line-height:1.55;margin-bottom:14px">
+      Proposées sur <strong>tous les produits de la carte</strong>. La première sauce est
+      incluse dans le prix ; chaque sauce supplémentaire est facturée au tarif ci-dessous.
+    </p>
+    <div class="form-field" style="margin-bottom:12px"><label class="form-label">Prix d'une sauce en plus (€)</label><input type="number" step="0.10" class="form-input" id="ms-prix-extra" placeholder="0.50"></div>
+    <div id="ms-list"></div>
+    <button class="btn btn-secondary btn-sm" onclick="msAjouterLigne()" style="margin-top:6px">+ Sauce</button>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="fermerModal('modal-sauces')">Annuler</button>
+      <button class="btn btn-primary" onclick="enregistrerSaucesCarte()">Enregistrer</button>
+    </div>
+  </div>
+</div>
 <div class="modal-overlay" id="modal-produit">
   <div class="modal">
     <div class="modal-title" id="modal-produit-title">Nouveau produit</div>
     <input type="hidden" id="prod-edit-id">
+    <div class="mp-body">
     <div class="form-grid">
       <div class="form-field"><label class="form-label">Carte</label>
-        <select class="form-select" id="prod-carte"><option value="poke">Carte Poké</option><option value="burger">Carte Burger</option></select>
+        <select class="form-select" id="prod-carte" onchange="rendreGrilleTarifs()"><option value="poke">Carte Poké</option><option value="burger">Carte Burger</option></select>
       </div>
       <div class="form-field"><label class="form-label">Catégorie</label>
         <input type="text" class="form-input" id="prod-cat" placeholder="Poké Bowl" list="cats-list">
@@ -1751,9 +1804,18 @@ tr:hover td{background:var(--bg)}
     <div class="form-field"><label class="form-label">Allergènes <small style="font-weight:500;color:var(--text-muted)">(affichés sur la page Allergènes du site — INCO)</small></label>
       <div id="prod-allergenes" style="display:flex;flex-wrap:wrap;gap:8px 14px"></div>
     </div>
-    <div style="font-size:13px;font-weight:600;margin:16px 0 10px;color:var(--text)">Tailles & Prix</div>
-    <div id="tailles-list"></div>
-    <button class="btn btn-secondary btn-sm" onclick="ajouterTaille()" style="margin-bottom:16px">+ Taille</button>
+    <div style="font-size:13px;font-weight:600;margin:16px 0 10px;color:var(--text)">Tailles, protéines & prix</div>
+    <div class="gt-wrap">
+      <div class="gt-axes" style="grid-template-columns:1fr">
+        <div>
+          <label class="form-label">Protéines & prix de base <small style="font-weight:500;color:var(--text-muted)">(prix de la plus petite taille — laisser « — » si le produit n'a pas de choix de protéine)</small></label>
+          <div id="prot-list"></div>
+          <button class="btn btn-secondary btn-sm" onclick="protAjouterLigne()" style="margin-top:4px">+ Protéine</button>
+        </div>
+      </div>
+      <div class="gt-hint" id="gt-regle"></div>
+      <div id="tailles-list"></div>
+    </div>
     <div style="font-size:13px;font-weight:600;margin-bottom:10px;color:var(--text)">Suppléments disponibles</div>
     <div id="sups-list"></div>
     <button class="btn btn-secondary btn-sm" onclick="ajouterSup()">+ Supplément</button>
@@ -1765,6 +1827,7 @@ tr:hover td{background:var(--bg)}
     </div>
     <div class="form-field"><label class="form-label">Statut</label>
       <select class="form-select" id="prod-actif"><option value="true">Actif</option><option value="false">Inactif</option></select>
+    </div>
     </div>
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="fermerModal('modal-produit')">Annuler</button>
@@ -1857,7 +1920,6 @@ const auth = firebase.auth();
 let currentCarte = 'poke';
 let editEtabId = null;
 let selectedPlanningEtab = null;
-let tailleIdx = 0;
 let supIdx = 0;
 let etabsData = {};
 let produitsData = {};
@@ -1902,6 +1964,8 @@ function lancerApp(email){
   const now = new Date();
   document.getElementById('topbar-date').textContent = now.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   chargerParametres();
+  ecouterGrilleTailles();
+  ecouterSaucesCarte();
   ecouter_etablissements();
   chargerDashboardPeriode();
   chargerAvis(); // badge « à traiter » vivant dès l'ouverture
@@ -3393,8 +3457,7 @@ function renderProduits(data){
 }
 
 function ouvrirModalProduit(id){
-  tailleIdx=0; supIdx=0;
-  document.getElementById('tailles-list').innerHTML='';
+  supIdx=0;
   document.getElementById('sups-list').innerHTML='';
   document.getElementById('prod-edit-id').value=id||'';
   if(id && produitsData[id]){
@@ -3409,7 +3472,7 @@ function ouvrirModalProduit(id){
     document.getElementById('prod-photo-data').value=p.photo||'';
     renderPhotoPreviewProduit(p.photo||'');
     renderAllergenesProduit(p.allergenes||{});
-    Object.entries(p.tailles||{}).forEach(([t,v])=>ajouterTaille(t,v.prix,v.cout_revient));
+    chargerGrilleDepuisProduit(p.tailles||{}, currentCarte);
     Object.entries(p.supplements||{}).forEach(([,s])=>ajouterSup(s.nom,s.prix,s.cout_revient));
     renderSuggestionsProduit(id, p.suggestions||[]);
   } else {
@@ -3419,7 +3482,7 @@ function ouvrirModalProduit(id){
     renderPhotoPreviewProduit('');
     renderAllergenesProduit({});
     document.getElementById('prod-carte').value=currentCarte;
-    ajouterTaille('S','',''); ajouterTaille('M','',''); ajouterTaille('L','','');
+    chargerGrilleDepuisProduit({}, currentCarte);
     renderSuggestionsProduit(null, []);
   }
   const pf=document.getElementById('prod-photo-file'); if(pf) pf.value='';
@@ -3485,17 +3548,195 @@ function renderAllergenesProduit(selected){
   ).join('');
 }
 
-function ajouterTaille(nom='',prix='',cout=''){
-  const i=tailleIdx++;
+// ── Tarification : tailles globales × protéines du produit ──
+// Les tailles et leurs suppléments sont définis UNE FOIS pour toute la carte
+// (parametres/grille_tailles/<carte>). Chaque produit ne porte que le prix de base
+// de sa plus petite taille, par protéine. Prix final = prix de base + supplément
+// de taille : changer « M = +3 € » met à jour tous les pokés d'un coup.
+// Le nom de la variante (« L Saumon ») reste la clé Firebase : caisse, imports CSV
+// et reporting sont inchangés.
+const AXE_TAILLES = ['S','M','L','XL','Petit','Moyen','Grand','Unique'];
+let GRILLE_TAILLES = { poke:[{nom:'S',supp:0},{nom:'M',supp:3},{nom:'L',supp:6}], burger:[{nom:'Unique',supp:0}] };
+let _coutsVariantes = {};   // "taille|proteine" -> coût de revient (conservé tel quel)
+let _nomsVariantes  = {};   // "taille|proteine" -> nom historique (clé caisse)
+let protIdx = 0;
+
+function ecouterGrilleTailles(){
+  db.ref('parametres/grille_tailles').on('value', sn=>{
+    const v=sn.val()||{};
+    Object.keys(v).forEach(c=>{ if(Array.isArray(v[c]) && v[c].length) GRILLE_TAILLES[c]=v[c]; });
+    const mp=document.getElementById('modal-produit');
+    if(mp && mp.classList.contains('open')) rendreGrilleTarifs();
+  });
+}
+function taillesCarte(carte){ return GRILLE_TAILLES[carte||currentCarte] || GRILLE_TAILLES.poke; }
+function _k(t,p){ return t+'|'+p; }
+function _deduireAxes(nom){
+  const parts=String(nom||'').trim().split(/\s+/);
+  if(parts.length>1 && AXE_TAILLES.some(t=>t.toLowerCase()===parts[0].toLowerCase())){
+    return {taille:parts[0], proteine:parts.slice(1).join(' ')};
+  }
+  return {taille:String(nom||'').trim(), proteine:''};
+}
+
+/* ---------- Modal « Tailles de la carte » ---------- */
+function ouvrirModalTailles(){
+  document.getElementById('mt-carte-nom').textContent = (currentCarte==='burger'?'Burger':'Poké');
+  const list=document.getElementById('mt-list'); list.innerHTML='';
+  taillesCarte(currentCarte).forEach(t=>mtAjouterLigne(t.nom,t.supp));
+  document.getElementById('modal-tailles').classList.add('open');
+}
+function mtAjouterLigne(nom='',supp=''){
+  const i='mt'+(Date.now()+Math.random()).toString(36).slice(-6);
   const div=document.createElement('div');
-  div.id='taille-'+i;
-  div.style.cssText='display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:10px;margin-bottom:10px;align-items:flex-end';
-  div.innerHTML=`
-    <div><label class="form-label">Taille</label><input type="text" class="form-input" id="t-nom-${i}" value="${nom}" placeholder="S"></div>
-    <div><label class="form-label">Prix (€)</label><input type="number" class="form-input" id="t-prix-${i}" value="${prix}" step="0.10" placeholder="12.90"></div>
-    <div><label class="form-label">Coût revient (€)</label><input type="number" class="form-input" id="t-cout-${i}" value="${cout}" step="0.10" placeholder="4.20"></div>
-    <button class="btn btn-danger btn-sm" style="margin-bottom:0" onclick="document.getElementById('taille-${i}').remove()">✕</button>`;
-  document.getElementById('tailles-list').appendChild(div);
+  div.className='mt-row'; div.id=i;
+  div.style.cssText='display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end;margin-bottom:8px';
+  div.innerHTML='<div><label class="form-label">Nom</label><input type="text" class="form-input mt-nom" value="'+nom+'" placeholder="M"></div>'
+    +'<div><label class="form-label">Suppl\u00e9ment (\u20ac)</label><input type="number" step="0.10" class="form-input mt-supp" value="'+supp+'" placeholder="3"></div>'
+    +'<button class="btn btn-danger btn-sm" style="margin-bottom:0" onclick="document.getElementById(\''+i+'\').remove()">\u2715</button>';
+  document.getElementById('mt-list').appendChild(div);
+}
+function enregistrerTaillesCarte(){
+  const rows=[...document.querySelectorAll('#mt-list .mt-row')].map(r=>({
+    nom:r.querySelector('.mt-nom').value.trim(),
+    supp:parseFloat(r.querySelector('.mt-supp').value)||0
+  })).filter(r=>r.nom);
+  if(!rows.length){ showNotif('Ajoute au moins une taille','error'); return; }
+  db.ref('parametres/grille_tailles/'+currentCarte).set(rows)
+    .then(()=>{ fermerModal('modal-tailles'); showNotif('Tailles enregistr\u00e9es \u2014 elles s\'appliquent \u00e0 toute la carte','success'); })
+    .catch(()=>showNotif('Erreur Firebase','error'));
+}
+
+/* ---------- Modal « Sauces de la carte » ---------- */
+// parametres/sauces/<carte> = { liste:[nom,...], prix_extra:0.5 }
+let SAUCES_CARTE = { poke:{liste:[],prix_extra:0.5}, burger:{liste:[],prix_extra:0.5} };
+function ecouterSaucesCarte(){
+  db.ref('parametres/sauces').on('value', sn=>{
+    const v=sn.val()||{};
+    Object.keys(v).forEach(c=>{ if(v[c]) SAUCES_CARTE[c]={liste:Array.isArray(v[c].liste)?v[c].liste:[], prix_extra:Number(v[c].prix_extra)||0}; });
+  });
+}
+function ouvrirModalSauces(){
+  document.getElementById('ms-carte-nom').textContent=(currentCarte==='burger'?'Burger':'Pok\u00e9');
+  const cfg=SAUCES_CARTE[currentCarte]||{liste:[],prix_extra:0.5};
+  document.getElementById('ms-prix-extra').value=cfg.prix_extra;
+  document.getElementById('ms-list').innerHTML='';
+  cfg.liste.forEach(n=>msAjouterLigne(n));
+  if(!cfg.liste.length) msAjouterLigne('');
+  document.getElementById('modal-sauces').classList.add('open');
+}
+function msAjouterLigne(nom=''){
+  const i='ms'+(Date.now()+Math.random()).toString(36).slice(-6);
+  const div=document.createElement('div');
+  div.className='ms-row'; div.id=i;
+  div.style.cssText='display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;margin-bottom:8px';
+  div.innerHTML='<input type="text" class="form-input ms-nom" value="'+nom.replace(/"/g,'&quot;')+'" placeholder="Sauce sucr\u00e9e">'
+    +'<button class="btn btn-danger btn-sm" style="margin-bottom:0" onclick="document.getElementById(\''+i+'\').remove()">\u2715</button>';
+  document.getElementById('ms-list').appendChild(div);
+}
+function enregistrerSaucesCarte(){
+  const liste=[...document.querySelectorAll('#ms-list .ms-nom')].map(e=>e.value.trim()).filter(Boolean);
+  const prix_extra=parseFloat(document.getElementById('ms-prix-extra').value)||0;
+  db.ref('parametres/sauces/'+currentCarte).set({liste,prix_extra})
+    .then(()=>{ fermerModal('modal-sauces'); showNotif('Sauces enregistr\u00e9es \u2014 elles s\'appliquent \u00e0 toute la carte','success'); })
+    .catch(()=>showNotif('Erreur Firebase','error'));
+}
+
+/* ---------- Protéines du produit ---------- */
+function protAjouterLigne(nom='',prix=''){
+  const i=protIdx++;
+  const div=document.createElement('div');
+  div.className='prot-row'; div.id='prot-'+i;
+  div.style.cssText='display:grid;grid-template-columns:1.4fr 1fr auto;gap:10px;align-items:center;margin-bottom:6px';
+  div.innerHTML='<input type="text" class="form-input prot-nom" value="'+nom+'" placeholder="Poulet \u2014 ou \u2014 si sans objet" oninput="rendreGrilleTarifs()">'
+    +'<input type="number" step="0.10" class="form-input prot-prix" value="'+prix+'" placeholder="prix taille '+(taillesCarte()[0]?.nom||'S')+'" oninput="rendreGrilleTarifs()">'
+    +'<button class="btn btn-danger btn-sm" style="margin-bottom:0" onclick="document.getElementById(\'prot-'+i+'\').remove();rendreGrilleTarifs()">\u2715</button>';
+  document.getElementById('prot-list').appendChild(div);
+}
+function _lireProteines(){
+  return [...document.querySelectorAll('#prot-list .prot-row')].map(r=>({
+    nom:r.querySelector('.prot-nom').value.trim().replace(/^\u2014$/,''),
+    prix:parseFloat(r.querySelector('.prot-prix').value)
+  }));
+}
+
+/* ---------- Reprise de l'existant ---------- */
+function chargerGrilleDepuisProduit(tailles, carte){
+  _coutsVariantes={}; _nomsVariantes={}; protIdx=0;
+  document.getElementById('prot-list').innerHTML='';
+  const T=taillesCarte(carte);
+  const refT=(T[0]?.nom||'S').toLowerCase();
+  const supRef=T[0]?.supp||0;
+  const bases={}, ordre=[];
+  Object.entries(tailles||{}).forEach(([nom,v])=>{
+    let t=(v.taille||'').trim(), pr=(v.proteine||'').trim();
+    if(!t && !pr){ const d=_deduireAxes(nom); t=d.taille; pr=d.proteine; }
+    _coutsVariantes[_k(t,pr)]=v.cout_revient||0;
+    _nomsVariantes[_k(t,pr)]=nom;
+    if(!(pr in bases)){ ordre.push(pr); }
+    // prix de base = prix de la taille de référence ; sinon on le déduit du supplément
+    const supT=(T.find(x=>x.nom.toLowerCase()===t.toLowerCase())?.supp);
+    if(t.toLowerCase()===refT) bases[pr]=v.prix;
+    else if(bases[pr]==null && supT!=null) bases[pr]=Math.round((v.prix-supT+supRef)*100)/100;
+    else if(bases[pr]==null) bases[pr]=v.prix;
+  });
+  if(!ordre.length) ordre.push('');
+  ordre.forEach(pr=>protAjouterLigne(pr||'', bases[pr]!=null?bases[pr]:''));
+  rendreGrilleTarifs();
+}
+
+/* ---------- Aperçu calculé ---------- */
+function rendreGrilleTarifs(){
+  const list=document.getElementById('tailles-list'); if(!list) return;
+  // conserver les coûts en cours de saisie
+  document.querySelectorAll('#tailles-list [data-cell]').forEach(el=>{
+    const c=el.querySelector('.gt-cout'); if(c) _coutsVariantes[el.getAttribute('data-cell')]=c.value===''?0:parseFloat(c.value);
+  });
+  const carte=document.getElementById('prod-carte')?.value||currentCarte;
+  const T=taillesCarte(carte);
+  const P=_lireProteines();
+  const reg=document.getElementById('gt-regle');
+  if(reg) reg.innerHTML='Prix calcul\u00e9 = prix de base + suppl\u00e9ment de taille \u00b7 '
+    +T.map(t=>t.nom+' '+(t.supp>0?'+'+t.supp.toFixed(2).replace('.',',')+'\u202f\u20ac':'prix de base')).join(' \u00b7 ')
+    +' \u2014 <a href="#" onclick="ouvrirModalTailles();return false;" style="color:var(--text)">modifier pour toute la carte</a>';
+  if(!P.length || P.every(p=>isNaN(p.prix))){
+    list.innerHTML='<div class="gt-empty">Renseigne un prix de base ci-dessus \u2014 les prix de chaque taille se calculent tout seuls.</div>';
+    return;
+  }
+  let html='<table class="gt-table"><thead><tr><th style="width:90px">Taille</th>'
+    +P.map(p=>'<th>'+(p.nom||'Prix')+'</th>').join('')+'</tr></thead><tbody>';
+  T.forEach(t=>{
+    html+='<tr><td class="gt-taille">'+t.nom+'</td>';
+    P.forEach(p=>{
+      const key=_k(t.nom,p.nom);
+      const prix=isNaN(p.prix)?null:(p.prix+(t.supp||0));
+      const cout=_coutsVariantes[key];
+      html+='<td><div class="gt-cell'+(prix==null?' gt-off':'')+'" data-cell="'+key+'">'
+        +'<span style="font-weight:600;min-width:64px">'+(prix==null?'\u2014':prix.toFixed(2).replace('.',',')+'\u202f\u20ac')+'</span>'
+        +'<input type="number" class="gt-cout" step="0.10" placeholder="co\u00fbt" value="'+(cout==null?'':cout)+'">'
+        +'</div></td>';
+    });
+    html+='</tr>';
+  });
+  list.innerHTML=html+'</tbody></table>';
+}
+
+/* ---------- Vers Firebase ---------- */
+function _tailleseDepuisGrille(){
+  document.querySelectorAll('#tailles-list [data-cell]').forEach(el=>{
+    const c=el.querySelector('.gt-cout'); if(c) _coutsVariantes[el.getAttribute('data-cell')]=c.value===''?0:parseFloat(c.value);
+  });
+  const carte=document.getElementById('prod-carte')?.value||currentCarte;
+  const T=taillesCarte(carte), P=_lireProteines(), out={};
+  T.forEach(t=>P.forEach(p=>{
+    if(isNaN(p.prix)) return;
+    const key=_k(t.nom,p.nom);
+    const nom=_nomsVariantes[key] || (t.nom+' '+p.nom).trim();   // clé historique préservée
+    out[nom]={prix:Math.round((p.prix+(t.supp||0))*100)/100,
+              cout_revient:_coutsVariantes[key]||0,
+              taille:t.nom, proteine:p.nom};
+  }));
+  return out;
 }
 
 function ajouterSup(nom='',prix='',cout=''){
@@ -3546,15 +3787,8 @@ function sauvegarderProduit(){
   document.querySelectorAll('.prod-alg-cb:checked').forEach(cb=>{ allergenes[cb.value]=true; });
   const editId=document.getElementById('prod-edit-id').value;
   if(!nom||!cat){ showNotif('Nom et catégorie requis','error'); return; }
-  const tailles={};
-  document.querySelectorAll('[id^="taille-"]').forEach(el=>{
-    const i=el.id.split('-')[1];
-    const n=document.getElementById('t-nom-'+i)?.value.trim();
-    const p=parseFloat(document.getElementById('t-prix-'+i)?.value);
-    const c=parseFloat(document.getElementById('t-cout-'+i)?.value)||0;
-    if(n&&!isNaN(p)) tailles[n]={prix:p,cout_revient:c};
-  });
-  if(!Object.keys(tailles).length){ showNotif('Ajoute au moins une taille avec un prix','error'); return; }
+  const tailles=_tailleseDepuisGrille();
+  if(!Object.keys(tailles).length){ showNotif('Renseigne au moins un prix dans la grille','error'); return; }
   const supplements={};
   document.querySelectorAll('[id^="sup-"]').forEach(el=>{
     const i=el.id.split('-')[1];
