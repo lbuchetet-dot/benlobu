@@ -135,7 +135,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;height:64px;background:rgba(
 .cat-btn{background:var(--cream);border:1.5px solid var(--border2);color:var(--ink2);padding:0.5rem 1.3rem;border-radius:30px;font-size:0.72rem;font-weight:800;letter-spacing:0.5px;text-transform:uppercase;cursor:pointer;transition:all 0.15s;}
 .cat-btn:hover{border-color:var(--grn);color:var(--grn);}
 .cat-btn.on{background:var(--grn);color:#fff;border-color:var(--grn);}
-.pokes-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1.25rem;}
+.pokes-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:1.25rem;}
 @media(max-width:1000px){.pokes-grid{grid-template-columns:repeat(2,1fr);}}
 @media(max-width:500px){.pokes-grid{grid-template-columns:1fr;}}
 /* CARTE POKÉ SANS PHOTO — bloc couleur + typo */
@@ -482,9 +482,19 @@ footer{background:var(--ink);color:#fff;padding:3.5rem 2.5rem 2rem;}
 .relance-chip{display:inline-block;margin:0 0.4rem 0.4rem 0;padding:0.4rem 0.7rem;border:1px solid var(--border);background:var(--cream);color:var(--ink);border-radius:20px;font-family:inherit;font-size:0.76rem;cursor:pointer;}
 .relance-chip:active{border-color:var(--grn);color:var(--grn);}
 /* ── Configurateur produit (taille → protéine → suppléments) ── */
-.prod-modal{display:flex;flex-direction:column;max-height:88vh;}
+/* Chaîne de défilement complète : .prod-modal (hauteur max) → #prod-modal-body
+   (conteneur flex qui peut rétrécir) → .prod-modal-actions (zone qui défile).
+   Sans le maillon du milieu, le corps grandit avec le contenu et le bouton
+   d'ajout sort du cadre sans jamais devenir accessible. */
+.prod-modal{display:flex;flex-direction:column;max-height:88vh;min-height:0;}
+#prod-modal-body,#formule-modal-body{display:flex;flex-direction:column;flex:1 1 auto;min-height:0;}
+#formule-modal .prod-modal-actions{overflow-y:auto;overflow-x:hidden;flex:1 1 auto;min-height:0;-webkit-overflow-scrolling:touch;}
 .prod-modal-top{flex-shrink:0;}
-.prod-modal-actions{overflow-y:auto;flex:1;padding-bottom:0.5rem;}
+.prod-modal-actions{overflow-y:auto;overflow-x:hidden;flex:1 1 auto;min-height:0;padding-bottom:0.5rem;-webkit-overflow-scrolling:touch;scroll-behavior:smooth;scrollbar-width:thin;scrollbar-color:var(--border2) transparent;}
+.prod-modal-actions::-webkit-scrollbar{width:6px;}
+.prod-modal-actions::-webkit-scrollbar-thumb{background:var(--border2);border-radius:6px;}
+.prod-modal-actions::-webkit-scrollbar-track{background:transparent;}
+.pb-step{scroll-margin-top:8px;}
 .pb-step{margin-bottom:1.1rem;}
 .pb-step-lbl{font-size:0.62rem;font-weight:800;letter-spacing:1.4px;text-transform:uppercase;color:var(--ink3);margin-bottom:0.5rem;display:flex;align-items:center;gap:0.5rem;}
 .pb-opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:0.45rem;}
@@ -495,7 +505,7 @@ footer{background:var(--ink);color:#fff;padding:3.5rem 2.5rem 2rem;}
 .pb-opt-ec{font-size:0.7rem;font-weight:700;color:var(--ink3);}
 .pb-opt.off{opacity:0.4;cursor:not-allowed;background:var(--cream);}
 .pb-opt.off:hover{border-color:var(--border);}
-.pb-sticky{position:sticky;bottom:0;background:var(--cream);padding-top:0.6rem;margin-top:0.2rem;border-top:1px solid var(--border);}
+.pb-sticky{position:sticky;bottom:0;z-index:2;background:var(--cream);padding:0.6rem 0 1rem;margin-top:0.2rem;border-top:1px solid var(--border);box-shadow:0 -8px 18px -12px rgba(26,36,32,0.35);}
 .btn-add-panier{display:flex;justify-content:space-between;align-items:center;gap:1rem;}
 .btn-add-panier .pb-btn-tot{font-variant-numeric:tabular-nums;opacity:.92;}
 .prod-modal-qty{display:flex;align-items:center;justify-content:center;gap:1rem;margin-bottom:0.25rem;}
@@ -1164,6 +1174,20 @@ function _pbDeduireAxes(nom){
   return {taille:String(nom||'').trim(), proteine:''};
 }
 var _cfgPoke={categories:{},articles:{}}, _prodsPoke=null;
+// Ordre par défaut d'une catégorie sur la carte, quand rien n'est défini dans
+// l'onglet « Affichage » de l'admin. Les plats d'abord, les suppléments en dernier.
+function _catMasqueeCarte(c){ return /suppl|sauce/i.test(String(c||'')); }
+function _ordreDefautCat(c){
+  if(c==='__menus__') return 20;
+  var n=String(c||'').toLowerCase();
+  if(/pok|bowl|plat/.test(n)) return 10;
+  if(/accompagn/.test(n)) return 30;
+  if(/boisson/.test(n)) return 40;
+  if(/dessert/.test(n)) return 50;
+  if(/suppl/.test(n)) return 90;
+  if(/sauce/.test(n)) return 95;
+  return 60;
+}
 function _buildMenuPoke(){
   if(_prodsPoke===null) return;
   var catCfg=_cfgPoke.categories||{}, artCfg=_cfgPoke.articles||{};
@@ -1195,20 +1219,22 @@ function _buildMenuPoke(){
               _ordre:(artCfg[id]&&artCfg[id].ordre!=null)?artCfg[id].ordre:999});
   });
   if(!arr.length) return;
-  var cats=[]; arr.forEach(function(m){ if(cats.indexOf(m.cat)<0)cats.push(m.cat); });
+  var cats=[]; arr.forEach(function(m){ if(!_catMasqueeCarte(m.cat) && cats.indexOf(m.cat)<0)cats.push(m.cat); });
+  // Ordre par défaut : le client vient pour un bowl, pas pour un supplément.
+  // L'onglet « Affichage » de l'admin reste prioritaire dès qu'un ordre y est enregistré.
   cats.sort(function(a,b){
-    var oa=(catCfg[a]&&catCfg[a].ordre!=null)?catCfg[a].ordre:999;
-    var ob=(catCfg[b]&&catCfg[b].ordre!=null)?catCfg[b].ordre:999;
+    var oa=(catCfg[a]&&catCfg[a].ordre!=null)?catCfg[a].ordre:_ordreDefautCat(a);
+    var ob=(catCfg[b]&&catCfg[b].ordre!=null)?catCfg[b].ordre:_ordreDefautCat(b);
     return oa-ob;
   });
   arr.forEach(function(m){ m.col=COLS[cats.indexOf(m.cat)%COLS.length]; });
   arr.sort(function(a,b){ return a._ordre-b._ordre; });
   // Onglet "Menus" (formules) inséré dans la barre selon l'ordre de l'Affichage
-  var sectionList=cats.map(function(c){return {key:c,ordre:(catCfg[c]&&catCfg[c].ordre!=null?catCfg[c].ordre:999)};});
-  if(FORMULES.length){ sectionList.push({key:'__menus__',ordre:(catCfg.__menus__&&catCfg.__menus__.ordre!=null?catCfg.__menus__.ordre:-1)}); }
+  var sectionList=cats.map(function(c){return {key:c,ordre:(catCfg[c]&&catCfg[c].ordre!=null?catCfg[c].ordre:_ordreDefautCat(c))};});
+  if(FORMULES.length){ sectionList.push({key:'__menus__',ordre:(catCfg.__menus__&&catCfg.__menus__.ordre!=null?catCfg.__menus__.ordre:_ordreDefautCat('__menus__'))}); }
   sectionList.sort(function(a,b){return a.ordre-b.ordre;});
   MENU=arr; CATS=sectionList.map(function(s){return s.key;});
-  if(CATS.indexOf(activeCat)<0) activeCat=CATS[0];
+  if(CATS.indexOf(activeCat)<0) activeCat=CATS[0];   // 1re section visible (Poké Bowl par défaut)
   try{renderPokesHome();}catch(e){}
   try{renderUne();}catch(e){}
   try{var pc=document.getElementById('page-carte'); if(pc&&pc.classList.contains('active'))renderCarte();}catch(e){}
@@ -1262,7 +1288,7 @@ function _buildFormulesPoke(){
     if(f.actif===false) return null;
     var slots=(f.slots||[]); if(!slots.length) return null;
     return {id:id, nom:(f.nom||'Menu'), prix:(Number(f.prix)||0), description:(f.description||''),
-            slots:slots.map(function(s){return {label:(s.label||''),mode:(s.mode||'choix'),produits:(s.produits||[])};})};
+            slots:slots.map(function(s){return {label:(s.label||''),mode:(s.mode||'choix'),produits:(s.produits||[]),categorieAuto:(s.categorieAuto||'')};})};
   }).filter(Boolean);
   // Rafraîchit la barre (insère/retire l'onglet "Menus") et les pages actives
   try{ if(_prodsPoke!==null) _buildMenuPoke(); }catch(e){}
@@ -1284,6 +1310,12 @@ var _fmIdPoke=null;
 // Le prix d'une formule est fixé pour la plus petite taille et la protéine de base.
 // Si le client choisit M/L ou une protéine plus chère, l'écart de la grille est
 // répercuté : plus de L Saumon vendu au prix d'un menu S.
+// Produits d'un emplacement : toute la catégorie (produits actuels ET futurs) si
+// l'admin l'a demandé, sinon la liste cochée.
+function _fmProduitsSlot(sl){
+  if(sl.categorieAuto) return MENU.filter(function(m){return (m.cat||'')===sl.categorieAuto;}).map(function(m){return m.id;});
+  return sl.produits||[];
+}
 var _fmSel={};   // slotIndex -> {prodId, taille, proteine}
 function _fmEcart(prodId,taille,proteine){
   var m=MENU.find(function(x){return x.id===prodId;}); if(!m) return 0;
@@ -1299,7 +1331,7 @@ function openFormulePoke(id){
   var f=FORMULES.find(function(x){return x.id===id;}); if(!f)return;
   _fmIdPoke=id; _fmSel={}; _fmLignesABasculer=null;
   f.slots.forEach(function(sl,si){
-    var opts=sl.produits.filter(function(pid){return MENU.find(function(m){return m.id===pid;});});
+    var opts=_fmProduitsSlot(sl).filter(function(pid){return MENU.find(function(m){return m.id===pid;});});
     if(sl.mode==='fixe'){ _fmSel[si]={prodId:opts[0]||null,taille:null,proteine:null,fixe:true}; return; }
     // Un seul produit possible → pré-sélectionné ; sinon le client choisit
     _fmSel[si]={prodId:opts.length===1?opts[0]:null,taille:null,proteine:null};
@@ -1330,7 +1362,7 @@ function _fmRender(){
   var html='';
   f.slots.forEach(function(sl,si){
     var c=_fmSel[si];
-    var opts=sl.produits.filter(function(pid){return MENU.find(function(m){return m.id===pid;});});
+    var opts=_fmProduitsSlot(sl).filter(function(pid){return MENU.find(function(m){return m.id===pid;});});
     html+='<div class="fm-slot"><div class="fm-slot-lbl">'+(si+1)+' \u00b7 '+sl.label+'</div>';
     if(sl.mode==='fixe'){ html+='<div class="fm-slot-fixed">\u2713 '+opts.map(_pNomPoke).join(', ')+'</div></div>'; return; }
     // Choix du produit — boutons, pas de menu déroulant
@@ -1418,7 +1450,7 @@ function _fmDetecter(lignes){
     f.slots.forEach(function(sl){
       if(sl.mode==='fixe') return;
       var l=lignes.find(function(x){
-        return x.type!=='formule' && !pris[x.lineId] && sl.produits.indexOf(x.prodId)>=0;
+        return x.type!=='formule' && !pris[x.lineId] && _fmProduitsSlot(sl).indexOf(x.prodId)>=0;
       });
       if(l){
         pris[l.lineId]=true; trouves.push({l:l,slot:sl});
@@ -1435,7 +1467,7 @@ function _fmDetecter(lignes){
     var prixFm=f.prix+ecarts;
     // Ce que coûteraient les manquants achetés à part (produit le moins cher de chaque emplacement)
     var manquantsSep=manquants.reduce(function(s,sl){
-      var mins=sl.produits.map(function(pid){var m=MENU.find(function(x){return x.id===pid;});return m?_pbPrixMin(m):null;}).filter(function(x){return x!=null;});
+      var mins=_fmProduitsSlot(sl).map(function(pid){var m=MENU.find(function(x){return x.id===pid;});return m?_pbPrixMin(m):null;}).filter(function(x){return x!=null;});
       return s+(mins.length?Math.min.apply(null,mins):0);
     },0);
     var eco = (prixSep+manquantsSep) - prixFm;   // économie vs tout acheter séparément
@@ -1448,7 +1480,7 @@ function _fmDetecter(lignes){
 var _fmLignesABasculer=null;
 function _fmCompositionDepuisLignes(f,trouves){
   return f.slots.map(function(sl){
-    if(sl.mode==='fixe'){ var pid=sl.produits[0]; return {label:sl.label,prodId:String(pid),nom:_pNomPoke(pid),taille:'',ecart:0}; }
+    if(sl.mode==='fixe'){ var pid=_fmProduitsSlot(sl)[0]; return {label:sl.label,prodId:String(pid),nom:_pNomPoke(pid),taille:'',ecart:0}; }
     var u=trouves.find(function(x){return x.slot===sl;}); if(!u) return null;
     var l=u.l, m=MENU.find(function(x){return x.id===l.prodId;});
     var multi=m&&(_pbAxe(m,'taille').length>1||_pbAxe(m,'proteine').length>1);
@@ -2118,7 +2150,7 @@ function _pbRenderConf(){
 
   // 1 · Taille — écart = prix mini de cette taille vs prix mini du produit (S inclus, M +3, L +6)
   if(T.length>1){
-    html+='<div class="pb-step"><div class="pb-step-lbl">'+(n++)+' \u00b7 Choisissez votre taille</div><div class="pb-opts'+(T.length>3?' pb-opts-4':'')+'">'
+    html+='<div class="pb-step" data-step="taille"><div class="pb-step-lbl">'+(n++)+' \u00b7 Choisissez votre taille</div><div class="pb-opts'+(T.length>3?' pb-opts-4':'')+'">'
       +T.map(function(t){
         var vs=_pbVariantes(m).filter(function(x){return x.taille===t;});
         var mini=vs.length?Math.min.apply(null,vs.map(function(x){return x.prix;})):null;
@@ -2130,7 +2162,7 @@ function _pbRenderConf(){
   // 2 · Protéine — n'apparaît qu'une fois la taille choisie
   if(P.length>1 && tailleOk){
     var ref=_pbVar(m,_pbTaille,P[0]);
-    html+='<div class="pb-step"><div class="pb-step-lbl">'+(n++)+' \u00b7 Choisissez votre prot\u00e9ine</div><div class="pb-opts'+(P.length>3?' pb-opts-4':'')+'">'
+    html+='<div class="pb-step" data-step="proteine"><div class="pb-step-lbl">'+(n++)+' \u00b7 Choisissez votre prot\u00e9ine</div><div class="pb-opts'+(P.length>3?' pb-opts-4':'')+'">'
       +P.map(function(pr){
         var v=_pbVar(m,_pbTaille,pr);
         return '<button class="pb-opt'+(pr===_pbProt?' on':'')+(v?'':' off')+'"'
@@ -2144,7 +2176,7 @@ function _pbRenderConf(){
   var LS=_pbListeSauces();
   if(estBowl && LS.length && tailleOk && protOk){
     var extra=_pbPrixSauceExtra();
-    html+='<div class="pb-step"><div class="pb-step-lbl">'+(n++)+' \u00b7 Votre sauce <span style="font-weight:600;letter-spacing:0;text-transform:none;color:var(--ink3)">(1 incluse'+(extra>0?', +'+_eur(extra)+' par sauce en plus':'')+')</span></div><div class="pb-opts'+(LS.length>3?' pb-opts-4':'')+'">'
+    html+='<div class="pb-step" data-step="sauce"><div class="pb-step-lbl">'+(n++)+' \u00b7 Votre sauce <span style="font-weight:600;letter-spacing:0;text-transform:none;color:var(--ink3)">(1 incluse'+(extra>0?', +'+_eur(extra)+' par sauce en plus':'')+')</span></div><div class="pb-opts'+(LS.length>3?' pb-opts-4':'')+'">'
       +LS.map(function(sc,i){
         var on=_pbSauces.indexOf(sc)>=0;
         var rang=_pbSauces.indexOf(sc);
@@ -2156,7 +2188,7 @@ function _pbRenderConf(){
   // 4 · Suppléments — une fois le bowl défini
   var sups=Object.keys(m.supplements||{}).filter(function(k){return m.supplements[k]&&m.supplements[k].nom;});
   if(sups.length && tailleOk && protOk){
-    html+='<div class="pb-step"><div class="pb-step-lbl">'+(n++)+' \u00b7 Choisir son suppl\u00e9ment <span style="font-weight:600;letter-spacing:0;text-transform:none;color:var(--ink3)">pour les gourmands</span></div>'
+    html+='<div class="pb-step" data-step="supplement"><div class="pb-step-lbl">'+(n++)+' \u00b7 Choisir son suppl\u00e9ment <span style="font-weight:600;letter-spacing:0;text-transform:none;color:var(--ink3)">pour les gourmands</span></div>'
       +sups.map(function(k){
         var sp=m.supplements[k];
         return '<div class="prod-sup-row'+(_pbSups[k]?' selected':'')+'" data-sid="'+k+'" onclick="pbToggleSup(\''+k+'\')">'
@@ -2172,7 +2204,7 @@ function _pbRenderConf(){
   if(pret_prealable(tailleOk,protOk)){
     var sugg=_pbSuggestions(m);
     if(sugg.length){
-      html+='<div class="pb-step"><div class="pb-step-lbl">'+(n++)+' \u00b7 On compl\u00e8te avec\u2026</div>'
+      html+='<div class="pb-step" data-step="suggestion"><div class="pb-step-lbl">'+(n++)+' \u00b7 On compl\u00e8te avec\u2026</div>'
         +sugg.map(function(sg){
           return '<div class="pb-sugg-row"><span class="pb-sugg-name">'+sg.nom+'</span>'
             +'<span class="pb-sugg-price">'+_eur(_pbPrixMin(sg))+'</span>'
@@ -2188,8 +2220,26 @@ function _pbRenderConf(){
     +'<button class="btn-add-panier" '+(pret?'onclick="addFromModal(\''+m.id+'\')"':'disabled style="opacity:.45;cursor:not-allowed"')+'>'+libelle+' <span class="pb-btn-tot" id="pb-btn-tot"></span></button>'
     +'<button class="btn-retour-menu" onclick="closeProdModal()">\u2190 Retour au menu</button>'
     +'</div>';
+  var avant=_pbEtapesVues.slice();
   el.innerHTML=html;
   if(pret) _pbMajTotal();
+  // Auto-défilement : la fiche avance toute seule vers ce qui vient d'apparaître,
+  // le client n'a jamais à chercher l'étape suivante ni le bouton.
+  var apres=[].slice.call(el.querySelectorAll('.pb-step')).map(function(x){return x.getAttribute('data-step');});
+  _pbEtapesVues=apres;
+  var nouvelle=apres.find(function(k){return avant.indexOf(k)<0;});
+  if(avant.length && nouvelle){
+    var cible=el.querySelector('.pb-step[data-step="'+nouvelle+'"]');
+    if(cible) setTimeout(function(){ _pbScrollVers(el,cible); },30);
+  }
+}
+var _pbEtapesVues=[];
+function _pbScrollVers(conteneur,cible){
+  try{
+    var top=cible.offsetTop-conteneur.offsetTop-8;
+    if(conteneur.scrollTo) conteneur.scrollTo({top:top,behavior:'smooth'});
+    else conteneur.scrollTop=top;
+  }catch(e){}
 }
 
 function pbChoixTaille(t){

@@ -3307,16 +3307,30 @@ function drawAffichage(){
   const produits = _affProduits;
   const catConfig = carteConfigData.categories||{};
   const artConfig = carteConfigData.articles||{};
-  const CATS_EXCLUES = ['supplément','supplements','supplement','suppléments'];
+  // Même règle que le site : ces catégories se choisissent dans le bowl, pas en onglet
+  const EST_EXCLUE = c => /suppl|sauce/i.test(String(c||''));
   const parCat = {};
   Object.entries(produits).forEach(([id,p])=>{
-    if(p.actif===false || CATS_EXCLUES.includes((p.categorie||'').toLowerCase())) return;
+    if(p.actif===false || EST_EXCLUE(p.categorie)) return;
     if(!parCat[p.categorie]) parCat[p.categorie]=[];
     parCat[p.categorie].push({id,p});
   });
   let cats = Object.keys(parCat);
   if(_affHasFormules) cats.push('__menus__');
-  const _catOrdre = c => (c==='__menus__' ? (catConfig.__menus__?.ordre ?? -1) : (catConfig[c]?.ordre ?? 99));
+  // Même ordre par défaut que le site tant que rien n'a été glissé ici,
+  // pour que l'aperçu de l'admin corresponde à ce que voit le client.
+  const _ordreDefautCat = c => {
+    if(c==='__menus__') return 20;
+    const n=String(c||'').toLowerCase();
+    if(/pok|bowl|plat/.test(n)) return 10;
+    if(/accompagn/.test(n)) return 30;
+    if(/boisson/.test(n)) return 40;
+    if(/dessert/.test(n)) return 50;
+    if(/suppl/.test(n)) return 90;
+    if(/sauce/.test(n)) return 95;
+    return 60;
+  };
+  const _catOrdre = c => (c==='__menus__' ? (catConfig.__menus__?.ordre ?? _ordreDefautCat(c)) : (catConfig[c]?.ordre ?? _ordreDefautCat(c)));
   cats.sort((a,b)=>_catOrdre(a)-_catOrdre(b));
   const cartes=[['poke','🥗 Carte Poké'],['burger','🍔 Carte Burger']];
   const selector = '<div style="display:flex;gap:8px;margin-bottom:14px">'+cartes.map(([c,lbl])=>`<button class="btn ${carteConfigCarte===c?'btn-primary':'btn-secondary'}" style="padding:6px 14px;font-size:13px" onclick="setAffichageCarte('${c}')">${lbl}</button>`).join('')+'</div>';
@@ -3903,7 +3917,7 @@ function _slotToggleCat(slotI, cat, on){
     if(p && (p.categorie||'Autres')===cat) cb.checked = on;
   });
 }
-function ajouterSlotFormule(label='', produits=null, legacyCat='', mode='choix'){
+function ajouterSlotFormule(label='', produits=null, legacyCat='', mode='choix', categorieAuto=''){
   const i = _slotIdx++;
   // rétro-compat : ancien slot {categorie} → pré-cocher tous les produits de cette catégorie
   let presel = produits;
@@ -3925,11 +3939,28 @@ function ajouterSlotFormule(label='', produits=null, legacyCat='', mode='choix')
         </select></div>
       <button class="btn btn-danger btn-sm" style="margin-bottom:0" onclick="document.getElementById('slot-${i}').remove()">✕</button>
     </div>
+    <div class="form-field" style="margin-bottom:8px">
+      <label class="form-label">Toute une catégorie <small style="font-weight:500;color:var(--text-muted)">(les produits ajoutés plus tard y entrent automatiquement)</small></label>
+      <select class="form-select slot-cat-auto" id="slot-cat-auto-${i}" onchange="_slotCatAutoChange(${i})">
+        <option value="">— Choisir les produits un par un —</option>
+        ${_slotCategoriesOptions(categorieAuto)}
+      </select>
+    </div>
+    <div id="slot-manuel-${i}" style="${categorieAuto?'display:none':''}">
     <label class="form-label" id="slot-prod-lbl-${i}">${mode==='fixe'?'Produit(s) inclus d’office':'Produits proposés au client (il en choisit 1)'}</label>
     <div style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:8px 10px;background:var(--bg)">
       ${_slotProductChecklist(i, presel)}
+    </div>
     </div>`;
   document.getElementById('form-slots-list').appendChild(div);
+}
+function _slotCategoriesOptions(sel){
+  const cats=[...new Set(Object.values(_formuleProds).filter(p=>p&&p.actif!==false).map(p=>p.categorie||'Autres'))];
+  return cats.map(c=>`<option value="${c.replace(/"/g,'&quot;')}" ${c===sel?'selected':''}>${c} (tous)</option>`).join('');
+}
+function _slotCatAutoChange(i){
+  const v=document.getElementById('slot-cat-auto-'+i)?.value||'';
+  const man=document.getElementById('slot-manuel-'+i); if(man) man.style.display=v?'none':'';
 }
 function _slotModeChange(i){
   const mode = document.getElementById('slot-mode-'+i)?.value;
@@ -3950,7 +3981,7 @@ function ouvrirModalFormule(id){
     document.getElementById('form-prix').value = f.prix!=null?f.prix:'';
     document.getElementById('form-desc').value = f.description||'';
     document.getElementById('form-actif').value = String(f.actif!==false);
-    (f.slots||[]).forEach(s=>ajouterSlotFormule(s.label||'', s.produits||null, s.categorie||'', s.mode||'choix'));
+    (f.slots||[]).forEach(s=>ajouterSlotFormule(s.label||'', s.produits||null, s.categorie||'', s.mode||'choix', s.categorieAuto||''));
     if(!(f.slots||[]).length) ajouterSlotFormule('Plat');
   } else {
     document.getElementById('modal-formule-title').textContent = 'Nouvelle formule';
@@ -3976,10 +4007,15 @@ function sauvegarderFormule(){
     const i = el.id.split('-')[1];
     const label = document.getElementById('slot-label-'+i)?.value.trim();
     const mode = document.getElementById('slot-mode-'+i)?.value || 'choix';
-    const produits = [...el.querySelectorAll('.slot-prod-cb:checked')].map(cb=>cb.value);
+    const categorieAuto = document.getElementById('slot-cat-auto-'+i)?.value || '';
+    // En mode catégorie, la liste est figée à l'enregistrement pour la caisse et les anciens
+    // clients, mais le site recalcule à partir de la catégorie → les nouveaux produits entrent seuls.
+    const produits = categorieAuto
+      ? Object.entries(_formuleProds).filter(([,p])=>p&&p.actif!==false&&(p.categorie||'Autres')===categorieAuto).map(([id])=>id)
+      : [...el.querySelectorAll('.slot-prod-cb:checked')].map(cb=>cb.value);
     if(!label) return;
     if(!produits.length){ slotSansProduit = true; return; }
-    slots.push({label, mode, produits});
+    slots.push(categorieAuto ? {label, mode, produits, categorieAuto} : {label, mode, produits});
   });
   if(slotSansProduit){ showNotif('Chaque emplacement doit contenir au moins 1 produit','error'); return; }
   if(!slots.length){ showNotif('Ajoute au moins un emplacement avec des produits','error'); return; }
