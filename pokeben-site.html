@@ -876,7 +876,43 @@ const fbConfig={apiKey:"AIzaSyDSAprSq4hr_A03-ctIVWiwOVfgHYStVTU",authDomain:"pok
 const _pubApp = firebase.initializeApp(fbConfig, 'pokbenPublic'); // session isolée (n'écrase plus l'admin/caisse)
 const db=_pubApp.database();
 const _pubAuth = _pubApp.auth();
-_pubAuth.signInAnonymously().catch(function(){});
+// Auth anonyme : persistance EN MÉMOIRE (zéro IndexedDB) + relances automatiques
+// (chien de garde ci-dessous, miroir de Capt&Fish). Les règles exigent auth != null.
+function _pbStartAnonAuth(){
+  var doSignIn = function(){ _pubAuth.signInAnonymously().catch(function(e){ console.warn('Auth anonyme:', e && e.message); }); };
+  if (firebase.auth && firebase.auth.Auth && firebase.auth.Auth.Persistence) {
+    _pubAuth.setPersistence(firebase.auth.Auth.Persistence.NONE).then(doSignIn, doSignIn);
+  } else { doSignIn(); }
+}
+_pbStartAnonAuth();
+// On n'attache les listeners publics qu'une fois l'auth établie : sinon la 1ère
+// lecture est refusée (permission_denied) et Firebase annule le listener
+// définitivement → le site restait sur le MENU de secours codé en dur.
+var _pbAuthReady=false, _pbAuthQueue=[];
+function _pbWhenAuth(fn){ if(_pbAuthReady) fn(); else _pbAuthQueue.push(fn); }
+_pubAuth.onAuthStateChanged(function(u){
+  if(u && !_pbAuthReady){
+    _pbAuthReady=true;
+    _pbAuthQueue.splice(0).forEach(function(f){ try{f();}catch(e){console.warn('listener',e);} });
+  }
+});
+// ── Chien de garde (mode web app iOS) ──
+// Si l'auth n'a pas abouti, on relance à 2,5s puis 6s. À 10s, dernier recours :
+// rechargement unique de la page (débloque IndexedDB figé).
+setTimeout(function(){ if(!_pbAuthReady) _pbStartAnonAuth(); }, 2500);
+setTimeout(function(){ if(!_pbAuthReady) _pbStartAnonAuth(); }, 6000);
+setTimeout(function(){
+  if(!_pbAuthReady){
+    var already=null;
+    try{ already=sessionStorage.getItem('pb_auth_reload'); }catch(e){}
+    if(!already){
+      try{ sessionStorage.setItem('pb_auth_reload','1'); }catch(e){}
+      window.location.reload();
+    }
+  } else {
+    try{ sessionStorage.removeItem('pb_auth_reload'); }catch(e){}
+  }
+}, 10000);
 
 // ===== CONTRAINTES COMMANDE (miroir Capt&Fish) =====
 var CUTOFF_PB = { midi:'09:30', soir:'17:00' };   // heure limite de commande (surchargée par l'admin)
@@ -886,6 +922,7 @@ var CRENEAUX_PB = {
 };
 function _crxPourHoraires(horaires){ return (String(horaires||'').indexOf('11h')>=0) ? CRENEAUX_PB.midi : CRENEAUX_PB.soir; }
 // Paramétrage centralisé depuis l'admin (Commandes Pok&Ben \u2192 \u2699\ufe0f Param\u00e8tres)
+_pbWhenAuth(function(){
 db.ref('site_config/pokeben/commande_config').on('value', function(sn){
   var c = sn.val(); if(!c) return;
   if(c.cutoff_midi) CUTOFF_PB.midi = c.cutoff_midi;
@@ -893,6 +930,7 @@ db.ref('site_config/pokeben/commande_config').on('value', function(sn){
   if(Array.isArray(c.creneaux_midi) && c.creneaux_midi.length) CRENEAUX_PB.midi = c.creneaux_midi;
   if(Array.isArray(c.creneaux_soir) && c.creneaux_soir.length) CRENEAUX_PB.soir = c.creneaux_soir;
   try{ renderToday(); renderPlanningGrid(); }catch(e){}
+});
 });
 // 🧪 MODE TEST : ?test=1 dans l'URL déverrouille tous les créneaux (toi uniquement, les vrais clients gardent le verrouillage)
 var _PB_TEST = /[?&]test=1/i.test(location.search||'');
@@ -1009,7 +1047,7 @@ const PLANNING_DEFAULT={
   Vendredi:{c1:[{service:'Midi',lieu:'Valence 2 — Décathlon',adresse:'Parking Décathlon',horaires:'11h30 – 14h30'},{service:'Soir',lieu:'Chabeuil',adresse:'Brasserie Pleine Lune',horaires:'19h00 – 22h00'}],c2:[{service:'Midi',lieu:'Saint-Paul-lès-Romans',adresse:'Parking BUT',horaires:'11h30 – 14h30'},{service:'Soir',lieu:'Châteauneuf-sur-Isère',adresse:"Place de l\u2019église",horaires:'19h00 – 22h00'}]}
 };
 let PLANNING=PLANNING_DEFAULT;
-db.ref('spots_pokeben').on('value',function(snap){var v=snap.val();if(v){PLANNING=v;renderToday();renderPlanningGrid();}});
+_pbWhenAuth(function(){ db.ref('spots_pokeben').on('value',function(snap){var v=snap.val();if(v){PLANNING=v;renderToday();renderPlanningGrid();}}); });
 
 let MENU=[
   {id:'m1',cat:'Pokés',nom:"Chira d\u2019été",prix:13.90,desc:'Saumon mariné, avocat, tomate, sésame noir',badge:'Signature',col:'grn'},
@@ -1095,9 +1133,9 @@ function addUneToCart(){
   if(item){ addToCart(item.id); go('order'); }
   else{ showToast('Ce produit n\'est pas disponible à la commande en ligne','⚠️'); go('order'); }
 }
-db.ref('site_config/pokeben/poke_moment').on('value',function(sn){ pokeMoment=sn.val(); try{renderUne();}catch(e){} });
-db.ref('parametres/carte_config/poke').on('value',function(sn){ _cfgPoke=sn.val()||{categories:{},articles:{}}; _buildMenuPoke(); });
-db.ref('cartes/poke/produits').on('value',function(sn){ _prodsPoke=sn.val()||{}; _buildMenuPoke(); });
+_pbWhenAuth(function(){ db.ref('site_config/pokeben/poke_moment').on('value',function(sn){ pokeMoment=sn.val(); try{renderUne();}catch(e){} }); });
+_pbWhenAuth(function(){ db.ref('parametres/carte_config/poke').on('value',function(sn){ _cfgPoke=sn.val()||{categories:{},articles:{}}; _buildMenuPoke(); }); });
+_pbWhenAuth(function(){ db.ref('cartes/poke/produits').on('value',function(sn){ _prodsPoke=sn.val()||{}; _buildMenuPoke(); }); });
 
 /* ===== FORMULES / MENUS (poke) ===== */
 var _formulesPoke=null, FORMULES=[];
@@ -1113,7 +1151,7 @@ function _buildFormulesPoke(){
   // Rafraîchit la barre (insère/retire l'onglet "Menus") et les pages actives
   try{ if(_prodsPoke!==null) _buildMenuPoke(); }catch(e){}
 }
-db.ref('cartes/poke/formules').on('value',function(sn){ _formulesPoke=sn.val()||{}; _buildFormulesPoke(); });
+_pbWhenAuth(function(){ db.ref('cartes/poke/formules').on('value',function(sn){ _formulesPoke=sn.val()||{}; _buildFormulesPoke(); }); });
 
 function _pNomPoke(id){ var m=MENU.find(function(x){return x.id===id;}); return m?m.nom:''; }
 function renderFormulesPoke(containerId){
