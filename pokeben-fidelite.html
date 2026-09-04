@@ -603,6 +603,10 @@ onAuthStateChanged(auth, (u) => {
 });
 authReady.then(()=>{ try{ majEmplacementJour(); }catch(e){} chargerRewardsMarque().then(()=>{ try{ majVeilleHome(); }catch(e){} }); precacheClients(); });
 
+// Aucune erreur ne doit rester silencieuse sur la tablette : on l'affiche pour que
+// l'équipe puisse la signaler, au lieu d'un écran qui ne répond plus.
+window.addEventListener('unhandledrejection', ev=>{ try{ toast('Erreur : '+((ev.reason&&ev.reason.message)||ev.reason||'inconnue'),'error'); }catch(e){} });
+window.addEventListener('error', ev=>{ try{ toast('Erreur : '+(ev.message||'inconnue'),'error'); }catch(e){} });
 let npVal='', pinVal='', cur=null, curTel=null, all={}, detailTel=null, adminTab='dash';
 let regSexe=null, regConsent=null, qState={};
 let offlineQ = JSON.parse(localStorage.getItem('pb_offq')||'[]');
@@ -668,8 +672,17 @@ function telKey(){ return npVal; }
 // SEARCH
 window.searchClient=async()=>{
   const tel=telKey();
+  const btn=document.getElementById('np-btn');
+  if(btn){ btn.disabled=true; btn.textContent='Recherche…'; }
   try{
-    await authReady;
+    // Session staff perdue (expirée, mot de passe changé, stockage vidé par iOS) :
+    // on le dit au lieu d'attendre indéfiniment
+    const ok = await Promise.race([authReady.then(()=>true), new Promise(r=>setTimeout(()=>r(false),3000))]);
+    if(!ok || !auth.currentUser || auth.currentUser.isAnonymous){
+      toast('Tablette déconnectée — reconnexion nécessaire','error');
+      showScreen('screen-admin-login');
+      return;
+    }
     const snap = await Promise.race([
       get(ref(db,'clients_fidelite/'+tel)),
       new Promise((_,rej)=>setTimeout(()=>rej(new Error('hl')), 4000))
@@ -678,9 +691,13 @@ window.searchClient=async()=>{
     else showInscription(tel);
   }catch(e){
     // Hors ligne : consultation depuis le cache local
-    const c = clientDepuisCache(tel);
-    if(c){ cur=c; curTel=tel; showProfile(); }
-    else showInscription(tel);
+    try{
+      const c = clientDepuisCache(tel);
+      if(c){ cur=c; curTel=tel; showProfile(); }
+      else showInscription(tel);
+    }catch(e2){ toast('Erreur — réessaie','error'); }
+  }finally{
+    if(btn){ btn.disabled=false; btn.textContent='Valider →'; }
   }
 };
 
@@ -828,22 +845,34 @@ async function saveQ(){
   const inp=document.getElementById('q-in'); if(inp) v=inp.value.trim();
   const sel=document.querySelector('.q-opt.sel'); if(sel) v=sel.dataset.v;
   if(!v) return;
-  const u={}; u[`clients_fidelite/${curTel}/profile/${qid}`]=v;
-  if(qid==='absent') u[`clients_fidelite/${curTel}/profile/absent_asked`]=true;
-  if(qid==='anniversaire') u[`clients_fidelite/${curTel}/date_naissance`]=v;
-  await update(ref(db),u);
+  // La réponse part par la file fiable (comme les passages) : écrite dès que le réseau
+  // le permet, jamais bloquante. Avant, un `await update()` sans limite de temps ici
+  // figeait le bouton « Valider mon passage » dès que la 4G faiblissait ou que la
+  // session staff avait expiré.
+  const prof={}; prof[qid]=v;
+  if(qid==='absent') prof.absent_asked=true;
+  ecrireFiableF(`clients_fidelite/${curTel}/profile`, prof, 'update');
+  if(qid==='anniversaire') ecrireFiableF(`clients_fidelite/${curTel}`, {date_naissance:v}, 'update');
   cur.profile=cur.profile||{}; cur.profile[qid]=v;
 }
 
 // PASSAGE
 window.validatePassage=async()=>{
-  await saveQ();
-  document.getElementById('p-passbtn').disabled=true;
-  if(!navigator.onLine){
-    enqueuePassage(curTel, Date.now());
-    showSuccess(true); return;
+  const btn=document.getElementById('p-passbtn');
+  if(btn.disabled) return;                       // anti double-tap
+  btn.disabled=true; btn.textContent='⏳ Enregistrement…';
+  try{
+    try{ saveQ(); }catch(e){}                    // la question n'empêche jamais le passage
+    if(!navigator.onLine){
+      enqueuePassage(curTel, Date.now());
+      showSuccess(true); return;
+    }
+    await doPassage(curTel, Date.now());
+  }catch(e){
+    // Dernier filet : le passage part en file, le client voit une confirmation
+    try{ enqueuePassage(curTel, Date.now()); showSuccess(true); }
+    catch(e2){ btn.disabled=false; btn.textContent='✓ Valider mon passage'; toast('Erreur — réessaie','error'); }
   }
-  await doPassage(curTel, Date.now());
 };
 // Renvoie true si le passage a bien été pris en compte (écrit ou mis en file).
 // opts.silent = appel depuis la synchro (pas d'écran de succès).
