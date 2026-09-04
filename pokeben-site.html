@@ -2,10 +2,24 @@
 <html lang="fr">
 <head>
   <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.googleapis.com https://*.gstatic.com https://*.firebaseio.com https://*.firebasedatabase.app https://*.firebaseapp.com https://fonts.googleapis.com https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://*.firebaseio.com wss://*.firebaseio.com https://*.firebasedatabase.app wss://*.firebasedatabase.app https://*.googleapis.com https://*.gstatic.com https://*.firebaseapp.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com;">
-  <meta name="robots" content="noindex,nofollow">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Pok&Ben — Le poké frais de la Drôme</title>
+<!-- SEO : les balises ci-dessous sont mises à jour par le routeur à chaque page (voir SEO_ROUTES).
+     noindex uniquement hors production (pré-prod netlify.app) : voir script en tête de body. -->
+<title>Pok&Ben — Food truck poké bowl à Valence, Drôme · Commande en ligne</title>
+<meta name="description" content="Pok&Ben, 2 food trucks de poké bowls frais autour de Valence. Planning des emplacements, carte, commande en ligne et privatisation pour vos événements en Drôme et Ardèche.">
+<link rel="canonical" href="https://pokeben.fr/">
+<meta property="og:locale" content="fr_FR">
+<meta property="og:site_name" content="Pok&Ben">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Pok&Ben — Food truck poké bowl à Valence, Drôme">
+<meta property="og:description" content="2 food trucks de poké bowls frais autour de Valence. Planning, carte, commande en ligne et événements.">
+<meta property="og:url" content="https://pokeben.fr/">
+<meta property="og:image" content="https://pokeben.fr/pokeben-fid-512.png">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json" id="ld-org">
+{"@context":"https://schema.org","@type":"FoodEstablishment","@id":"https://pokeben.fr/#org","name":"Pok&Ben","alternateName":"Pokében","url":"https://pokeben.fr/","telephone":"+33482329536","image":"https://pokeben.fr/pokeben-fid-512.png","servesCuisine":["Poké bowl","Hawaïenne"],"priceRange":"€€","description":"Food trucks de poké bowls frais en tournée autour de Valence (Drôme). Commande en ligne, retrait au camion, privatisation pour événements.","areaServed":[{"@type":"City","name":"Valence"},{"@type":"City","name":"Chabeuil"},{"@type":"City","name":"Montmeyran"},{"@type":"City","name":"Portes-lès-Valence"},{"@type":"City","name":"Beauvallon"},{"@type":"City","name":"Alixan"},{"@type":"City","name":"Châteauneuf-sur-Isère"},{"@type":"City","name":"Saint-Paul-lès-Romans"},{"@type":"City","name":"Chatuzange-le-Goubet"},{"@type":"City","name":"Saint-Georges-les-Bains"},{"@type":"City","name":"Saint-Donat-sur-l'Herbasse"},{"@type":"City","name":"Montoison"}],"address":{"@type":"PostalAddress","addressLocality":"Beauvallon","postalCode":"26800","addressRegion":"Drôme","addressCountry":"FR"},"sameAs":["https://www.instagram.com/foodtruckpokeben/","https://www.facebook.com/foodtruckpokeben","https://fr.linkedin.com/company/pok-ben"],"hasMenu":"https://pokeben.fr/la-carte","potentialAction":{"@type":"OrderAction","target":"https://pokeben.fr/commander"}}
+</script>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;0,900;1,900&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
@@ -465,6 +479,11 @@ footer{background:var(--ink);color:#fff;padding:3.5rem 2.5rem 2rem;}
 .pb-skel:nth-child(2){max-width:260px;}
 .pb-skel:nth-child(3){max-width:190px;}
 @keyframes pbSkel{0%{background-position:200% 0}100%{background-position:-200% 0}}
+/* Blocs statiques SEO (planning, carte) : sobres, ils disparaissent dès que le JS a rendu */
+#pg-static ul,#menu-static ul{list-style:none;padding:0;margin:0 0 1.5rem}
+#pg-static li,#menu-static li{padding:.55rem 0;border-bottom:1px solid var(--border);font-size:.9rem;line-height:1.45}
+#pg-static h2,#menu-static h2{font-family:'Playfair Display',serif;font-size:1.05rem;margin:1.2rem 0 .4rem}
+#pg-static a,#menu-static a{color:var(--grn);font-weight:700}
 #cart-relance{padding:0 1.5rem;}
 /* Formules : composition et bascule depuis le panier */
 .fm-slot{margin-bottom:1rem;}
@@ -700,15 +719,19 @@ footer{background:var(--ink);color:#fff;padding:3.5rem 2.5rem 2rem;}
 </head>
 <body>
 
+<script>
+// Pré-production (netlify.app, localhost, fichier) : jamais indexée. Production (pokeben.fr) : indexée.
+(function(){ var h=location.hostname; if(!/(^|\.)pokeben\.fr$/.test(h)){ var m=document.createElement('meta'); m.name='robots'; m.content='noindex,nofollow'; document.head.appendChild(m); } })();
+</script>
 <nav>
   <div class="nav-inner">
-    <div class="nav-logo" onclick="go('home')">Pok<em>&</em>Ben</div>
+    <a class="nav-logo" href="/" onclick="return goLink(event,'home')">Pok<em>&</em>Ben</a>
     <div class="nav-links">
-      <a onclick="go('home')" id="nav-home" class="active">Accueil</a>
-      <a onclick="go('events')" id="nav-events">Événements</a>
-      <a onclick="go('carte')" id="nav-carte">La carte</a>
-      <a onclick="go('emplacements')" id="nav-emp">Où nous trouver</a>
-      <a onclick="go('mes-commandes')" id="nav-mc">Ma commande</a>
+      <a href="/" onclick="return goLink(event,'home')" id="nav-home" class="active">Accueil</a>
+      <a href="/evenements" onclick="return goLink(event,'events')" id="nav-events">Événements</a>
+      <a href="/la-carte" onclick="return goLink(event,'carte')" id="nav-carte">La carte</a>
+      <a href="/emplacements" onclick="return goLink(event,'emplacements')" id="nav-emp">Où nous trouver</a>
+      <a href="/ma-commande" onclick="return goLink(event,'mes-commandes')" id="nav-mc">Ma commande</a>
       <button class="btn-cmd" onclick="go('order')">Commander<span class="cart-pill" id="cart-pill">0</span></button>
     </div>
     <button class="hamburger" onclick="openNav()">
@@ -846,6 +869,7 @@ footer{background:var(--ink);color:#fff;padding:3.5rem 2.5rem 2rem;}
       <p class="pg-sub">Tous nos bowls préparés à la commande — riz vinaigré, garnitures fraîches et de saison.</p>
       <div class="formules-section" id="carte-formules"></div>
       <div class="cats" id="cats-page"></div>
+      <div id="menu-static"><!--CARTE_STATIQUE--></div>
       <div class="pokes-grid" id="menu-page"></div>
     </div>
   </div>
@@ -863,9 +887,40 @@ footer{background:var(--ink);color:#fff;padding:3.5rem 2.5rem 2rem;}
         <div class="pg-legend-item"><div class="pg-legend-dot" style="background:var(--grn)"></div>Camion 1</div>
         <div class="pg-legend-item"><div class="pg-legend-dot" style="background:var(--coral)"></div>Camion 2</div>
       </div>
+      <!-- PLANNING STATIQUE : injecté par scripts/build-pokeben.mjs à chaque déploiement.
+           Lisible par Google sans JavaScript ; masqué dès que la grille interactive est rendue. -->
+      <div id="pg-static"><!--PLANNING_STATIQUE--></div>
       <div class="order-table-wrap"><div id="pg-grid"></div></div>
     </div>
   </div>
+</div>
+
+<!-- À PROPOS (contenu statique, lisible sans JS) -->
+<div class="page" id="page-apropos">
+  <div class="planning-page"><div class="planning-inner" style="max-width:760px">
+    <div class="pg-eyebrow">À propos</div>
+    <h1 class="pg-h1">Pok&amp;Ben, le poké frais en tournée autour de Valence</h1>
+    <p class="pg-sub"><strong>Aloha !</strong> Pok&amp;Ben, ce sont deux food trucks spécialisés dans le poké bowl, en itinérance dans la Drôme depuis 2022. Le midi dans les zones d'activité de Valence et ses alentours, le soir sur les places des villages, et le week-end à vos événements.</p>
+    <h2 style="font-family:'Playfair Display',serif;font-size:1.3rem;margin:1.6rem 0 .5rem">Le poké bowl, à notre façon</h2>
+    <p class="pg-sub">Le poké est une spécialité hawaïenne : un bol de riz, des légumes frais, du poisson cru et des sauces. Nous l'avons adapté avec des ingrédients de saison et une carte pensée pour la vie en camion — peu de stockage, tout préparé à la commande, rien qui traîne. Saumon mariné, poulet panko, tofu, avocat, mangue, cream cheese citronné : chaque bowl est composé devant vous, dans la taille que vous voulez.</p>
+    <h2 style="font-family:'Playfair Display',serif;font-size:1.3rem;margin:1.6rem 0 .5rem">Deux camions, une seule adresse : la vôtre</h2>
+    <p class="pg-sub">Camion 1 et Camion 2 suivent chacun leur tournée de la semaine — Valence, Portes-lès-Valence, Chabeuil, Montmeyran, Beauvallon, Alixan, Châteauneuf-sur-Isère, Saint-Paul-lès-Romans, Saint-Donat, Montoison, Chatuzange-le-Goubet, Saint-Georges-les-Bains. Le planning est mis à jour chaque semaine et vous pouvez commander en ligne pour retirer au camion, sans attendre.</p>
+    <p class="pg-sub">Et pour vos mariages, séminaires et anniversaires, on privatise le camion : <a href="/evenements" onclick="return goLink(event,'events')" style="color:var(--grn);font-weight:700">découvrir nos prestations événements</a>.</p>
+    <div class="tel-box" style="margin-top:1.4rem"><span>📞</span><span style="font-size:0.82rem;font-weight:700;">Commande par téléphone :</span><a href="tel:0482329536">04 82 32 95 36</a></div>
+  </div></div>
+</div>
+
+<!-- CONTACT -->
+<div class="page" id="page-contact">
+  <div class="planning-page"><div class="planning-inner" style="max-width:640px">
+    <div class="pg-eyebrow">Contact</div>
+    <h1 class="pg-h1">Contactez Pok&amp;Ben</h1>
+    <p class="pg-sub">Une commande par téléphone, une question sur un emplacement, un projet d'événement : un seul numéro pour les deux camions.</p>
+    <div class="tel-box" style="margin:1rem 0 1.4rem"><span>📞</span><span style="font-size:0.82rem;font-weight:700;">Téléphone :</span><a href="tel:0482329536">04 82 32 95 36</a></div>
+    <p class="pg-sub"><strong>Pour un événement</strong> (mariage, entreprise, anniversaire) : le plus simple est <a href="/evenements" onclick="return goLink(event,'events')" style="color:var(--grn);font-weight:700">le formulaire de la page Événements</a>, en précisant la date, le lieu et le nombre de convives.</p>
+    <p class="pg-sub"><strong>Réseaux :</strong> <a href="https://www.instagram.com/foodtruckpokeben/" target="_blank" rel="noopener" style="color:var(--grn);font-weight:700">Instagram</a> · <a href="https://www.facebook.com/foodtruckpokeben" target="_blank" rel="noopener" style="color:var(--grn);font-weight:700">Facebook</a></p>
+    <p class="pg-sub" style="font-size:.8rem;color:var(--ink3)">Pok&amp;Ben · SAS · 26800 Beauvallon, Drôme</p>
+  </div></div>
 </div>
 
 <!-- COMMANDER -->
@@ -972,7 +1027,7 @@ footer{background:var(--ink);color:#fff;padding:3.5rem 2.5rem 2rem;}
         </div>
       </div>
       <div class="footer-col"><h4>Commander</h4><a onclick="go('carte')">La carte</a><a onclick="go('order')">Commander en ligne</a><a onclick="go('mes-commandes')">Ma commande</a><a onclick="go('emplacements')">Où nous trouver</a></div>
-      <div class="footer-col"><h4>Pok&amp;Ben</h4><a onclick="go('events')">Événements</a><a onclick="go('events')">Entreprises &amp; CSE</a><a onclick="go('events')">Privatisation</a></div>
+      <div class="footer-col"><h4>Pok&amp;Ben</h4><a href="/evenements" onclick="return goLink(event,'events')">Événements</a><a href="/evenements" onclick="return goLink(event,'events')">Entreprises &amp; CSE</a><a href="/a-propos" onclick="return goLink(event,'apropos')">À propos</a><a href="/contact" onclick="return goLink(event,'contact')">Contact</a></div>
       <div class="footer-col"><h4>Contact</h4><a href="tel:0482329536">04 82 32 95 36</a><a href="https://www.instagram.com/foodtruckpokeben/" target="_blank">Instagram</a><a href="https://www.facebook.com/foodtruckpokeben" target="_blank">Facebook</a></div>
     </div>
     <div class="footer-bottom">
@@ -1530,7 +1585,51 @@ function fmBasculer(formuleId){
 }
 var _pbLignesAbsorbees=[];
 
-function go(p){
+// ── Routeur : chaque page a une vraie URL, un title, une description, un canonical ──
+var SEO_ROUTES={
+  home:        {path:'/',              title:'Pok&Ben — Food truck poké bowl à Valence, Drôme · Commande en ligne', desc:'Pok&Ben, 2 food trucks de poké bowls frais autour de Valence. Planning des emplacements, carte, commande en ligne et privatisation pour vos événements en Drôme et Ardèche.'},
+  carte:       {path:'/la-carte',      title:'La carte Pok&Ben — Poké bowls frais, formules, desserts · Valence', desc:'Nos poké bowls préparés à la commande : Chiratch\'eese, Signature, Crousty Ben, poké du moment. 3 tailles, choix de la protéine, formules avec dessert et boisson.'},
+  order:       {path:'/commander',     title:'Commander votre poké bowl — Retrait au food truck · Pok&Ben', desc:'Commandez en ligne et retirez votre poké bowl au camion, sur l\'emplacement et au créneau de votre choix. Paiement sur place.'},
+  emplacements:{path:'/emplacements',  title:'Où trouver nos food trucks — Planning Valence et Drôme · Pok&Ben', desc:'Le planning de la semaine de nos 2 food trucks : Valence, Chabeuil, Montmeyran, Portes-lès-Valence, Beauvallon, Alixan, Châteauneuf-sur-Isère, Saint-Paul-lès-Romans…'},
+  events:      {path:'/evenements',    title:'Privatiser un food truck poké bowl — Mariage, entreprise, anniversaire · Drôme', desc:'Pok&Ben vient à vous : mariage, brunch, séminaire, repas d\'entreprise, anniversaire. Poké bowls frais préparés sur place, partout en Drôme et Ardèche.'},
+  apropos:     {path:'/a-propos',      title:'Pok&Ben — Deux food trucks, une équipe, du poké frais depuis 2022', desc:'L\'histoire de Pok&Ben : des poké bowls frais et de saison, deux camions en tournée autour de Valence, une équipe qui aime ce qu\'elle fait.'},
+  contact:     {path:'/contact',       title:'Contactez Pok&Ben — 04 82 32 95 36', desc:'Une question, une commande par téléphone, un projet d\'événement ? Appelez-nous ou écrivez-nous.'},
+  'mes-commandes':{path:'/ma-commande',title:'Ma commande · Pok&Ben', desc:'Suivez votre commande Pok&Ben.', noindex:true},
+  confirm:     {path:'/commander',     title:'Commande confirmée · Pok&Ben', desc:'', noindex:true}
+};
+var SEO_ORIGIN='https://pokeben.fr';
+function _routeFromPath(){
+  var p=location.pathname.replace(/\/+$/,'')||'/';
+  if(/pokeben-site\.html$/.test(p)) p=location.hash.replace(/^#\/?/,'/')||'/';   // pré-prod : #/la-carte
+  for(var k in SEO_ROUTES){ if(SEO_ROUTES[k].path===p && k!=='confirm') return k; }
+  return null;
+}
+function _applySeo(p){
+  var r=SEO_ROUTES[p]||SEO_ROUTES.home;
+  document.title=r.title;
+  var set=function(sel,attr,val){ var el=document.querySelector(sel); if(!el){ el=document.createElement('meta'); var m=sel.match(/\[(\w+)="([^"]+)"\]/); if(m) el.setAttribute(m[1],m[2]); document.head.appendChild(el);} el.setAttribute(attr,val); };
+  set('meta[name="description"]','content',r.desc);
+  set('meta[property="og:title"]','content',r.title);
+  set('meta[property="og:description"]','content',r.desc);
+  set('meta[property="og:url"]','content',SEO_ORIGIN+r.path);
+  var c=document.querySelector('link[rel="canonical"]'); if(c) c.setAttribute('href',SEO_ORIGIN+r.path);
+  var rb=document.getElementById('meta-robots-page');
+  if(r.noindex){ if(!rb){ rb=document.createElement('meta'); rb.id='meta-robots-page'; rb.name='robots'; document.head.appendChild(rb);} rb.content='noindex'; }
+  else if(rb){ rb.remove(); }
+}
+var _pbOnFile = /pokeben-site\.html$/.test(location.pathname) || location.protocol==='file:';
+function _pushRoute(p){
+  var r=SEO_ROUTES[p]; if(!r) return;
+  try{
+    if(_pbOnFile){ if(location.hash!=='#'+r.path) history.pushState({p:p},'', '#'+r.path); }
+    else if(location.pathname!==r.path) history.pushState({p:p},'',r.path);
+  }catch(e){}
+}
+function goLink(ev,p){ if(ev){ ev.preventDefault(); } go(p); return false; }
+window.addEventListener('popstate',function(){ var p=_routeFromPath(); if(p) go(p,true); });
+function go(p,fromHistory){
+  if(!fromHistory) _pushRoute(p);
+  _applySeo(p);
   document.querySelectorAll('.page').forEach(function(e){e.classList.remove('active');});
   var el=document.getElementById('page-'+p);if(el)el.classList.add('active');
   document.querySelectorAll('.nav-links a').forEach(function(a){a.classList.remove('active');});
@@ -1603,6 +1702,7 @@ function renderCarte(){
   cc.innerHTML=CATS.map(function(c){return '<button class="cat-btn'+(c===activeCat?' on':'')+'" onclick="setcat(\''+c+'\')">'+_catLabelPoke(c)+'</button>';}).join('');
   var etat=_pbEtatCarte();
   if(etat){ mc.innerHTML=etat; return; }
+  var ms=document.getElementById('menu-static'); if(ms) ms.style.display='none';
   if(activeCat==='__menus__'){ mc.innerHTML=FORMULES.map(formuleCardHTMLPoke).join(''); }
   else { mc.innerHTML=MENU.filter(function(m){return m.cat===activeCat;}).map(pokeCardHTML).join(''); }
 }
@@ -1627,6 +1727,7 @@ function renderPlanningGrid(){
     return map[j].midi.c1||map[j].midi.c2||map[j].soir.c1||map[j].soir.c2;
   });
   if(!joursVis.length){g.innerHTML='<div style="padding:2rem;text-align:center;color:var(--ink3);">Aucun emplacement cette semaine.</div>';return;}
+  var st=document.getElementById('pg-static'); if(st) st.style.display='none';
 
   function slotEmpDiv(e){
     if(!e)return '';
@@ -2217,7 +2318,7 @@ function _pbRenderConf(){
     if(sauceDansMenu) contenu+=(contenu?' + ':'')+'sauce';
     html+='<div class="pb-step" data-step="menu"><div class="pb-step-lbl">'+(n++)+' · Seul ou en menu ?</div><div class="pb-opts pb-opts-menu">'
       +'<button class="pb-opt'+(_pbMenu===false?' on':'')+'" onclick="pbChoixMenu(false)"><span class="pb-opt-nom">Seul</span><span class="pb-opt-ec">'+_eur(sc.seul)+'</span></button>'
-      +'<button class="pb-opt pb-opt-menu'+(_pbMenu===f.id?' on':'')+'" onclick="pbChoixMenu(\''+f.id+'\')"><span class="pb-opt-nom">'+f.nom+'</span><span class="pb-opt-ec">'+_eur(sc.menu)+' · +'+_eur(sc.plus)+'</span>'
+      +'<button class="pb-opt pb-opt-menu'+(_pbMenu===f.id?' on':'')+'" onclick="pbChoixMenu(\''+f.id+'\')"><span class="pb-opt-nom">'+f.nom+'</span><span class="pb-opt-ec">'+_eur(sc.menu)+'</span>'
       +'<span class="pb-opt-sub">'+contenu+(sc.eco>0.009?' — vous économisez '+_eur(sc.eco):'')+'</span></button>'
       +'</div></div>';
     menuOk = (_pbMenu!==null);
@@ -2630,6 +2731,7 @@ function showToast(msg,icon){
 }
 
 renderToday();renderPokesHome();renderUne();updatePill();
+(function(){ var p=_routeFromPath(); if(p==='home') _applySeo('home'); else if(p) go(p,true); })();
 
 // ===== RGPD & COOKIES =====
 function setCookieConsent(accepted){
