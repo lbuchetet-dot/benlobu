@@ -14,7 +14,6 @@
 // ══════════════════════════════════════════════════════════════════════════════
 import fs from 'node:fs';
 import path from 'node:path';
-import vm from 'node:vm';
 
 const ROOT   = path.resolve(new URL('..', import.meta.url).pathname);
 const SRC    = path.join(ROOT, 'pokeben-site.html');
@@ -38,14 +37,77 @@ async function fb(pathKey){
   console.log(`ℹ Firebase ${pathKey} : ${j===null?'vide (null)':'OK'}`);
   return j;
 }
-function planningParDefaut(){
-  const m=html.match(/const PLANNING_DEFAULT=(\{[\s\S]*?\n\});/);
-  if(!m) return {};
-  return vm.runInNewContext('('+m[1]+')');
+
+// Le planning réel est saisi dans l'admin sous planning_emplacements/<etablissement>/<jour>/<midi|soir>.
+// L'ancien nœud spots_pokeben n'est plus alimenté : on le lit encore par compatibilité,
+// mais on reconstruit en priorité depuis planning_emplacements + etablissements (cartes « poke »).
+const JOURS_K = {lundi:'Lundi',mardi:'Mardi',mercredi:'Mercredi',jeudi:'Jeudi',vendredi:'Vendredi',samedi:'Samedi',dimanche:'Dimanche'};
+const HORAIRES = {midi:'11h30 – 14h30', soir:'19h00 – 22h00'};
+const _slugLieu = n => String(n||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'');
+const _hFmt = h => String(h||'').replace(':','h');
+async function planningDepuisAdmin(){
+  const [etabs, plans, repert] = await Promise.all([
+    fb('etablissements').catch(e=>{console.warn('⚠ '+e.message);return null;}),
+    fb('planning_emplacements').catch(e=>{console.warn('⚠ '+e.message);return null;}),
+    fb('emplacements_repertoire').catch(e=>{console.warn('⚠ '+e.message);return null;})
+  ]);
+  if(!etabs || !plans) return null;
+  const rep = repert || {};
+  // Adresse : identifiant dérivé du nom, puis repli sur le nom exact (même règle que le site)
+  const adresseDe = (etabId,nom) => {
+    const r = rep[etabId] || {};
+    const sl = _slugLieu(nom);
+    if(r[sl] && r[sl].adresse) return r[sl].adresse;
+    const hit = Object.values(r).find(x => x && String(x.nom||'').toLowerCase() === String(nom||'').toLowerCase());
+    return hit ? (hit.adresse||'') : '';
+  };
+  // Camions de la carte Poké, ordonnés par « rang » explicite (repli : ordre du nom)
+  const camions = Object.entries(etabs)
+    .filter(([,e]) => e && (e.carte||'poke') === 'poke')
+    .sort((a,b) => {
+      const ra=Number(a[1].rang)||99, rb=Number(b[1].rang)||99;
+      return ra!==rb ? ra-rb : String(a[1].nom||'').localeCompare(String(b[1].nom||''),'fr');
+    });
+  if(!camions.length) return null;
+  const out = {};
+  camions.forEach(([etabId, etab], idx) => {
+    const cam = 'c'+(idx+1);                      // c1 = 1er camion, c2 = 2e
+    const p = plans[etabId]; if(!p) return;
+    Object.entries(p).forEach(([jourK, services]) => {
+      const jour = JOURS_K[String(jourK).toLowerCase()]; if(!jour || !services) return;
+      ['midi','soir'].forEach(sv => {
+        const info = services[sv];
+        if(!info || !info.nom) return;
+        out[jour] = out[jour] || {};
+        out[jour][cam] = out[jour][cam] || [];
+        out[jour][cam].push({
+          service: sv==='midi' ? 'Midi' : 'Soir',
+          lieu: info.nom,
+          adresse: adresseDe(etabId, info.nom),
+          horaires: (info.h_debut && info.h_fin) ? `${_hFmt(info.h_debut)} – ${_hFmt(info.h_fin)}` : HORAIRES[sv]
+        });
+      });
+    });
+  });
+  const n = Object.keys(out).length;
+  console.log(`ℹ planning_emplacements : ${camions.length} camion(s) Poké, ${n} jour(s) planifié(s)`);
+  return n ? out : null;
 }
-let planning = await fb('spots_pokeben').catch(e=>{ console.warn('⚠ '+e.message); return null; });
-const SOURCE = (planning && Object.keys(planning).length) ? 'FIREBASE' : 'PLANNING EMBARQUÉ (repli)';
-if(!planning || !Object.keys(planning).length) planning = planningParDefaut();
+
+let planning = await planningDepuisAdmin();
+let SOURCE = planning ? 'FIREBASE (planning_emplacements)' : null;
+if(!planning){
+  planning = await fb('spots_pokeben').catch(e=>{ console.warn('⚠ '+e.message); return null; });
+  if(planning && Object.keys(planning).length) SOURCE = 'FIREBASE (spots_pokeben)';
+}
+// Plus de planning codé en dur : l'admin est la source unique. Si elle ne répond pas,
+// on échoue franchement plutôt que de publier des emplacements périmés.
+if(!planning || !Object.keys(planning).length){
+  console.error('✖ Aucun planning lisible (etablissements / planning_emplacements). Build interrompu :');
+  console.error('  publier un planning obsolète enverrait des clients sur de mauvais emplacements.');
+  console.error('  Vérifiez FIREBASE_DB_URL, FIREBASE_DB_SECRET et le planning dans l\'admin.');
+  process.exit(1);
+}
 const produits = (await fb('cartes/poke/produits').catch(()=>null)) || {};
 const tailles  = (await fb('parametres/grille_tailles/poke').catch(()=>null)) || [];
 const sauces   = (await fb('parametres/sauces/poke').catch(()=>null)) || {liste:[]};
@@ -108,7 +170,9 @@ let page = html
   .replace('<!--CARTE_STATIQUE-->', blocCarte())
   .replace('</head>', `<script type="application/ld+json" id="ld-menu">${JSON.stringify(ldCarte())}</script>\n</head>`);
 // le planning par défaut embarqué suit Firebase (le site n'affiche jamais un vieux planning)
-if(Object.keys(planning).length) page = page.replace(/const PLANNING_DEFAULT=\{[\s\S]*?\n\};/, 'const PLANNING_DEFAULT='+JSON.stringify(planning)+';');
+// Planning écrit dans la page : le visiteur voit les bons emplacements immédiatement,
+// avant même que Firebase réponde ; l'écoute temps réel prend ensuite le relais.
+page = page.replace('const PLANNING_DEFAULT={};', 'const PLANNING_DEFAULT='+JSON.stringify(planning)+';');
 
 fs.rmSync(OUT,{recursive:true,force:true}); fs.mkdirSync(OUT,{recursive:true});
 fs.writeFileSync(path.join(OUT,'index.html'), page);
