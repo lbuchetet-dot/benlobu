@@ -122,7 +122,7 @@ for(const commune of communes){
   <h1 class="pg-h1">Food truck poké bowl à ${esc(commune)}</h1>
   <p class="pg-sub">Pok&amp;Ben s'installe à ${esc(commune)} chaque semaine. Poké bowls frais préparés à la commande, en trois tailles, avec choix de la protéine et de la sauce — et la formule avec dessert et boisson.</p>
   <h2 style="font-family:'Playfair Display',serif;font-size:1.25rem;margin:1.4rem 0 .5rem">Quand et où</h2>
-  <ul id="pg-static">${cs.map(c=>`<li><strong>${esc(c.jour)} ${esc(c.service||'')}</strong> · ${c.cam==='c1'?'Camion 1':'Camion 2'} · ${esc(c.lieu)}${c.adresse?' — '+esc(c.adresse):''} · ${esc(c.horaires)}${c.adresse?` · <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.adresse+' '+commune)}" target="_blank" rel="noopener">Itinéraire</a>`:''}</li>`).join('')}</ul>
+  <ul class="pg-creneaux">${cs.map(c=>`<li><strong>${esc(c.jour)} ${esc(c.service||'')}</strong> · ${c.cam==='c1'?'Camion 1':'Camion 2'} · ${esc(c.lieu)}${c.adresse?' — '+esc(c.adresse):''} · ${esc(c.horaires)}${c.adresse?` · <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.adresse+' '+commune)}" target="_blank" rel="noopener">Itinéraire</a>`:''}</li>`).join('')}</ul>
   <p class="pg-sub">Pour être sûr d'avoir votre bowl et ne pas attendre, <a href="/commander" style="color:var(--grn);font-weight:700">commandez en ligne</a> et retirez-le au camion. Commande par téléphone au <a href="tel:0482329536" style="color:var(--grn);font-weight:700">04 82 32 95 36</a> — précisez ${cs[0].cam==='c1'?'Camion 1':'Camion 2'}.</p>
   <h2 style="font-family:'Playfair Display',serif;font-size:1.25rem;margin:1.4rem 0 .5rem">Nos autres emplacements</h2>
   <ul>${communes.filter(c=>c!==commune).map(c=>`<li><a href="/emplacements/${slug(c)}/" style="color:var(--grn);font-weight:700">Food truck à ${esc(c)}</a></li>`).join('')}</ul>
@@ -139,6 +139,9 @@ for(const commune of communes){
     .replace('</head>', `<script type="application/ld+json">${JSON.stringify(ld)}</script>\n<script type="application/ld+json">${JSON.stringify({"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Accueil","item":ORIGIN+'/'},{"@type":"ListItem","position":2,"name":"Emplacements","item":ORIGIN+'/emplacements'},{"@type":"ListItem","position":3,"name":commune,"item":url}]})}</script>\n</head>`);
   // remplace le contenu de la page d'accueil par le corps statique et force cette page active
   ph = ph.replace(/<div class="page active" id="page-home">[\s\S]*?(?=<div class="page" id="page-events">)/, `<div class="page active" id="page-home">${corps}</div>\n`);
+  // Le routeur ne connaît pas /emplacements/<ville>/ : il ne doit ni changer la page
+  // affichée ni réécrire les balises SEO déjà correctes de cette page statique.
+  ph = ph.replace("(function(){ var p=_routeFromPath(); if(p==='home') _applySeo('home'); else if(p) go(p,true); })();", "");
   // le routeur ne doit pas rediriger (l'URL n'est pas une route connue) : il laisse la page telle quelle
   const dir=path.join(OUT,'emplacements',slug(commune)); fs.mkdirSync(dir,{recursive:true});
   fs.writeFileSync(path.join(dir,'index.html'), ph);
