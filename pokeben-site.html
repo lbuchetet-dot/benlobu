@@ -504,6 +504,11 @@ footer{background:var(--ink);color:#fff;padding:3.5rem 2.5rem 2rem;}
 .pb-opt-nom{font-size:0.85rem;font-weight:800;color:var(--ink);}
 .pb-opt-ec{font-size:0.7rem;font-weight:700;color:var(--ink3);}
 .pb-opt.off{opacity:0.4;cursor:not-allowed;background:var(--cream);}
+.pb-opts-menu{grid-template-columns:1fr 1.6fr;}
+.pb-opt-menu{border-color:var(--coral);background:var(--coral-bg);}
+.pb-opt-menu.on{border-color:var(--coral);background:var(--coral-bg);box-shadow:0 0 0 2px var(--coral);}
+.pb-opt-menu .pb-opt-ec{color:var(--coral);font-weight:800;}
+.pb-opt-sub{font-size:0.66rem;color:var(--ink3);line-height:1.3;margin-top:2px;text-align:center;}
 .pb-opt.off:hover{border-color:var(--border);}
 .pb-sticky{position:sticky;bottom:0;z-index:2;background:var(--cream);padding:0.6rem 0 1rem;margin-top:0.2rem;border-top:1px solid var(--border);box-shadow:0 -8px 18px -12px rgba(26,36,32,0.35);}
 .btn-add-panier{display:flex;justify-content:space-between;align-items:center;gap:1rem;}
@@ -1231,7 +1236,7 @@ function _buildMenuPoke(){
   arr.sort(function(a,b){ return a._ordre-b._ordre; });
   // Onglet "Menus" (formules) inséré dans la barre selon l'ordre de l'Affichage
   var sectionList=cats.map(function(c){return {key:c,ordre:(catCfg[c]&&catCfg[c].ordre!=null?catCfg[c].ordre:_ordreDefautCat(c))};});
-  if(FORMULES.length){ sectionList.push({key:'__menus__',ordre:(catCfg.__menus__&&catCfg.__menus__.ordre!=null?catCfg.__menus__.ordre:_ordreDefautCat('__menus__'))}); }
+  // (les formules ne sont plus un rayon : elles se proposent dans la fiche du bowl, façon menu)
   sectionList.sort(function(a,b){return a.ordre-b.ordre;});
   MENU=arr; CATS=sectionList.map(function(s){return s.key;});
   if(CATS.indexOf(activeCat)<0) activeCat=CATS[0];   // 1re section visible (Poké Bowl par défaut)
@@ -1502,15 +1507,28 @@ function fmBasculer(formuleId){
     showToast('Menu appliqué — '+_eur(d.eco)+' économisés','✓');
     return;
   }
-  // Il manque des éléments : on ouvre la formule pré-remplie avec ce qui est déjà dans le panier
-  openFormulePoke(d.f.id);
-  d.f.slots.forEach(function(sl,si){
-    var u=d.lignes.find(function(x){return x.slot===sl;}); if(!u) return;
-    _fmSel[si]={prodId:u.l.prodId,taille:u.l.taille||null,proteine:u.l.proteine||null};
+  // Il manque des éléments : on rouvre la fiche du bowl, menu coché, avec ce qui est déjà au panier
+  var premier=d.f.slots.find(function(sl){return sl.mode!=='fixe';});
+  var ub=d.lignes.find(function(x){return x.slot===premier;}); if(!ub) return;
+  var lb=ub.l, m=MENU.find(function(x){return x.id===lb.prodId;}); if(!m) return;
+  openProdModal(m.id);
+  _pbLigneEnEdition=lb.lineId; _prodQty=1;
+  if(lb.taille) _pbTaille=lb.taille; if(lb.proteine) _pbProt=lb.proteine;
+  _pbSups={}; _pbSauces=[];
+  (lb.supplements||[]).forEach(function(sp){
+    if(sp.sauce){ var LS=_pbListeSauces(); var nu=sp.nom.replace(/^Sauce /,''); _pbSauces.push(LS.find(function(x){return x===sp.nom;})||LS.find(function(x){return x===nu;})||nu); return; }
+    var k=Object.keys(m.supplements||{}).find(function(x){return m.supplements[x].nom===sp.nom;});
+    if(k) _pbSups[k]={nom:sp.nom,prix:sp.prix||0};
   });
-  _fmLignesABasculer=d.lignes.map(function(u){return u.l.lineId;});
-  _fmRender();
+  _pbMenu=d.f.id; _pbMenuSel={};
+  d.f.slots.forEach(function(sl,si){
+    var u=d.lignes.find(function(x){return x.slot===sl;}); if(u && sl!==premier) _pbMenuSel[si]=String(u.l.prodId);
+  });
+  // Les lignes séparées utilisées (boisson, dessert) seront retirées à la validation
+  _pbLignesAbsorbees=d.lignes.filter(function(x){return x.slot!==premier;}).map(function(u){return u.l.lineId;});
+  _pbRenderConf();
 }
+var _pbLignesAbsorbees=[];
 
 function go(p){
   document.querySelectorAll('.page').forEach(function(e){e.classList.remove('active');});
@@ -1852,7 +1870,7 @@ function renderCart(){
       if(bits.length) detail='<div class="cart-item-sups">'+bits.join(' \u00b7 ')+'</div>';
     }
     var _pmm=MENU.find(function(m){return m.id===l.prodId;});
-    var editable = l.type!=='formule' && _pmm && (_pbVariantes(_pmm).length>1 || Object.keys(_pmm.supplements||{}).length || (_pbEstBowl(_pmm)&&_pbListeSauces().length));
+    var editable = (l.type==='formule') || (_pmm && (_pbVariantes(_pmm).length>1 || Object.keys(_pmm.supplements||{}).length || (_pbEstBowl(_pmm)&&_pbListeSauces().length)));
     var editHtml = editable ? '<button class="cart-item-edit" onclick="pbModifierLigne(\''+l.lineId+'\')">Modifier</button>' : '';
     return '<div class="cart-item"><div class="cart-item-main"><div class="cart-item-name">'+l.nom+'</div>'+detail+editHtml+'</div><div class="cart-qty"><button class="qty-btn" onclick="removeFromCart(\''+l.lineId+'\')">−</button><span class="qty-n">'+l.qte+'</span><button class="qty-btn" onclick="addLineQty(\''+l.lineId+'\')">+</button></div><div class="cart-item-price">'+(l.prixUnit*l.qte).toFixed(2).replace('.',',')+'&nbsp;€</div></div>';
   }).join(''):'<div class="cart-empty">Ajoutez des pokébowls</div>';
@@ -2093,6 +2111,8 @@ function openSpotModalFromEmp(jour,cam,horaires){
 
 // ===== MODAL FICHE PRODUIT =====
 var _prodQty=1,_pbSups={},_pbModalId=null,_pbTaille=null,_pbProt=null,_pbSauces=[];
+var _pbMenu=null;      // null = pas encore répondu, false = seul, sinon id de formule
+var _pbMenuSel={};     // index d'emplacement -> prodId choisi
 
 function _pbVariantes(m){ return (m&&m.variantes)?m.variantes:[]; }
 // Axes distincts, dans l'ordre où l'admin les a saisis
@@ -2114,10 +2134,11 @@ function _ecart(n){ return n>0 ? '+'+_eur(n) : (n<0 ? '\u2212'+_eur(-n) : 'inclu
 function openProdModal(id){
   var m=MENU.find(function(x){return x.id===id;});
   if(!m)return;
-  _prodQty=1;_pbSups={};_pbModalId=id;
+  // Remise à zéro complète : rien ne doit fuir d'une fiche à l'autre
+  _prodQty=1;_pbSups={};_pbSauces=[];_pbModalId=id;
+  _pbLigneEnEdition=null;_pbLignesAbsorbees=[];_pbEtapesVues=[];
+  _pbMenu=null;_pbMenuSel={};
   var T=_pbAxe(m,'taille'), P=_pbAxe(m,'proteine');
-  // Pré-sélection : la première combinaison disponible, pour que le client pressé
-  // puisse ajouter en un geste sans rien choisir.
   // Taille et protéine sont des choix obligatoires : rien n'est pré-coché quand il y a
   // plusieurs options, pour qu'un client ne valide pas une taille qu'il n'a pas vue.
   _pbTaille=null;_pbProt=null;
@@ -2185,9 +2206,37 @@ function _pbRenderConf(){
       }).join('')+'</div></div>';
   }
 
-  // 4 · Suppléments — une fois le bowl défini
+  // 4 · Seul ou en menu ? — la question McDo, posée pendant la composition, prix en face
+  var f=_pbFormulePour(m);
+  var menuOk=true;
+  if(f && tailleOk && protOk){
+    var sc=_pbSurcoutMenu(f);
+    var slots=_pbSlotsMenu(f);
+    var contenu=slots.map(function(x){return x.sl.label.toLowerCase();}).join(' + ');
+    var sauceDansMenu=(f.slots||[]).some(function(sl){return sl.mode!=='fixe' && /sauce/i.test(sl.label||'');});
+    if(sauceDansMenu) contenu+=(contenu?' + ':'')+'sauce';
+    html+='<div class="pb-step" data-step="menu"><div class="pb-step-lbl">'+(n++)+' · Seul ou en menu ?</div><div class="pb-opts pb-opts-menu">'
+      +'<button class="pb-opt'+(_pbMenu===false?' on':'')+'" onclick="pbChoixMenu(false)"><span class="pb-opt-nom">Seul</span><span class="pb-opt-ec">'+_eur(sc.seul)+'</span></button>'
+      +'<button class="pb-opt pb-opt-menu'+(_pbMenu===f.id?' on':'')+'" onclick="pbChoixMenu(\''+f.id+'\')"><span class="pb-opt-nom">'+f.nom+'</span><span class="pb-opt-ec">'+_eur(sc.menu)+' · +'+_eur(sc.plus)+'</span>'
+      +'<span class="pb-opt-sub">'+contenu+(sc.eco>0.009?' — vous économisez '+_eur(sc.eco):'')+'</span></button>'
+      +'</div></div>';
+    menuOk = (_pbMenu!==null);
+    // Emplacements du menu, un par un, obligatoires
+    if(_pbMenu===f.id){
+      slots.forEach(function(x){
+        var opts=_fmProduitsSlot(x.sl).filter(function(pid){return MENU.find(function(y){return y.id===pid;});});
+        html+='<div class="pb-step" data-step="slot'+x.si+'"><div class="pb-step-lbl">'+(n++)+' · Votre '+x.sl.label.toLowerCase()+'</div><div class="pb-opts'+(opts.length>3?' pb-opts-4':'')+'">'
+          +opts.map(function(pid){
+            return '<button class="pb-opt'+(_pbMenuSel[x.si]===pid?' on':'')+'" onclick="pbChoixSlot('+x.si+',\''+pid+'\')"><span class="pb-opt-nom">'+_pNomPoke(pid)+'</span><span class="pb-opt-ec">inclus</span></button>';
+          }).join('')+'</div></div>';
+      });
+      menuOk = _pbMenuComplet(f);
+    }
+  }
+
+  // 5 · Suppléments — une fois le bowl défini
   var sups=Object.keys(m.supplements||{}).filter(function(k){return m.supplements[k]&&m.supplements[k].nom;});
-  if(sups.length && tailleOk && protOk){
+  if(sups.length && tailleOk && protOk && (_pbMenu!==null || !f)){
     html+='<div class="pb-step" data-step="supplement"><div class="pb-step-lbl">'+(n++)+' \u00b7 Choisir son suppl\u00e9ment <span style="font-weight:600;letter-spacing:0;text-transform:none;color:var(--ink3)">pour les gourmands</span></div>'
       +sups.map(function(k){
         var sp=m.supplements[k];
@@ -2201,7 +2250,7 @@ function _pbRenderConf(){
   // et strictement filtrée : pas de doublon avec les suppléments du produit
   // (« avocat 1,50 € » sous « avocat +2,00 € » sème le doute sur le prix réel),
   // pas de sauce (déjà proposée plus haut), rien qui soit déjà au panier, 3 maxi.
-  if(pret_prealable(tailleOk,protOk)){
+  if(pret_prealable(tailleOk,protOk) && (_pbMenu!==null || !f) && !(_pbMenu&&_pbMenu!==false)){
     var sugg=_pbSuggestions(m);
     if(sugg.length){
       html+='<div class="pb-step" data-step="suggestion"><div class="pb-step-lbl">'+(n++)+' \u00b7 On compl\u00e8te avec\u2026</div>'
@@ -2213,8 +2262,10 @@ function _pbRenderConf(){
     }
   }
 
-  var pret = tailleOk && protOk;
-  var libelle = !tailleOk ? 'Choisissez votre taille' : (!protOk ? 'Choisissez votre prot\u00e9ine' : (_pbLigneEnEdition?'Mettre \u00e0 jour':'Ajouter au panier'));
+  var pret = tailleOk && protOk && menuOk;
+  var libelle = !tailleOk ? 'Choisissez votre taille' : (!protOk ? 'Choisissez votre prot\u00e9ine'
+    : (f && _pbMenu===null ? 'Seul ou en menu ?' : (f && _pbMenu && !_pbMenuComplet(f) ? 'Compl\u00e9tez votre menu'
+    : (_pbLigneEnEdition?'Mettre \u00e0 jour':(_pbMenu&&_pbMenu!==false?'Ajouter le menu':'Ajouter au panier')))));
   html+='<div class="pb-sticky">'
     +(pret?'<div class="prod-modal-qty"><button onclick="changeProdQty(-1)">\u2212</button><span id="prod-qty-n">'+_prodQty+'</span><button onclick="changeProdQty(1)">+</button></div>':'')
     +'<button class="btn-add-panier" '+(pret?'onclick="addFromModal(\''+m.id+'\')"':'disabled style="opacity:.45;cursor:not-allowed"')+'>'+libelle+' <span class="pb-btn-tot" id="pb-btn-tot"></span></button>'
@@ -2294,6 +2345,71 @@ function _pbSuggestions(m){
   }
   return out;
 }
+// ── Menu façon McDo : la formule applicable à ce bowl, et ses emplacements à remplir ──
+// La formule dont le PREMIER emplacement au choix contient ce produit.
+function _pbFormulePour(m){
+  if(!m) return null;
+  return FORMULES.find(function(f){
+    var premier=(f.slots||[]).find(function(sl){return sl.mode!=='fixe';});
+    return premier && _fmProduitsSlot(premier).indexOf(m.id)>=0;
+  })||null;
+}
+// Emplacements que le client doit encore remplir : tout sauf le bowl lui-même,
+// les emplacements imposés, et la sauce (déjà choisie dans le bowl).
+function _pbSlotsMenu(f){
+  var out=[], premierVu=false;
+  (f.slots||[]).forEach(function(sl,si){
+    if(sl.mode==='fixe') return;
+    if(!premierVu){ premierVu=true; return; }
+    if(/sauce/i.test(sl.label||'') || _fmProduitsSlot(sl).every(function(pid){var x=MENU.find(function(m){return m.id===pid;});return x&&/sauce/i.test(x.cat||'');})) return;
+    out.push({si:si,sl:sl});
+  });
+  return out;
+}
+function _pbMenuComplet(f){ return _pbSlotsMenu(f).every(function(x){return !!_pbMenuSel[x.si];}); }
+// Prix du menu = prix formule + écarts du bowl (taille/protéine) + suppléments + sauces en plus
+function _pbPrixMenu(f){
+  var m=MENU.find(function(x){return x.id===_pbModalId;})||{};
+  var v=_pbVarCourante();
+  var p=f.prix + (v?Math.max(0,v.prix-_pbPrixMin(m)):0);
+  Object.keys(_pbSups).forEach(function(k){p+=(_pbSups[k].prix||0);});
+  p+=_pbPrixSauces();
+  return p;
+}
+// Ce que le menu ajoute par rapport au bowl seul, et ce que ça coûterait à la carte
+function _pbSurcoutMenu(f){
+  var seul=_pbUnitPrice(), menu=_pbPrixMenu(f);
+  var carte=_pbSlotsMenu(f).reduce(function(a,x){
+    var mins=_fmProduitsSlot(x.sl).map(function(pid){var y=MENU.find(function(m){return m.id===pid;});return y?_pbPrixMin(y):null;}).filter(function(z){return z!=null;});
+    return a+(mins.length?Math.min.apply(null,mins):0);
+  },0);
+  return {seul:seul, menu:menu, plus:menu-seul, carte:carte, eco:(seul+carte)-menu};
+}
+// Composition transmise au panier / à la caisse : le bowl configuré (avec ses écarts,
+// suppléments et sauces), puis chaque emplacement choisi, puis les imposés.
+function _pbCompositionMenu(f,bowlId,v,sups){
+  var m=MENU.find(function(x){return x.id===bowlId;})||{};
+  var multi=_pbAxe(m,'taille').length>1||_pbAxe(m,'proteine').length>1;
+  var supsTot=(sups||[]).reduce(function(a,sp){return a+(sp.prix||0);},0);
+  var supsLbl=(sups||[]).map(function(sp){return sp.nom;}).join(', ');
+  var out=[], premierVu=false;
+  (f.slots||[]).forEach(function(sl,si){
+    if(sl.mode==='fixe'){ var pid=_fmProduitsSlot(sl)[0]; if(pid) out.push({label:sl.label,prodId:String(pid),nom:_pNomPoke(pid),taille:'',ecart:0}); return; }
+    if(!premierVu){
+      premierVu=true;
+      out.push({label:sl.label,prodId:String(bowlId),nom:(m.nom||'')+(multi&&v?' '+v.nom:'')+(supsLbl?' ('+supsLbl+')':''),
+                taille:(v?v.nom:''),proteine:(v?v.proteine:''),supplements:(sups||[]),
+                ecart:(v?Math.max(0,v.prix-_pbPrixMin(m)):0)+supsTot});
+      return;
+    }
+    if(/sauce/i.test(sl.label||'')) return;   // la sauce du menu = celle choisie dans le bowl
+    var choix=_pbMenuSel[si]; if(!choix) return;
+    out.push({label:sl.label,prodId:String(choix),nom:_pNomPoke(choix),taille:'',ecart:0});
+  });
+  return out;
+}
+function pbChoixMenu(v){ _pbMenu=v; if(v===false) _pbMenuSel={}; _pbRenderConf(); }
+function pbChoixSlot(si,pid){ _pbMenuSel[si]=pid; _pbRenderConf(); }
 function _pbEstBowl(m){ return /pok|bowl/i.test((m&&m.cat)||''); }
 // Liste des sauces : paramètre de carte en priorité, sinon les produits de catégorie « sauce »
 // déjà présents dans la carte (évite un écran vide tant que l'admin n'est pas renseigné).
@@ -2323,7 +2439,9 @@ function _pbUnitPrice(){
 }
 function _pbMajTotal(){
   var el=document.getElementById('pb-btn-tot');
-  if(el)el.textContent=_eur(_pbUnitPrice()*_prodQty);
+  if(!el) return;
+  var f=(_pbMenu&&_pbMenu!==false)?FORMULES.find(function(x){return x.id===_pbMenu;}):null;
+  el.textContent=_eur((f?_pbPrixMenu(f):_pbUnitPrice())*_prodQty);
 }
 function pbToggleSup(sid){
   var m=MENU.find(function(x){return x.id===_pbModalId;})||{};
@@ -2343,8 +2461,31 @@ function changeProdQty(d){
 // Modifier une ligne du panier : le configurateur se rouvre pré-rempli, et la ligne
 // est remplacée à la validation (la quantité est conservée).
 var _pbLigneEnEdition=null;
+// Rouvre la fiche du bowl d'un menu, menu coché et emplacements pré-remplis
+function _pbOuvrirMenuDepuisLigne(l){
+  var f=FORMULES.find(function(x){return x.id===l.formuleId;}); if(!f) return;
+  var c0=(l.composition||[])[0]; if(!c0) return;
+  var m=MENU.find(function(x){return x.id===c0.prodId;}); if(!m) return;
+  openProdModal(m.id);
+  _pbLigneEnEdition=l.lineId; _prodQty=l.qte||1;
+  var v=_pbVariantes(m).find(function(x){return x.nom===c0.taille;});
+  if(v){ _pbTaille=v.taille||null; _pbProt=v.proteine||null; }
+  _pbSups={}; _pbSauces=[];
+  (c0.supplements||[]).forEach(function(sp){
+    if(sp.sauce){ var LS=_pbListeSauces(); var nu=sp.nom.replace(/^Sauce /,''); _pbSauces.push(LS.find(function(x){return x===sp.nom;})||LS.find(function(x){return x===nu;})||nu); return; }
+    var k=Object.keys(m.supplements||{}).find(function(x){return m.supplements[x].nom===sp.nom;});
+    if(k) _pbSups[k]={nom:sp.nom,prix:sp.prix||0};
+  });
+  _pbMenu=f.id; _pbMenuSel={};
+  (f.slots||[]).forEach(function(sl,si){
+    var c=(l.composition||[]).find(function(x){return x.label===sl.label && x.prodId!==c0.prodId;});
+    if(c && sl.mode!=='fixe') _pbMenuSel[si]=String(c.prodId);
+  });
+  _pbRenderConf();
+}
 function pbModifierLigne(lineId){
   var l=cart.find(function(x){return x.lineId===lineId;}); if(!l) return;
+  if(l.type==='formule'){ _pbOuvrirMenuDepuisLigne(l); return; }
   openProdModal(l.prodId);
   _pbLigneEnEdition=lineId;
   _prodQty=l.qte||1;
@@ -2372,17 +2513,27 @@ function addFromModal(id){
     if(i>=0) cart.splice(i,1);
     _pbLigneEnEdition=null;
   }
+  if(_pbLignesAbsorbees.length){
+    cart.forEach(function(l){ if(_pbLignesAbsorbees.indexOf(l.lineId)>=0) l.qte-=1; });
+    cart=cart.filter(function(l){return l.qte>0;});
+    _pbLignesAbsorbees=[];
+  }
   var etaitEdition=_edMode;
   var sups=Object.keys(_pbSups).map(function(k){return _pbSups[k];});
   var extra=_pbPrixSauceExtra();
   _pbSauces.forEach(function(sc,i){ sups.push({nom:'Sauce '+sc, prix:(i===0?0:extra), sauce:true}); });
-  _cartAdd(id,sups,_prodQty,v);
+  var fMenu=(_pbMenu&&_pbMenu!==false)?FORMULES.find(function(x){return x.id===_pbMenu;}):null;
+  if(fMenu){
+    _cartAddFormulePoke(fMenu.id,_pbCompositionMenu(fMenu,id,v,sups),_prodQty);
+  } else {
+    _cartAdd(id,sups,_prodQty,v);
+  }
   renderCart();updatePill();updateSteps();
   var i=MENU.find(function(m){return m.id===id;});
-  showToast((i?i.nom:'Article')+(etaitEdition?' mis \u00e0 jour':' ajout\u00e9'),'\u2713');
+  showToast((fMenu?fMenu.nom:(i?i.nom:'Article'))+(etaitEdition?' mis \u00e0 jour':' ajout\u00e9'),'\u2713');
   closeProdModal();
 }
-function closeProdModal(){ _pbLigneEnEdition=null;
+function closeProdModal(){ _pbLigneEnEdition=null; _pbLignesAbsorbees=[];
   document.getElementById('prod-modal').classList.remove('open');
   document.body.style.overflow='';
 }

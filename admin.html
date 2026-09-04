@@ -3893,9 +3893,10 @@ function _slotProductChecklist(slotI, selectedIds){
   Object.entries(_formuleProds).forEach(([id,p])=>{
     if(!p || p.actif===false) return;
     const c = p.categorie || 'Autres';
+    if(/suppl/i.test(c)) return;   // un supplément n'est pas un article de menu
     (parCat[c] = parCat[c] || []).push([id,p]);
   });
-  const cats = Object.keys(parCat);
+  const cats = Object.keys(parCat).sort((a,b)=>(/pok|bowl|burger/i.test(a)?0:1)-(/pok|bowl|burger/i.test(b)?0:1));
   if(!cats.length) return '<div style="font-size:12px;color:var(--text-muted);padding:8px 0">Aucun produit actif sur cette carte.</div>';
   return cats.map(c=>{
     const items = parCat[c].map(([id,p])=>
@@ -3923,6 +3924,13 @@ function ajouterSlotFormule(label='', produits=null, legacyCat='', mode='choix',
   let presel = produits;
   if((!presel || !presel.length) && legacyCat){
     presel = Object.entries(_formuleProds).filter(([,p])=>p && (p.categorie===legacyCat)).map(([id])=>id);
+  }
+  // Par défaut, un emplacement vaut pour toute sa catégorie : si les produits cochés
+  // viennent tous de la même (ex. 4 bowls sur 7), on propose la catégorie entière —
+  // les bowls oubliés et les futurs entrent dans la formule sans rien faire.
+  if(!categorieAuto && presel && presel.length){
+    const cats=[...new Set(presel.map(id=>(_formuleProds[id]||{}).categorie||'Autres'))];
+    if(cats.length===1 && !/sauce/i.test(cats[0])) categorieAuto=cats[0];
   }
   const div = document.createElement('div');
   div.id = 'slot-'+i;
@@ -3955,7 +3963,7 @@ function ajouterSlotFormule(label='', produits=null, legacyCat='', mode='choix',
   document.getElementById('form-slots-list').appendChild(div);
 }
 function _slotCategoriesOptions(sel){
-  const cats=[...new Set(Object.values(_formuleProds).filter(p=>p&&p.actif!==false).map(p=>p.categorie||'Autres'))];
+  const cats=[...new Set(Object.values(_formuleProds).filter(p=>p&&p.actif!==false).map(p=>p.categorie||'Autres'))].filter(c=>!/suppl/i.test(c)).sort((a,b)=>(/pok|bowl|burger/i.test(a)?0:1)-(/pok|bowl|burger/i.test(b)?0:1));
   return cats.map(c=>`<option value="${c.replace(/"/g,'&quot;')}" ${c===sel?'selected':''}>${c} (tous)</option>`).join('');
 }
 function _slotCatAutoChange(i){
