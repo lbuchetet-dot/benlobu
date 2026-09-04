@@ -25,19 +25,27 @@ const JOURS  = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche
 const html = fs.readFileSync(SRC, 'utf8');
 
 // ── 1. Données ──────────────────────────────────────────────────────────────
+// Journalise clairement l'origine des données : sans ça, impossible de distinguer
+// « Firebase lu » de « repli sur le planning embarqué » quand les deux coïncident.
+const DBU=process.env.FIREBASE_DB_URL, DBS=process.env.FIREBASE_DB_SECRET;
+console.log(`ℹ FIREBASE_DB_URL    : ${DBU ? DBU : 'ABSENTE'}`);
+console.log(`ℹ FIREBASE_DB_SECRET : ${DBS ? 'présente ('+DBS.length+' caractères)' : 'ABSENTE'}`);
 async function fb(pathKey){
-  const url=process.env.FIREBASE_DB_URL, secret=process.env.FIREBASE_DB_SECRET;
-  if(!url||!secret) return null;
-  const r=await fetch(`${url.replace(/\/$/,'')}/${pathKey}.json?auth=${secret}`);
-  if(!r.ok) throw new Error(`Firebase ${pathKey}: ${r.status}`);
-  return r.json();
+  if(!DBU||!DBS) return null;
+  const r=await fetch(`${DBU.replace(/\/$/,'')}/${pathKey}.json?auth=${DBS}`);
+  if(!r.ok){ const t=await r.text().catch(()=>''); throw new Error(`Firebase ${pathKey}: HTTP ${r.status} ${t.slice(0,200)}`); }
+  const j=await r.json();
+  console.log(`ℹ Firebase ${pathKey} : ${j===null?'vide (null)':'OK'}`);
+  return j;
 }
 function planningParDefaut(){
   const m=html.match(/const PLANNING_DEFAULT=(\{[\s\S]*?\n\});/);
   if(!m) return {};
   return vm.runInNewContext('('+m[1]+')');
 }
-const planning = (await fb('spots_pokeben').catch(e=>{console.warn(e.message);return null;})) || planningParDefaut();
+let planning = await fb('spots_pokeben').catch(e=>{ console.warn('⚠ '+e.message); return null; });
+const SOURCE = (planning && Object.keys(planning).length) ? 'FIREBASE' : 'PLANNING EMBARQUÉ (repli)';
+if(!planning || !Object.keys(planning).length) planning = planningParDefaut();
 const produits = (await fb('cartes/poke/produits').catch(()=>null)) || {};
 const tailles  = (await fb('parametres/grille_tailles/poke').catch(()=>null)) || [];
 const sauces   = (await fb('parametres/sauces/poke').catch(()=>null)) || {liste:[]};
@@ -204,4 +212,4 @@ https://www.pokeben.fr/*                https://pokeben.fr/:splat   301!
 fs.writeFileSync(path.join(OUT,'_redirects'), redirects.trimStart());
 fs.writeFileSync(path.join(OUT,'_headers'), `/*\n  X-Frame-Options: DENY\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: strict-origin-when-cross-origin\n  Cache-Control: public, max-age=0, must-revalidate\n/*.png\n  Cache-Control: public, max-age=31536000, immutable\n`);
 
-console.log(`✔ pokeben/ généré — ${creneaux.length} créneaux, ${communes.length} pages communes : ${communes.join(', ')}`);
+console.log(`✔ pokeben/ généré — source planning : ${SOURCE} — ${creneaux.length} créneaux, ${communes.length} pages communes : ${communes.join(', ')}`);
