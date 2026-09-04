@@ -1208,15 +1208,75 @@ function canCancelPb(order){
   return Date.now() < limitTime;
 }
 
-const PLANNING_DEFAULT={
-  Lundi:{c1:[{service:'Soir',lieu:'Montoison',adresse:'Place de la Poste',horaires:'19h00 – 22h00'}],c2:[{service:'Midi',lieu:'Leroy Merlin Valence',adresse:'Zone commerciale, Valence',horaires:'11h30 – 14h30'},{service:'Soir',lieu:'Alixan',adresse:'Place du 19 Mars 1962',horaires:'19h00 – 22h00'}]},
-  Mardi:{c1:[{service:'Midi',lieu:'Portes-lès-Valence',adresse:'BUT — Zone des Auréats',horaires:'11h30 – 14h30'},{service:'Soir',lieu:'Chatuzange-le-Goubet',adresse:'23 rue des Monts du Matin',horaires:'19h00 – 22h00'}],c2:null},
-  Mercredi:{c1:[{service:'Midi',lieu:'Plateau de Lautagne',adresse:'Parking Koesio, Valence',horaires:'11h30 – 14h30'},{service:'Soir',lieu:'Saint-Georges-les-Bains',adresse:'RD 86, bas du pont de Charmes',horaires:'19h00 – 22h00'}],c2:null},
-  Jeudi:{c1:[{service:'Midi',lieu:'Briffaut — Auto Bernard',adresse:'800 av. de Chabeuil, Valence',horaires:'11h30 – 14h30'},{service:'Soir',lieu:'Montmeyran',adresse:'Place de la Poste',horaires:'19h00 – 22h00'}],c2:[{service:'Midi',lieu:'Châteauneuf-sur-Isère',adresse:'Prodeval',horaires:'11h30 – 14h30'}]},
-  Vendredi:{c1:[{service:'Midi',lieu:'Valence 2 — Décathlon',adresse:'Parking Décathlon',horaires:'11h30 – 14h30'},{service:'Soir',lieu:'Chabeuil',adresse:'Brasserie Pleine Lune',horaires:'19h00 – 22h00'}],c2:[{service:'Midi',lieu:'Saint-Paul-lès-Romans',adresse:'Parking BUT',horaires:'11h30 – 14h30'},{service:'Soir',lieu:'Châteauneuf-sur-Isère',adresse:"Place de l\u2019église",horaires:'19h00 – 22h00'}]}
-};
+// ── PLANNING : source unique = l'admin ──────────────────────────────────────
+// planning_emplacements/<etablissement>/<jour>/<midi|soir> = {nom, capacite, h_debut, h_fin}
+// emplacements_repertoire/<etablissement>/<slug>          = {nom, adresse}
+// etablissements/<id>                                      = {nom, carte, rang}
+// Plus aucun planning codé en dur : c'est ce qui faisait afficher au site des
+// emplacements que l'admin ne connaissait plus. Même source que la caisse,
+// la tablette fidélité et le site Capt&Fish.
+const PLANNING_DEFAULT={};          // rempli au build avec le planning admin du jour
 let PLANNING=PLANNING_DEFAULT;
-_pbWhenAuth(function(){ db.ref('spots_pokeben').on('value',function(snap){var v=snap.val();if(v){PLANNING=v;renderToday();renderPlanningGrid();}}); });
+var _pbEtabs={}, _pbPlans={}, _pbRepert={};
+const _JOURS_K_PB={lundi:'Lundi',mardi:'Mardi',mercredi:'Mercredi',jeudi:'Jeudi',vendredi:'Vendredi',samedi:'Samedi',dimanche:'Dimanche'};
+function _hFmt(h){ return String(h||'').replace(':','h'); }
+function _horairesPb(info,service){
+  if(info && info.h_debut && info.h_fin) return _hFmt(info.h_debut)+' – '+_hFmt(info.h_fin);
+  return service==='midi' ? '11h30 – 14h30' : '19h00 – 22h00';
+}
+function _nomCamionPb(cam){
+  var l=_camionsPb(), i=(cam==='c2')?1:0;
+  return (l[i] && l[i][1].nom) ? l[i][1].nom : (cam==='c2'?'Camion 2':'Camion 1');
+}
+function _slugLieuPb(nom){ return (nom||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,''); }
+// Adresse : par identifiant dérivé du nom, puis repli sur le nom exact (comme Capt&Fish)
+function _adressePb(etabId,nom){
+  const rep=_pbRepert[etabId]||{};
+  const slug=_slugLieuPb(nom);
+  if(rep[slug] && rep[slug].adresse) return rep[slug].adresse;
+  const hit=Object.values(rep).find(r=>r && (r.nom||'').toLowerCase()===String(nom||'').toLowerCase());
+  return hit ? (hit.adresse||'') : '';
+}
+// Camions de la carte Poké, ordonnés par « rang » explicite (repli : ordre du nom)
+function _camionsPb(){
+  return Object.entries(_pbEtabs)
+    .filter(function(e){ return e[1] && (e[1].carte||'poke')==='poke'; })
+    .sort(function(a,b){
+      var ra=Number(a[1].rang)||99, rb=Number(b[1].rang)||99;
+      return ra!==rb ? ra-rb : String(a[1].nom||'').localeCompare(String(b[1].nom||''),'fr');
+    });
+}
+function _rebuildPlanningPb(){
+  var out={};
+  _camionsPb().forEach(function(e,idx){
+    var etabId=e[0], cam='c'+(idx+1), p=_pbPlans[etabId];
+    if(!p) return;
+    Object.keys(p).forEach(function(jk){
+      var jour=_JOURS_K_PB[String(jk).toLowerCase()]; if(!jour) return;
+      ['midi','soir'].forEach(function(sv){
+        var info=(p[jk]||{})[sv];
+        if(!info || !info.nom) return;
+        out[jour]=out[jour]||{};
+        out[jour][cam]=out[jour][cam]||[];
+        out[jour][cam].push({service: sv==='midi'?'Midi':'Soir', lieu:info.nom,
+                             adresse:_adressePb(etabId,info.nom), horaires:_horairesPb(info,sv)});
+      });
+    });
+  });
+  PLANNING=out;
+  try{ renderToday(); renderPlanningGrid(); }catch(e){}
+}
+_pbWhenAuth(function(){
+  db.ref('etablissements').on('value',function(sn){ _pbEtabs=sn.val()||{};
+    // On n'écoute le planning que des camions Poké, pas ceux de Capt&Fish
+    _camionsPb().forEach(function(e){
+      var id=e[0];
+      db.ref('planning_emplacements/'+id).on('value',function(s2){ _pbPlans[id]=s2.val()||{}; _rebuildPlanningPb(); });
+      db.ref('emplacements_repertoire/'+id).on('value',function(s3){ _pbRepert[id]=s3.val()||{}; _rebuildPlanningPb(); });
+    });
+    _rebuildPlanningPb();
+  });
+});
 
 // La carte vient exclusivement de Firebase (admin → BDD Produits). Aucune carte
 // de secours codée en dur : afficher de faux produits ferait commander des articles
@@ -1732,7 +1792,7 @@ function renderPlanningGrid(){
   function slotEmpDiv(e){
     if(!e)return '';
     var camcls=e.cam==='c2'?' ot-c2':' ot-c1';
-    var inner='<div class="ot-cam '+(e.cam==='c1'?'c1':'c2')+'">● '+(e.cam==='c1'?'Camion 1':'Camion 2')+'</div>'
+    var inner='<div class="ot-cam '+(e.cam==='c1'?'c1':'c2')+'">● '+_nomCamionPb(e.cam)+'</div>'
       +'<div class="ot-lieu">'+e.lieu+'</div>'
       +'<div class="ot-hrs">'+e.horaires+'</div>';
     if(e.commandable){

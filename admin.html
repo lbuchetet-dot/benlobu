@@ -1873,7 +1873,13 @@ tr:hover td{background:var(--bg)}
     <input type="hidden" id="pl-jour">
     <input type="hidden" id="pl-service">
     <div class="form-field"><label class="form-label">Emplacement</label><input type="text" class="form-input" id="pl-lieu" list="lieux-hist2"><datalist id="lieux-hist2"></datalist></div>
-    <div class="form-field"><label class="form-label">Capacité (couverts)</label><input type="number" class="form-input" id="pl-cap" min="1"></div>
+    <div class="form-field"><label class="form-label">Rang d'affichage <small style="font-weight:500;color:var(--text-muted)">(1 = Camion 1, 2 = Camion 2 — fige l'ordre et les couleurs sur le site)</small></label><input type="number" class="form-input" id="etab-rang" min="1" placeholder="1"></div>
+      <div class="form-field"><label class="form-label">Capacité (couverts)</label><input type="number" class="form-input" id="pl-cap" min="1"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="form-field"><label class="form-label">Ouverture</label><input type="time" class="form-input" id="pl-h1"></div>
+        <div class="form-field"><label class="form-label">Fermeture</label><input type="time" class="form-input" id="pl-h2"></div>
+      </div>
+      <p style="font-size:12px;color:var(--text-muted);margin:-4px 0 10px">Affichés sur le site et utilisés pour les horaires d'ouverture Google de chaque commune.</p>
     <div class="modal-actions">
       <button class="btn btn-danger btn-sm" onclick="supprimerPlanning()">Effacer</button>
       <button class="btn btn-secondary" onclick="fermerModal('modal-planning')">Annuler</button>
@@ -2435,6 +2441,7 @@ function ouvrirModalEtab(id){
     document.getElementById('etab-nom').value = e.nom||'';
     document.getElementById('etab-carte').value = e.carte||'poke';
     document.getElementById('etab-cap').value = e.capacite_defaut||'';
+  document.getElementById('etab-rang').value = (e&&e.rang)?e.rang:'';
     document.getElementById('etab-pin').value = '';
   } else {
     ['etab-nom','etab-cap','etab-pin'].forEach(i=>document.getElementById(i).value='');
@@ -2450,7 +2457,8 @@ function sauvegarderEtab(){
   const pin = document.getElementById('etab-pin').value;
   if(!nom){ showNotif('Nom requis','error'); return; }
   const key = editEtabId || 'etab_'+Date.now();
-  const data = { nom, carte, capacite_defaut:cap, controle_caisse_actif:false, service_actif:null, emplacement_actuel:null };
+  const rang = parseInt(document.getElementById('etab-rang').value)||0;
+  const data = { nom, carte, capacite_defaut:cap, rang, controle_caisse_actif:false, service_actif:null, emplacement_actuel:null };
   if(pin) data.pin = pin;
   if(editEtabId && etabsData[editEtabId]){
     data.controle_caisse_actif = etabsData[editEtabId].controle_caisse_actif||false;
@@ -2873,6 +2881,10 @@ function ouvrirModalPlanning(etabId,jour,service,info){
   document.getElementById('pl-service').value=service;
   document.getElementById('pl-lieu').value=info?.nom||'';
   document.getElementById('pl-cap').value=info?.capacite||'';
+  // Horaires : ceux déjà enregistrés, sinon les habituels du service
+  const _def = (service==='midi') ? ['11:30','14:30'] : ['19:00','22:00'];
+  document.getElementById('pl-h1').value = info?.h_debut || _def[0];
+  document.getElementById('pl-h2').value = info?.h_fin   || _def[1];
   document.getElementById('modal-planning-title').textContent=`${jour.charAt(0).toUpperCase()+jour.slice(1)} — ${service}`;
   document.getElementById('modal-planning').classList.add('open');
 }
@@ -2884,7 +2896,9 @@ function sauvegarderPlanning(){
   const lieu=document.getElementById('pl-lieu').value.trim();
   const cap=parseInt(document.getElementById('pl-cap').value)||0;
   if(!lieu){ showNotif('Renseigne un emplacement','error'); return; }
-  db.ref(`planning_emplacements/${etabId}/${jour}/${service}`).set({nom:lieu,capacite:cap})
+  const h1=document.getElementById('pl-h1').value||'';
+  const h2=document.getElementById('pl-h2').value||'';
+  db.ref(`planning_emplacements/${etabId}/${jour}/${service}`).set({nom:lieu,capacite:cap,h_debut:h1,h_fin:h2})
     .then(()=>{ fermerModal('modal-planning'); showNotif('Emplacement enregistré','success'); chargerPlanning(etabId); })
     .catch(()=>showNotif('Erreur Firebase','error'));
 }
