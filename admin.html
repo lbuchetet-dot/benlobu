@@ -667,7 +667,7 @@ tr:hover td{background:var(--bg)}
       <div class="view" id="view-produits">
         <div class="page-header">
           <div class="page-header-left"><div class="page-title">Produits & Cartes</div><div class="page-sub">2 cartes : Poké et Burger</div></div>
-          <div style="display:flex;gap:10px"><button class="btn btn-secondary" onclick="ouvrirModalTailles()">⚙ Tailles de la carte</button><button class="btn btn-secondary" onclick="ouvrirModalSauces()">🥫 Sauces de la carte</button><button class="btn btn-primary" onclick="ouvrirModalProduit(null)">+ Nouveau produit</button></div>
+          <div style="display:flex;gap:10px"><button class="btn btn-secondary" onclick="ouvrirModalTailles()">⚙ Tailles de la carte</button><button class="btn btn-secondary" onclick="ouvrirModalSauces()">🥫 Sauces de la carte</button><button class="btn btn-secondary" onclick="ouvrirModalOptions()">🍟 Suppléments &amp; accompagnements</button><button class="btn btn-primary" onclick="ouvrirModalProduit(null)">+ Nouveau produit</button></div>
         </div>
         <div class="tabs" id="carte-tabs">
           <button class="tab-btn carte-tab active" onclick="switchCarte('poke',this)">🥗 Carte Poké</button>
@@ -1764,6 +1764,28 @@ tr:hover td{background:var(--bg)}
     </div>
   </div>
 </div>
+<div class="modal-overlay" id="modal-options">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-title">Suppléments &amp; accompagnements — carte <span id="mo-carte-nom"></span></div>
+    <p style="font-size:13px;color:var(--text-muted);line-height:1.55;margin-bottom:14px">
+      Définis ici la liste <strong>une fois pour toute la carte</strong>. Chaque fiche produit se contente ensuite de cocher ce qu'elle propose.
+      Changer un prix ici met à jour tous les produits qui le proposent.
+    </p>
+    <div style="font-size:13px;font-weight:600;margin-bottom:6px">Suppléments <small style="font-weight:500;color:var(--text-muted)">(hors catalogue — s'ajoutent au prix du produit)</small></div>
+    <div style="display:grid;grid-template-columns:1.4fr 1fr 1fr auto;gap:10px;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px"><span>Nom</span><span>Prix (€)</span><span>Coût (€)</span><span></span></div>
+    <div id="mo-sups-list"></div>
+    <button class="btn btn-secondary btn-sm" onclick="moAjouterSup()" style="margin-top:4px;margin-bottom:18px">+ Supplément</button>
+    <div style="font-size:13px;font-weight:600;margin-bottom:6px">Accompagnements <small style="font-weight:500;color:var(--text-muted)">(produit du catalogue vendu à un prix « avec » — coût et TVA repris de sa fiche)</small></div>
+    <div style="display:grid;grid-template-columns:1.4fr 1fr 1fr auto;gap:10px;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px"><span>Produit</span><span>Prix seul</span><span>Prix « avec » (€)</span><span></span></div>
+    <div id="mo-acc-list"></div>
+    <button class="btn btn-secondary btn-sm" onclick="moAjouterAcc()" style="margin-top:4px">+ Accompagnement</button>
+    <div id="mo-migration" style="display:none;margin-top:16px;padding:10px 12px;border:1px dashed var(--border);border-radius:8px;font-size:12px;line-height:1.5"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="fermerModal('modal-options')">Annuler</button>
+      <button class="btn btn-primary" onclick="enregistrerOptionsCarte()">Enregistrer</button>
+    </div>
+  </div>
+</div>
 <div class="modal-overlay" id="modal-sauces">
   <div class="modal" style="max-width:520px">
     <div class="modal-title">Sauces de la carte <span id="ms-carte-nom"></span></div>
@@ -1816,12 +1838,12 @@ tr:hover td{background:var(--bg)}
       <div class="gt-hint" id="gt-regle"></div>
       <div id="tailles-list"></div>
     </div>
-    <div style="font-size:13px;font-weight:600;margin-bottom:10px;color:var(--text)">Suppléments disponibles</div>
-    <div id="sups-list"></div>
-    <button class="btn btn-secondary btn-sm" onclick="ajouterSup()">+ Supplément</button>
-    <div style="font-size:13px;font-weight:600;margin:16px 0 4px;color:var(--text)">Suggéré avec ce produit <small style="font-weight:500;color:var(--text-muted)">(vente additionnelle — « On complète avec… » sur le site)</small></div>
-    <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px">Coche les produits à proposer au client quand il regarde ce produit.</div>
-    <div id="prod-suggestions" style="max-height:180px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:8px 10px;background:var(--bg)"></div>
+    <div style="font-size:13px;font-weight:600;margin-bottom:4px;color:var(--text)">Suppléments proposés <small style="font-weight:500;color:var(--text-muted)">(liste pilotée dans « 🍟 Suppléments &amp; accompagnements »)</small></div>
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px">Coche les suppléments que le client peut ajouter sur ce produit. Les prix sont définis une fois pour toute la carte.</div>
+    <div id="prod-options" style="max-height:160px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:8px 10px;background:var(--bg);margin-bottom:14px"></div>
+    <div style="font-size:13px;font-weight:600;margin-bottom:4px;color:var(--text)">Accompagnements proposés <small style="font-weight:500;color:var(--text-muted)">(produit du catalogue à prix « avec ce produit »)</small></div>
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px">Ex. Frites à 2 € avec un burger. Sur le site : ligne séparée au panier, quantité liée.</div>
+    <div id="prod-accomps" style="max-height:160px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:8px 10px;background:var(--bg)"></div>
     <div class="form-field" style="margin-top:16px"><label class="form-label">TVA applicable</label>
       <select class="form-select" id="prod-tva"><option value="sur_place">Sur place (10%)</option><option value="a_emporter">À emporter (5,5%)</option></select>
     </div>
@@ -1971,7 +1993,7 @@ function lancerApp(email){
   document.getElementById('topbar-date').textContent = now.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   chargerParametres();
   ecouterGrilleTailles();
-  ecouterSaucesCarte();
+  ecouterSaucesCarte(); ecouterOptionsCarte();
   ecouter_etablissements();
   chargerDashboardPeriode();
   chargerAvis(); // badge « à traiter » vivant dès l'ouverture
@@ -3485,8 +3507,6 @@ function renderProduits(data){
 }
 
 function ouvrirModalProduit(id){
-  supIdx=0;
-  document.getElementById('sups-list').innerHTML='';
   document.getElementById('prod-edit-id').value=id||'';
   if(id && produitsData[id]){
     const p=produitsData[id];
@@ -3501,8 +3521,7 @@ function ouvrirModalProduit(id){
     renderPhotoPreviewProduit(p.photo||'');
     renderAllergenesProduit(p.allergenes||{});
     chargerGrilleDepuisProduit(p.tailles||{}, currentCarte);
-    Object.entries(p.supplements||{}).forEach(([,s])=>ajouterSup(s.nom,s.prix,s.cout_revient));
-    renderSuggestionsProduit(id, p.suggestions||[]);
+    renderOptionsProduit(id, p);
   } else {
     document.getElementById('modal-produit-title').textContent='Nouveau produit';
     ['prod-nom','prod-cat','prod-desc'].forEach(i=>document.getElementById(i).value='');
@@ -3511,7 +3530,7 @@ function ouvrirModalProduit(id){
     renderAllergenesProduit({});
     document.getElementById('prod-carte').value=currentCarte;
     chargerGrilleDepuisProduit({}, currentCarte);
-    renderSuggestionsProduit(null, []);
+    renderOptionsProduit(null, {});
   }
   const pf=document.getElementById('prod-photo-file'); if(pf) pf.value='';
   document.getElementById('modal-produit').classList.add('open');
@@ -3632,6 +3651,155 @@ function enregistrerTaillesCarte(){
   if(!rows.length){ showNotif('Ajoute au moins une taille','error'); return; }
   db.ref('parametres/grille_tailles/'+currentCarte).set(rows)
     .then(()=>{ fermerModal('modal-tailles'); showNotif('Tailles enregistr\u00e9es \u2014 elles s\'appliquent \u00e0 toute la carte','success'); })
+    .catch(()=>showNotif('Erreur Firebase','error'));
+}
+
+
+/* ---------- Référentiel « Suppléments & accompagnements » de la carte ---------- */
+// parametres/options_carte/<carte> = { supplements:{ id:{nom,prix,cout_revient} }, accompagnements:{ id:{prodId,prix} } }
+// Chaque produit porte options_ids[] / accomp_ids[] ; son champ `supplements` est une COPIE résolue
+// (nom/prix/coût) régénérée à chaque enregistrement du référentiel → caisse et site Pok&Ben inchangés.
+let OPTIONS_CARTE = {};
+function ecouterOptionsCarte(){
+  db.ref('parametres/options_carte').on('value', sn=>{ OPTIONS_CARTE=sn.val()||{}; });
+}
+function _optCarte(carte){ const o=OPTIONS_CARTE[carte]||{}; return {supplements:o.supplements||{}, accompagnements:o.accompagnements||{}}; }
+function _prixCatalogue(p){ const t=Object.values((p&&p.tailles)||{})[0]||{}; return typeof t.prix==='number'?t.prix:(parseFloat(t.prix)||0); }
+function _resoudreSupplements(carte, options_ids, accomp_ids){
+  const ref=_optCarte(carte); const out={};
+  (options_ids||[]).forEach(id=>{ const o=ref.supplements[id]; if(o&&o.nom) out['sup_'+id]={nom:o.nom,prix:Number(o.prix)||0,cout_revient:Number(o.cout_revient)||0}; });
+  (accomp_ids||[]).forEach(id=>{
+    const a=ref.accompagnements[id]; const p=a&&produitsData[a.prodId];
+    if(!p) return;
+    const coutRef=Object.values(p.tailles||{})[0]||{};
+    out['acc_'+id]={nom:p.nom,prix:Number(a.prix)||0,cout_revient:Number(coutRef.cout_revient)||0,prodId:a.prodId,accompagnement:true};
+  });
+  return out;
+}
+function renderOptionsProduit(selfId, p){
+  const ref=_optCarte(currentCarte);
+  const selO={}; (p.options_ids||[]).forEach(i=>selO[i]=true);
+  const selA={}; (p.accomp_ids||[]).forEach(i=>selA[i]=true);
+  const fmt=v=>(Number(v)||0).toFixed(2).replace('.',',')+' €';
+  const eo=document.getElementById('prod-options');
+  const sups=Object.entries(ref.supplements);
+  eo.innerHTML=sups.length?sups.map(([id,o])=>`<label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer;padding:3px 0"><input type="checkbox" class="prod-opt-cb" value="${id}" ${selO[id]?'checked':''}> ${o.nom} <span style="color:var(--text-muted)">+${fmt(o.prix)}</span></label>`).join('')
+    :'<div style="font-size:12px;color:var(--text-muted)">Aucun supplément défini — bouton « 🍟 Suppléments &amp; accompagnements » en haut de la page.</div>';
+  const ea=document.getElementById('prod-accomps');
+  const accs=Object.entries(ref.accompagnements).filter(([,a])=>a.prodId!==selfId && produitsData[a.prodId]);
+  ea.innerHTML=accs.length?accs.map(([id,a])=>{ const pr=produitsData[a.prodId]; return `<label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer;padding:3px 0"><input type="checkbox" class="prod-acc-cb" value="${id}" ${selA[id]?'checked':''}> ${pr.nom} <span style="color:var(--text-muted)">${fmt(a.prix)} avec (${fmt(_prixCatalogue(pr))} seul)</span></label>`; }).join('')
+    :'<div style="font-size:12px;color:var(--text-muted)">Aucun accompagnement défini pour cette carte.</div>';
+}
+function ouvrirModalOptions(){
+  document.getElementById('mo-carte-nom').textContent=(currentCarte==='burger'?'Burger':'Poké');
+  const ref=_optCarte(currentCarte);
+  document.getElementById('mo-sups-list').innerHTML='';
+  document.getElementById('mo-acc-list').innerHTML='';
+  Object.entries(ref.supplements).forEach(([id,o])=>moAjouterSup(o.nom,o.prix,o.cout_revient,id));
+  Object.entries(ref.accompagnements).forEach(([id,a])=>moAjouterAcc(a.prodId,a.prix,id));
+  // Migration proposée si le référentiel est vide et que des fiches ont encore des suppléments texte libre
+  const mig=document.getElementById('mo-migration');
+  const legacy=_supplementsLegacy();
+  if(!Object.keys(ref.supplements).length && !Object.keys(ref.accompagnements).length && legacy.length){
+    mig.style.display='';
+    mig.innerHTML=`Cette carte a encore <strong>${legacy.length}</strong> supplément(s) saisi(s) fiche par fiche (${legacy.map(l=>l.nom).join(', ')}). `
+      +`<button class="btn btn-secondary btn-sm" onclick="migrerOptionsCarte()">Reprendre dans le référentiel</button> — les noms qui correspondent à un produit du catalogue deviendront des accompagnements.`;
+  } else mig.style.display='none';
+  document.getElementById('modal-options').classList.add('open');
+}
+function _supplementsLegacy(){
+  const vus={}, out=[];
+  Object.entries(produitsData).forEach(([pid,p])=>{
+    Object.values(p.supplements||{}).forEach(s=>{
+      if(!s||!s.nom) return;
+      const k=s.nom.trim().toLowerCase();
+      if(!vus[k]){ vus[k]={nom:s.nom.trim(),prix:Number(s.prix)||0,cout_revient:Number(s.cout_revient)||0,produits:[]}; out.push(vus[k]); }
+      vus[k].produits.push(pid);
+    });
+  });
+  return out;
+}
+function migrerOptionsCarte(){
+  const legacy=_supplementsLegacy();
+  const supplements={}, accompagnements={}, parProduit={};
+  const catalogue={}; Object.entries(produitsData).forEach(([id,p])=>{ if(p&&p.nom) catalogue[p.nom.trim().toLowerCase()]=id; });
+  legacy.forEach((l,i)=>{
+    const k=l.nom.toLowerCase(); const id='o'+Date.now().toString(36)+i;
+    if(catalogue[k]){ accompagnements[id]={prodId:catalogue[k],prix:l.prix}; l.produits.forEach(pid=>{ (parProduit[pid]=parProduit[pid]||{o:[],a:[]}).a.push(id); }); }
+    else { supplements[id]={nom:l.nom,prix:l.prix,cout_revient:l.cout_revient}; l.produits.forEach(pid=>{ (parProduit[pid]=parProduit[pid]||{o:[],a:[]}).o.push(id); }); }
+  });
+  OPTIONS_CARTE[currentCarte]={supplements,accompagnements};
+  const up={};
+  up['parametres/options_carte/'+currentCarte]={supplements,accompagnements};
+  Object.entries(parProduit).forEach(([pid,v])=>{
+    up[`cartes/${currentCarte}/produits/${pid}/options_ids`]=v.o;
+    up[`cartes/${currentCarte}/produits/${pid}/accomp_ids`]=v.a;
+    up[`cartes/${currentCarte}/produits/${pid}/supplements`]=_resoudreSupplements(currentCarte,v.o,v.a);
+  });
+  db.ref().update(up)
+    .then(()=>{ showNotif('Référentiel créé à partir des fiches ('+Object.keys(supplements).length+' suppléments, '+Object.keys(accompagnements).length+' accompagnements)','success'); chargerProduits(currentCarte); fermerModal('modal-options'); setTimeout(ouvrirModalOptions,300); })
+    .catch(()=>showNotif('Erreur Firebase','error'));
+}
+function moAjouterSup(nom='',prix='',cout='',id=''){
+  const rid=id||('o'+(Date.now()+Math.random()).toString(36).slice(-7));
+  const div=document.createElement('div');
+  div.className='mo-sup-row'; div.dataset.id=rid;
+  div.style.cssText='display:grid;grid-template-columns:1.4fr 1fr 1fr auto;gap:10px;align-items:center;margin-bottom:8px';
+  div.innerHTML='<input type="text" class="form-input mo-nom" value="'+String(nom).replace(/"/g,'&quot;')+'" placeholder="Cheddar en plus">'
+    +'<input type="number" step="0.10" class="form-input mo-prix" value="'+prix+'" placeholder="1.00">'
+    +'<input type="number" step="0.10" class="form-input mo-cout" value="'+cout+'" placeholder="0.30">'
+    +'<button class="btn btn-danger btn-sm" style="margin-bottom:0" onclick="this.parentNode.remove()">✕</button>';
+  document.getElementById('mo-sups-list').appendChild(div);
+}
+function moAjouterAcc(prodId='',prix='',id=''){
+  const rid=id||('a'+(Date.now()+Math.random()).toString(36).slice(-7));
+  const div=document.createElement('div');
+  div.className='mo-acc-row'; div.dataset.id=rid;
+  div.style.cssText='display:grid;grid-template-columns:1.4fr 1fr 1fr auto;gap:10px;align-items:center;margin-bottom:8px';
+  const opts=Object.entries(produitsData).sort((a,b)=>(a[1].nom||'').localeCompare(b[1].nom||'')).map(([pid,p])=>`<option value="${pid}" ${pid===prodId?'selected':''}>${p.nom||'Sans nom'}${p.actif===false?' (inactif)':''}</option>`).join('');
+  div.innerHTML='<select class="form-select mo-prod" onchange="moMajPrixSeul(this)"><option value="">— produit —</option>'+opts+'</select>'
+    +'<span class="mo-seul" style="font-size:13px;color:var(--text-muted)"></span>'
+    +'<input type="number" step="0.10" class="form-input mo-prix" value="'+prix+'" placeholder="2.00">'
+    +'<button class="btn btn-danger btn-sm" style="margin-bottom:0" onclick="this.parentNode.remove()">✕</button>';
+  document.getElementById('mo-acc-list').appendChild(div);
+  moMajPrixSeul(div.querySelector('.mo-prod'));
+}
+function moMajPrixSeul(sel){
+  const p=produitsData[sel.value]; const sp=sel.parentNode.querySelector('.mo-seul');
+  sp.textContent=p?_prixCatalogue(p).toFixed(2).replace('.',',')+' €':'';
+}
+function enregistrerOptionsCarte(){
+  const supplements={}, accompagnements={};
+  const noms=[];
+  document.querySelectorAll('#mo-sups-list .mo-sup-row').forEach(r=>{
+    const nom=r.querySelector('.mo-nom').value.trim(); const prix=parseFloat(r.querySelector('.mo-prix').value);
+    if(!nom||isNaN(prix)) return;
+    supplements[r.dataset.id]={nom,prix,cout_revient:parseFloat(r.querySelector('.mo-cout').value)||0}; noms.push(nom);
+  });
+  document.querySelectorAll('#mo-acc-list .mo-acc-row').forEach(r=>{
+    const prodId=r.querySelector('.mo-prod').value; const prix=parseFloat(r.querySelector('.mo-prix').value);
+    if(!prodId||isNaN(prix)) return;
+    accompagnements[r.dataset.id]={prodId,prix};
+  });
+  // Garde-fou : un supplément qui porte le nom d'un produit du catalogue doit être un accompagnement
+  const catalogue=Object.values(produitsData).map(p=>(p.nom||'').trim().toLowerCase());
+  const doublon=noms.find(n=>catalogue.includes(n.toLowerCase()));
+  if(doublon && !confirm('« '+doublon+' » existe déjà comme produit du catalogue.\nUtilise plutôt un accompagnement (coût et TVA repris de sa fiche).\n\nEnregistrer quand même ?')) return;
+  OPTIONS_CARTE[currentCarte]={supplements,accompagnements};
+  const up={};
+  up['parametres/options_carte/'+currentCarte]={supplements,accompagnements};
+  // Resynchronise la copie `supplements` de chaque produit de la carte
+  Object.entries(produitsData).forEach(([pid,p])=>{
+    if(!p) return;
+    const o=(p.options_ids||[]).filter(i=>supplements[i]);
+    const a=(p.accomp_ids||[]).filter(i=>accompagnements[i]);
+    if(!(p.options_ids||p.accomp_ids)) return;      // fiche jamais migrée : on ne touche pas
+    up[`cartes/${currentCarte}/produits/${pid}/options_ids`]=o;
+    up[`cartes/${currentCarte}/produits/${pid}/accomp_ids`]=a;
+    up[`cartes/${currentCarte}/produits/${pid}/supplements`]=_resoudreSupplements(currentCarte,o,a);
+  });
+  db.ref().update(up)
+    .then(()=>{ fermerModal('modal-options'); showNotif('Référentiel enregistré — fiches produits mises à jour','success'); chargerProduits(currentCarte); })
     .catch(()=>showNotif('Erreur Firebase','error'));
 }
 
@@ -3767,42 +3935,6 @@ function _tailleseDepuisGrille(){
   return out;
 }
 
-function ajouterSup(nom='',prix='',cout=''){
-  const i=supIdx++;
-  const div=document.createElement('div');
-  div.id='sup-'+i;
-  div.style.cssText='display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:10px;margin-bottom:10px;align-items:flex-end';
-  div.innerHTML=`
-    <div><label class="form-label">Nom</label><input type="text" class="form-input" id="s-nom-${i}" value="${nom}" placeholder="Avocat"></div>
-    <div><label class="form-label">Prix (€)</label><input type="number" class="form-input" id="s-prix-${i}" value="${prix}" step="0.10" placeholder="1.50"></div>
-    <div><label class="form-label">Coût (€)</label><input type="number" class="form-input" id="s-cout-${i}" value="${cout}" step="0.10" placeholder="0.40"></div>
-    <button class="btn btn-danger btn-sm" onclick="document.getElementById('sup-${i}').remove()">✕</button>`;
-  document.getElementById('sups-list').appendChild(div);
-}
-
-// Vente additionnelle : checklist des autres produits de la carte
-function renderSuggestionsProduit(selfId, selectedIds){
-  const sel={}; (selectedIds||[]).forEach(id=>sel[id]=true);
-  const el=document.getElementById('prod-suggestions');
-  if(!el) return;
-  const parCat={};
-  Object.entries(produitsData).forEach(([id,p])=>{
-    if(id===selfId) return;            // pas se suggérer soi-même
-    if(!p) return;
-    const c=p.categorie||'Autres';
-    (parCat[c]=parCat[c]||[]).push([id,p]);
-  });
-  const cats=Object.keys(parCat);
-  if(!cats.length){ el.innerHTML='<div style="font-size:12px;color:var(--text-muted)">Aucun autre produit sur cette carte.</div>'; return; }
-  el.innerHTML=cats.map(c=>{
-    const items=parCat[c].map(([id,p])=>
-      `<label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer;padding:3px 0">
-         <input type="checkbox" class="prod-sugg-cb" value="${id}" ${sel[id]?'checked':''}> ${p.nom||'Sans nom'}${p.actif===false?' <span style="color:var(--text-muted)">(inactif)</span>':''}
-       </label>`).join('');
-    return `<div style="margin-bottom:8px"><div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text-muted);margin-bottom:2px">${c}</div>${items}</div>`;
-  }).join('');
-}
-
 function sauvegarderProduit(){
   const nom=document.getElementById('prod-nom').value.trim();
   const cat=document.getElementById('prod-cat').value.trim();
@@ -3817,17 +3949,12 @@ function sauvegarderProduit(){
   if(!nom||!cat){ showNotif('Nom et catégorie requis','error'); return; }
   const tailles=_tailleseDepuisGrille();
   if(!Object.keys(tailles).length){ showNotif('Renseigne au moins un prix dans la grille','error'); return; }
-  const supplements={};
-  document.querySelectorAll('[id^="sup-"]').forEach(el=>{
-    const i=el.id.split('-')[1];
-    const n=document.getElementById('s-nom-'+i)?.value.trim();
-    const p=parseFloat(document.getElementById('s-prix-'+i)?.value);
-    const c=parseFloat(document.getElementById('s-cout-'+i)?.value)||0;
-    if(n&&!isNaN(p)) supplements['sup_'+i]={nom:n,prix:p,cout_revient:c};
-  });
+  const options_ids=[...document.querySelectorAll('.prod-opt-cb:checked')].map(cb=>cb.value);
+  const accomp_ids=[...document.querySelectorAll('.prod-acc-cb:checked')].map(cb=>cb.value);
+  // `supplements` = copie résolue depuis le référentiel (compat caisse / site Pok&Ben)
+  const supplements=_resoudreSupplements(carte, options_ids, accomp_ids);
   const key=editId||'prod_'+Date.now();
-  const suggestions=[...document.querySelectorAll('.prod-sugg-cb:checked')].map(cb=>cb.value);
-  db.ref(`cartes/${carte}/produits/${key}`).set({nom,categorie:cat,tva,actif,description,photo,allergenes,tailles,supplements,suggestions})
+  db.ref(`cartes/${carte}/produits/${key}`).set({nom,categorie:cat,tva,actif,description,photo,allergenes,tailles,supplements,options_ids,accomp_ids})
     .then(()=>{ fermerModal('modal-produit'); showNotif('Produit enregistré','success'); chargerProduits(carte); })
     .catch(()=>showNotif('Erreur Firebase','error'));
 }

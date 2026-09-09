@@ -518,6 +518,7 @@
   .fm-slot-select { width:100%; padding:0.65rem 0.8rem; border:1px solid rgba(245,237,214,0.3); background:var(--ocean-light); color:var(--cream); border-radius:12px; font-family:inherit; font-size:0.92rem; outline:none; }
   .fm-slot-select:focus { border-color:var(--gold); }
   .pd-suggest { text-align:left; margin-bottom:1.2rem; }
+  .cart-item-lie { margin-left:1.1rem; padding-left:0.7rem; border-left:2px solid rgba(212,175,98,0.45); }
   .pd-sugg-row { display:flex; align-items:center; gap:0.6rem; padding:0.5rem 0.7rem; border:1px solid rgba(245,237,214,0.15); border-radius:12px; margin-bottom:0.4rem; }
   .pd-sugg-name { flex:1; font-size:0.86rem; color:var(--cream); }
   .pd-sugg-price { font-size:0.8rem; color:rgba(245,237,214,0.7); white-space:nowrap; }
@@ -1959,6 +1960,7 @@ _startAnonAuth();
 // Caches alimentés par Firebase
 let fbProduits = {};      // cartes/burger/produits
 let fbCarteCfg = {};      // parametres/carte_config/burger (ordre + couleurs)
+let fbOptionsCarte = {};  // parametres/options_carte/burger (suppléments + accompagnements pilotés dans l'admin)
 let fbFormules = {};      // cartes/burger/formules
 let formules = [];        // formules actives normalisées
 let fbPlanning = {};      // planning_emplacements/captfish
@@ -2027,6 +2029,23 @@ let orderFilter = 'all';
 const EMOJI_CAT = { 'Burgers':'🍔','Burger':'🍔','Bocaux & Tartares':'🫙','Bocaux':'🫙','Tartares':'🫙','Accompagnements':'🍟','Accompagnement':'🍟','Boissons':'🥤','Desserts':'🍰' };
 function emojiFor(cat){ return EMOJI_CAT[cat] || '🐟'; }
 
+// Suppléments d'un produit : depuis le référentiel de la carte (options_ids) ;
+// repli sur les suppléments texte libre de la fiche tant qu'elle n'est pas migrée.
+function _optionsProduit(p){
+  const ref = (fbOptionsCarte.supplements) || {};
+  if(Array.isArray(p.options_ids)){
+    const out = {};
+    p.options_ids.forEach(id => { const o = ref[id]; if(o && o.nom) out[id] = { nom:o.nom, prix:Number(o.prix)||0 }; });
+    return out;
+  }
+  const out = {};
+  Object.entries(p.supplements || {}).forEach(([k,sp]) => { if(sp && sp.nom && !sp.accompagnement) out[k] = { nom:sp.nom, prix:Number(sp.prix)||0 }; });
+  return out;
+}
+function _accompsProduit(p){
+  const ref = (fbOptionsCarte.accompagnements) || {};
+  return (p.accomp_ids || []).map(id => { const a = ref[id]; return a && a.prodId ? { id, prodId:String(a.prodId), prix:Number(a.prix)||0 } : null; }).filter(Boolean);
+}
 // Construit le tableau `menu` (format attendu par le rendu) depuis cartes/burger/produits
 function buildMenu(){
   menu = Object.entries(fbProduits)
@@ -2043,8 +2062,8 @@ function buildMenu(){
         emoji: p.emoji || emojiFor(p.categorie),
         photo: p.photo || '',
         allergenes: p.allergenes || {},
-        supplements: p.supplements || {},
-        suggestions: p.suggestions || [],
+        supplements: _optionsProduit(p),      // {id:{nom,prix}} — suppléments hors catalogue
+        accomps: _accompsProduit(p),          // [{id,prodId,prix}] — produits du catalogue à prix « avec »
         _ordre: (fbCarteCfg.articles && fbCarteCfg.articles[id] && fbCarteCfg.articles[id].ordre != null) ? fbCarteCfg.articles[id].ordre : 999,
         available: p.actif !== false
       };
@@ -2244,6 +2263,7 @@ function initFirebaseListeners(){
   db.ref('cartes/'+CARTE+'/produits').on('value', s => { fbProduits = s.val() || {}; refreshFromData(); });
   db.ref('cartes/'+CARTE+'/formules').on('value', s => { fbFormules = s.val() || {}; refreshFromData(); });
   db.ref('parametres/carte_config/'+CARTE).on('value', s => { fbCarteCfg = s.val() || {}; refreshFromData(); });
+  db.ref('parametres/options_carte/'+CARTE).on('value', s => { fbOptionsCarte = s.val() || {}; refreshFromData(); });
   db.ref('planning_emplacements/'+ETAB_ID).on('value', s => { fbPlanning = s.val() || {}; refreshFromData(); });
   db.ref('overrides/'+ETAB_ID).on('value', s => { fbOverrides = s.val() || {}; refreshFromData(); });
   // Répertoire des adresses d'emplacements (renseigné dans l'admin)
@@ -2452,11 +2472,11 @@ function renderHomeSpots() {  const el = document.getElementById('home-spots');
 
 // =================== RENDER MENU ===================
 // ===== FICHE PRODUIT (popup au clic sur une carte du menu) =====
-let _pdId = null, _pdQ = 1, _pdSups = {};
+let _pdId = null, _pdQ = 1, _pdSups = {}, _pdAcc = {};
 function openProductDetail(id){
   const item = menu.find(m => m.id === id);
   if(!item) return;
-  _pdId = id; _pdQ = 1; _pdSups = {};
+  _pdId = id; _pdQ = 1; _pdSups = {}; _pdAcc = {};
   // Suppléments offerts par l'événement : pré-cochés d'office (prix 0)
   Object.entries(item.supplements || {}).forEach(([sid, s]) => {
     if(s && s.nom && _suppOffert(s.nom)) _pdSups[sid] = { nom: s.nom, prix: 0 };
@@ -2489,16 +2509,23 @@ function openProductDetail(id){
        </div>`;
     }).join('');
   } else { sEl.innerHTML = ''; }
-  // Vente additionnelle : « On complète avec… »
-  const sugg = (item.suggestions||[]).map(sid => menu.find(m=>m.id==sid && m.available)).filter(Boolean);
+  // Accompagnements (produits du catalogue à prix « avec ») — cases à cocher, ligne séparée au panier
+  const accs = (item.accomps || []).map(a => { const m = menu.find(x => x.id == a.prodId && x.available); return m ? { ...a, prod:m } : null; }).filter(Boolean);
+  // Offerts par l'événement : pré-cochés (prix 0)
+  accs.forEach(a => { if(_suppOffert(a.prod.name)) _pdAcc[a.id] = { prodId:a.prodId, nom:a.prod.name, emoji:a.prod.emoji, prix:0 }; });
   const gEl = document.getElementById('pd-suggest');
-  if(sugg.length){
-    gEl.innerHTML = '<div class="pd-sups-lbl">On complète avec…</div>' + sugg.map(s =>
-      `<div class="pd-sugg-row">
-         <span class="pd-sugg-name">${s.emoji||'🐟'} ${s.name}</span>
-         <span class="pd-sugg-price">${s.price.toFixed(2).replace('.',',')} €</span>
-         <button class="pd-sugg-add" onclick="pdAjouterSuggestion('${s.id}')">+</button>
-       </div>`).join('');
+  if(accs.length){
+    gEl.innerHTML = '<div class="pd-sups-lbl">Avec ça…</div>' + accs.map(a => {
+      const _off = _suppOffert(a.prod.name);
+      const _sel = !!_pdAcc[a.id];
+      const _pxTxt = _off
+        ? `<span style="text-decoration:line-through;opacity:.45;margin-right:5px">+${a.prix.toFixed(2).replace('.',',')} €</span>🎁 ${_offreLabelCreneau()}`
+        : `+${a.prix.toFixed(2).replace('.',',')} €`;
+      return `<div class="pd-sup-row${_sel?' selected':''}" data-aid="${a.id}" onclick="pdToggleAcc('${a.id}')">
+         <span class="pd-sup-name"><span class="pd-sup-check">✓</span>${a.prod.emoji||'🍟'} ${a.prod.name}</span>
+         <span class="pd-sup-price">${_pxTxt}</span>
+       </div>`;
+    }).join('');
   } else { gEl.innerHTML = ''; }
   document.getElementById('pd-qty-val').textContent = _pdQ;
   pdRefreshPrice();
@@ -2517,7 +2544,19 @@ function pdUnitPrice(){
   const item = menu.find(m => m.id === _pdId) || {};
   let p = _prixEffectif(item);
   Object.values(_pdSups).forEach(s => { p += (s.prix||0); });
+  Object.values(_pdAcc).forEach(a => { p += (a.prix||0); });
   return p;
+}
+function pdToggleAcc(aid){
+  const item = menu.find(m => m.id === _pdId) || {};
+  const a = (item.accomps||[]).find(x => x.id === aid);
+  const prod = a && menu.find(x => x.id == a.prodId);
+  if(!prod) return;
+  if(_pdAcc[aid]) delete _pdAcc[aid];
+  else _pdAcc[aid] = { prodId:a.prodId, nom:prod.name, emoji:prod.emoji, prix:_suppOffert(prod.name) ? 0 : a.prix };
+  const row = document.querySelector('#pd-suggest .pd-sup-row[data-aid="'+aid+'"]');
+  if(row) row.classList.toggle('selected', !!_pdAcc[aid]);
+  pdRefreshPrice();
 }
 function pdRefreshPrice(){
   const _p = pdUnitPrice();
@@ -2543,7 +2582,11 @@ function pdQty(delta){
 }
 function pdAjouter(){
   if(!_pdId) return;
-  _cartAdd(_pdId, Object.values(_pdSups), _pdQ);
+  const parentId = _cartAdd(_pdId, Object.values(_pdSups), _pdQ);
+  if(parentId){
+    const parent = cart.find(l => l.lineId === parentId);
+    Object.values(_pdAcc).forEach(a => _cartAddLie(a, _pdQ, parent));
+  }
   renderCart();
   updateCartBadge();
   showToast('✓ Ajouté au panier', '🐟');
@@ -3182,12 +3225,13 @@ function _cartAdd(prodId, sups, qte){
   sups = (sups||[]).map(s => ({ nom:s.nom, prix:s.prix||0 }));
   qte = qte || 1;
   const sig = _supSig(sups);
-  const existing = cart.find(l => l.prodId == prodId && _supSig(l.supplements) === sig);
-  if(existing){ existing.qte += qte; return; }
+  const existing = cart.find(l => l.prodId == prodId && !l.parentLineId && _supSig(l.supplements) === sig);
+  if(existing){ existing.qte += qte; return existing.lineId; }
   const _pb = _prixEffectif(item);
   const prixUnit = _pb + sups.reduce((s,x)=>s+(x.prix||0),0);
+  const lineId = 'l'+(_lineSeq++);
   cart.push({
-    lineId: 'l'+(_lineSeq++),
+    lineId,
     prodId: String(prodId),
     nom: item.name || '',
     emoji: item.emoji || '🐟',
@@ -3197,6 +3241,39 @@ function _cartAdd(prodId, sups, qte){
     prixUnit,
     qte
   });
+  return lineId;
+}
+// Ligne « accompagnement » rattachée à une ligne parent (Frites 2 € avec Le Figanzola) :
+// vrai produit du catalogue au prix « avec », quantité alignée sur le parent.
+function _cartAddLie(acc, qte, parent){
+  if(!parent || !_prodAutorise(acc.prodId)) return;
+  const existing = cart.find(l => l.parentLineId === parent.lineId && l.prodId == acc.prodId);
+  if(existing){ existing.qte = parent.qte; return; }
+  const idx = cart.findIndex(l => l.lineId === parent.lineId);
+  const item = menu.find(m => m.id == acc.prodId) || {};
+  const line = {
+    lineId: 'l'+(_lineSeq++),
+    prodId: String(acc.prodId),
+    nom: acc.nom || item.name || '',
+    emoji: acc.emoji || item.emoji || '🍟',
+    cat: item.cat || '',
+    prixBase: acc.prix || 0,
+    supplements: [],
+    prixUnit: acc.prix || 0,
+    qte: parent.qte,
+    parentLineId: parent.lineId,
+    avec: parent.nom
+  };
+  cart.splice(idx + 1, 0, line);    // juste sous son parent
+}
+// Aligne les lignes liées sur la quantité de leur parent ; supprime les orphelines
+function _syncLignesLiees(){
+  for(let i = cart.length - 1; i >= 0; i--){
+    const l = cart[i];
+    if(!l.parentLineId) continue;
+    const p = cart.find(x => x.lineId === l.parentLineId);
+    if(!p || p.qte <= 0) cart.splice(i, 1); else l.qte = p.qte;
+  }
 }
 let _lineSeq = 1;
 function addToCart(id) {
@@ -3216,14 +3293,16 @@ function addToCart(id) {
 function removeFromCart(lineId) {
   const i = cart.findIndex(l => l.lineId === lineId);
   if(i < 0) return;
+  if(cart[i].parentLineId){ cart.splice(i, 1); renderCart(); updateCartBadge(); return; }   // retirer l'accompagnement seul
   if(cart[i].qte > 1) cart[i].qte--;
   else cart.splice(i, 1);
+  _syncLignesLiees();
   renderCart();
   updateCartBadge();
 }
 function addLineQty(lineId){
   const l = cart.find(x => x.lineId === lineId);
-  if(l){ l.qte++; renderCart(); updateCartBadge(); }
+  if(l && !l.parentLineId){ l.qte++; _syncLignesLiees(); renderCart(); updateCartBadge(); }
 }
 function updateCartBadge() {
   const total = cart.reduce((a,l)=>a+l.qte,0);
@@ -3248,8 +3327,8 @@ function renderCart() {
       const l = cart[i];
       const ok = (l.type !== 'formule') && (_evR.has(String(l.prodId)) || _evR.has(l.prodId));
       if(!ok){ cart.splice(i, 1); continue; }
-      // article autorisé : on applique le prix soirée s'il existe
-      const it = menu.find(m => m.id == l.prodId);
+      // article autorisé : on applique le prix soirée s'il existe (jamais sur une ligne liée : prix « avec »)
+      const it = l.parentLineId ? null : menu.find(m => m.id == l.prodId);
       if(it){
         const pe = _prixEffectif(it);
         const supsTotal = (l.supplements||[]).reduce((s,x)=>s+(x.prix||0),0);
@@ -3258,6 +3337,7 @@ function renderCart() {
       }
     }
   }
+  _syncLignesLiees();
   const el = document.getElementById('cart-display');
   const lignes = cart.filter(l => l.qte > 0);
   if(lignes.length === 0) {
@@ -3273,6 +3353,19 @@ function renderCart() {
       detail = l.nomCompo ? `<div class="cart-item-sups">${l.nomCompo}</div>` : '';
     } else if(l.supplements && l.supplements.length){
       detail = `<div class="cart-item-sups">+ ${l.supplements.map(s=>s.nom).join(', ')}</div>`;
+    }
+    if(l.parentLineId){
+      return `<div class="cart-item cart-item-lie">
+      <div class="cart-item-main">
+        <span class="cart-item-name">${l.emoji} ${l.nom}</span>
+        <div class="cart-item-sups">avec ${l.avec||''}</div>
+      </div>
+      <div class="cart-qty">
+        <button class="qty-btn" onclick="removeFromCart('${l.lineId}')" aria-label="Retirer">✕</button>
+        <span class="qty-num">${l.qte}</span>
+      </div>
+      <span class="cart-item-price">${(l.prixUnit * l.qte)===0 ? '🎁 Offert' : (l.prixUnit * l.qte).toFixed(2).replace('.',',')+' €'}</span>
+    </div>`;
     }
     return `<div class="cart-item">
       <div class="cart-item-main">
@@ -3505,11 +3598,13 @@ function _envoyerCommande() {
       };
     }
     const supLbl = (l.supplements && l.supplements.length) ? ' (+ '+l.supplements.map(s=>s.nom).join(', ')+')' : '';
+    const lieLbl = l.parentLineId ? ' (avec '+(l.avec||'')+')' : '';
     return {
       id: l.prodId,
       prodId: l.prodId,
-      nom: l.nom + supLbl,        // affichage admin/caisse : nom + suppléments
+      nom: l.nom + supLbl + lieLbl,   // affichage admin/caisse : nom + suppléments (+ « avec X » pour un accompagnement)
       nomBase: l.nom,
+      ...(l.parentLineId ? { accompagnement: true, avec: l.avec||'' } : {}),
       qty: l.qte,
       qte: l.qte,
       prix: l.prixUnit,           // prix unitaire suppléments inclus (totaux cohérents)
