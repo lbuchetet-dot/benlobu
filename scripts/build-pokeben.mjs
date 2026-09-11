@@ -45,6 +45,8 @@ const JOURS_K = {lundi:'Lundi',mardi:'Mardi',mercredi:'Mercredi',jeudi:'Jeudi',v
 const HORAIRES = {midi:'11h30 – 14h30', soir:'19h00 – 22h00'};
 const _slugLieu = n => String(n||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'');
 const _hFmt = h => String(h||'').replace(':','h');
+const EST_PRIVATISATION = nom => /privati[sz]/i.test(String(nom||''));
+let PRIVATISATIONS_MASQUEES = 0;
 async function planningDepuisAdmin(){
   const [etabs, plans, repert] = await Promise.all([
     fb('etablissements').catch(e=>{console.warn('⚠ '+e.message);return null;}),
@@ -54,12 +56,12 @@ async function planningDepuisAdmin(){
   if(!etabs || !plans) return null;
   const rep = repert || {};
   // Adresse : identifiant dérivé du nom, puis repli sur le nom exact (même règle que le site)
-  const adresseDe = (etabId,nom) => {
+  const entreeDe = (etabId,nom) => {
     const r = rep[etabId] || {};
     const sl = _slugLieu(nom);
-    if(r[sl] && r[sl].adresse) return r[sl].adresse;
+    if(r[sl] && r[sl].adresse) return r[sl];
     const hit = Object.values(r).find(x => x && String(x.nom||'').toLowerCase() === String(nom||'').toLowerCase());
-    return hit ? (hit.adresse||'') : '';
+    return hit || {};
   };
   // Camions de la carte Poké, ordonnés par « rang » explicite (repli : ordre du nom)
   const camions = Object.entries(etabs)
@@ -78,12 +80,16 @@ async function planningDepuisAdmin(){
       ['midi','soir'].forEach(sv => {
         const info = services[sv];
         if(!info || !info.nom) return;
+        // Créneau privatisé : jamais publié (ni page, ni planning, ni sitemap, ni HTML embarqué)
+        if(EST_PRIVATISATION(info.nom)){ PRIVATISATIONS_MASQUEES++; return; }
+        const ent = entreeDe(etabId, info.nom);
         out[jour] = out[jour] || {};
         out[jour][cam] = out[jour][cam] || [];
         out[jour][cam].push({
           service: sv==='midi' ? 'Midi' : 'Soir',
           lieu: info.nom,
-          adresse: adresseDe(etabId, info.nom),
+          adresse: ent.adresse || '',
+          commune: ent.commune || '',
           horaires: (info.h_debut && info.h_fin) ? `${_hFmt(info.h_debut)} – ${_hFmt(info.h_fin)}` : HORAIRES[sv]
         });
       });
@@ -116,13 +122,64 @@ const sauces   = (await fb('parametres/sauces/poke').catch(()=>null)) || {liste:
 const esc = s => String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const slug = s => String(s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()
   .replace(/—.*$/,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
-// « Briffaut — Auto Bernard » → commune Valence ; « Valence 2 — Décathlon » → Valence
-const COMMUNE_DE = lieu => {
-  const l=String(lieu);
-  if(/valence|briffaut|lautagne|leroy merlin/i.test(l) && !/portes/i.test(l)) return 'Valence';
-  if(/portes/i.test(l)) return 'Portes-lès-Valence';
-  return l.replace(/\s+—.*$/,'').trim();
+// ── Communes : une page par VRAIE commune, jamais par nom de lieu ─────────────
+// Un lieu (BUT, Décathlon, Prodeval…) n'est pas une commune : il devient un créneau
+// affiché dans la page de sa commune. Ordre de détermination :
+//   1. champ `commune` du répertoire d'emplacements s'il existe
+//   2. code postal + ville dans l'adresse   (« 12 av. des Sports, 26000 Valence »)
+//   3. nom de commune connu dans l'adresse, puis dans le nom du lieu
+//   4. sinon : pas de page, le créneau reste dans le planning, alerte dans le journal
+// Référentiel : noms officiels INSEE autour de Valence (orthographe, traits d'union, accents).
+const COMMUNES_REF = [
+  'Valence','Bourg-lès-Valence','Portes-lès-Valence','Saint-Marcel-lès-Valence','Beaumont-lès-Valence',
+  'Guilherand-Granges','Saint-Péray','Cornas','Soyons','Toulaud','Charmes-sur-Rhône','Beauchastel',
+  'La Voulte-sur-Rhône','Le Pouzin','Chabeuil','Montmeyran','Montoison','Beauvallon','Étoile-sur-Rhône',
+  'Montéléger','Malissard','Upie','Ourches','Allex','Grâne','Crest','Livron-sur-Drôme','Loriol-sur-Drôme',
+  'Alixan','Châteauneuf-sur-Isère','Chatuzange-le-Goubet','Montélier','Charpey','Barbières',
+  'Romans-sur-Isère','Bourg-de-Péage','Mours-Saint-Eusèbe','Saint-Paul-lès-Romans','Peyrins',
+  "Saint-Donat-sur-l'Herbasse",'Saint-Georges-les-Bains','Pont-de-l\'Isère','La Roche-de-Glun',
+  'Granges-lès-Beaumont',"Tain-l'Hermitage",'Tournon-sur-Rhône'
+];
+// Formes courtes usuelles → nom officiel (uniquement quand il n'y a aucune ambiguïté)
+const ALIAS_COMMUNES = { 'saint donat':"Saint-Donat-sur-l'Herbasse" };
+const normK = s => ' '+String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()
+  .replace(/[^a-z0-9]+/g,' ').replace(/\bste\b/g,'sainte').replace(/\bst\b/g,'saint').replace(/\s+/g,' ').trim()+' ';
+const REF_K = new Map([...COMMUNES_REF.map(c=>[normK(c),c]), ...Object.entries(ALIAS_COMMUNES).map(([a,c])=>[normK(a),c])]);
+const ALERTES_COMMUNES = new Set();
+const officielle = brut => {
+  const k=normK(brut);
+  if(REF_K.has(k)) return REF_K.get(k);
+  const propre=String(brut).trim().replace(/\s+/g,' ');
+  ALERTES_COMMUNES.add(`commune hors référentiel, orthographe à vérifier : « ${propre} »`);
+  return propre;
 };
+// Cherche un nom de commune connu dans un texte. Ignore « avenue DE Chabeuil », « route DE Valence »… :
+// une rue qui porte le nom d'une ville n'est pas cette ville. Retient la mention la plus à droite
+// (la ville est en fin d'adresse), à égalité la plus longue (« Portes-lès-Valence » plutôt que « Valence »).
+const communeDansTexte = texte => {
+  const t=normK(texte); let best=null;
+  for(const [k,c] of REF_K){
+    let i=t.lastIndexOf(k);
+    while(i>=0){
+      const avant=t.slice(0,i+1).trim().split(' ').pop();
+      if(!['de','du','des','d','vers','a','la'].includes(avant) || k.trim()===t.trim()){
+        const fin=i+k.length;
+        if(!best || fin>best.fin || (fin===best.fin && k.length>best.len)) best={c,fin,len:k.length};
+        break;
+      }
+      i=t.lastIndexOf(k,i-1);
+    }
+  }
+  return best ? best.c : null;
+};
+const COMMUNE_DE = s => {
+  if(s.commune && String(s.commune).trim()) return officielle(s.commune);
+  const cp=[...String(s.adresse||'').matchAll(/\b\d{5}\s+([^,;()\d]+)/g)].pop();
+  if(cp){ const ville=cp[1].replace(/\b(cedex|france)\b.*$/i,'').trim(); if(ville) return REF_K.get(normK(ville)) || communeDansTexte(ville) || officielle(ville); }
+  return communeDansTexte(s.adresse) || communeDansTexte(s.lieu) || null;
+};
+// « à Valence », « au Pouzin », « aux … »
+const aLa = c => /^Le\s/.test(c) ? 'au '+c.slice(3) : /^Les\s/.test(c) ? 'aux '+c.slice(4) : 'à '+c;
 const prixMin = p => { const v=Object.values(p.tailles||{}).map(t=>Number(t.prix)).filter(n=>!isNaN(n)); return v.length?Math.min(...v):null; };
 const eur = n => n.toFixed(2).replace('.',',')+'\u202f€';
 
@@ -130,9 +187,16 @@ const eur = n => n.toFixed(2).replace('.',',')+'\u202f€';
 const creneaux=[];
 for(const j of JOURS){
   const d=planning[j]; if(!d) continue;
-  for(const cam of ['c1','c2']) (d[cam]||[]).forEach(s=>{ if(s&&s.lieu) creneaux.push({jour:j,cam,lieu:s.lieu,adresse:s.adresse||'',horaires:s.horaires||'',service:s.service||'',commune:COMMUNE_DE(s.lieu)}); });
+  for(const cam of ['c1','c2']) (d[cam]||[]).forEach(s=>{
+    if(!s || !s.lieu) return;
+    if(EST_PRIVATISATION(s.lieu)){ PRIVATISATIONS_MASQUEES++; return; }
+    creneaux.push({jour:j,cam,lieu:s.lieu,adresse:s.adresse||'',horaires:s.horaires||'',service:s.service||'',commune:COMMUNE_DE(s)});
+  });
+  // le planning embarqué dans la page ne doit pas non plus contenir de privatisation
+  for(const cam of ['c1','c2']) if(Array.isArray(d[cam])) d[cam]=d[cam].filter(s=>s && !EST_PRIVATISATION(s.lieu));
 }
-const communes=[...new Set(creneaux.map(c=>c.commune))].sort((a,b)=>a.localeCompare(b,'fr'));
+for(const c of creneaux) if(!c.commune) ALERTES_COMMUNES.add(`lieu sans commune (pas de page) : « ${c.lieu} » — ${c.jour} ${c.service.toLowerCase()}, ${c.cam==='c1'?'Camion 1':'Camion 2'} → ajouter code postal et ville à son adresse dans l'admin`);
+const communes=[...new Set(creneaux.map(c=>c.commune).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'fr'));
 
 // ── 3. Blocs statiques ──────────────────────────────────────────────────────
 function blocPlanning(){
@@ -140,10 +204,10 @@ function blocPlanning(){
   for(const j of JOURS){
     const cs=creneaux.filter(c=>c.jour===j); if(!cs.length) continue;
     for(const c of cs){
-      h+=`<li><strong>${esc(j)} ${esc(c.service||'')}</strong> · ${c.cam==='c1'?'Camion 1':'Camion 2'} · <a href="/emplacements/${slug(c.commune)}/">${esc(c.lieu)}</a>${c.adresse?' — '+esc(c.adresse):''} · ${esc(c.horaires)}</li>`;
+      h+=`<li><strong>${esc(j)} ${esc(c.service||'')}</strong> · ${c.cam==='c1'?'Camion 1':'Camion 2'} · ${c.commune?`<a href="/emplacements/${slug(c.commune)}/">${esc(c.lieu)}</a>`:esc(c.lieu)}${c.adresse?' — '+esc(c.adresse):''} · ${esc(c.horaires)}</li>`;
     }
   }
-  h+='</ul><h2>Nos communes</h2><ul>'+communes.map(c=>`<li><a href="/emplacements/${slug(c)}/">Food truck poké bowl à ${esc(c)}</a></li>`).join('')+'</ul>';
+  h+='</ul><h2>Nos communes</h2><ul>'+communes.map(c=>`<li><a href="/emplacements/${slug(c)}/">Food truck poké bowl ${esc(aLa(c))}</a></li>`).join('')+'</ul>';
   return h;
 }
 function blocCarte(){
@@ -183,22 +247,27 @@ for(const f of ['pokeben-fid-192.png','pokeben-fid-512.png','pokeben-fid-maskabl
 const JOURS_ORD = j => JOURS.indexOf(j);
 for(const commune of communes){
   const cs=creneaux.filter(c=>c.commune===commune).sort((a,b)=>JOURS_ORD(a.jour)-JOURS_ORD(b.jour));
-  const title=`Food truck poké bowl à ${commune} — ${cs.map(c=>c.jour+' '+(c.service||'')).join(', ')} · Pok&Ben`;
-  const desc=`Pok&Ben, le food truck poké bowl, est à ${commune} ${cs.map(c=>`${c.jour.toLowerCase()} ${(c.service||'').toLowerCase()} (${c.lieu}${c.adresse?', '+c.adresse:''}, ${c.horaires})`).join(' et ')}. Commande en ligne, retrait au camion.`;
+  const quand=cs.map(c=>c.jour+' '+(c.service||'').toLowerCase());
+  const title = cs.length<=2
+    ? `Food truck poké bowl ${aLa(commune)} — ${quand.join(', ')} · Pok&Ben`
+    : `Food truck poké bowl ${aLa(commune)} — ${cs.length} créneaux par semaine · Pok&Ben`;
+  let desc=`Pok&Ben, le food truck poké bowl, est ${aLa(commune)} ${cs.map(c=>`${c.jour.toLowerCase()} ${(c.service||'').toLowerCase()} (${c.lieu}${c.adresse?', '+c.adresse:''}, ${c.horaires})`).join(' et ')}. Commande en ligne, retrait au camion.`;
+  if(desc.length>170) desc=`Pok&Ben, le food truck poké bowl, s'installe ${aLa(commune)} ${cs.length} fois par semaine (${[...new Set(cs.map(c=>c.lieu))].join(', ')}). Horaires, adresses et commande en ligne.`;
+  const camsCommune=[...new Set(cs.map(c=>c.cam))];
   const url=`${ORIGIN}/emplacements/${slug(commune)}/`;
-  const ld={"@context":"https://schema.org","@type":"FoodEstablishment","name":`Pok&Ben — food truck à ${commune}`,"parentOrganization":{"@id":`${ORIGIN}/#org`},"url":url,"telephone":"+33482329536","servesCuisine":"Poké bowl","address":{"@type":"PostalAddress","addressLocality":commune,"addressRegion":"Drôme","addressCountry":"FR"},"openingHoursSpecification":cs.map(c=>{const m=c.horaires.match(/(\d{1,2})h(\d{2})?\D+(\d{1,2})h(\d{2})?/);return {"@type":"OpeningHoursSpecification","dayOfWeek":({Lundi:'Monday',Mardi:'Tuesday',Mercredi:'Wednesday',Jeudi:'Thursday',Vendredi:'Friday',Samedi:'Saturday',Dimanche:'Sunday'})[c.jour],"opens":m?`${m[1].padStart(2,'0')}:${m[2]||'00'}`:undefined,"closes":m?`${m[3].padStart(2,'0')}:${m[4]||'00'}`:undefined,"description":c.lieu+(c.adresse?' — '+c.adresse:'')};})};
+  const ld={"@context":"https://schema.org","@type":"FoodEstablishment","name":`Pok&Ben — food truck ${aLa(commune)}`,"parentOrganization":{"@id":`${ORIGIN}/#org`},"url":url,"telephone":"+33482329536","servesCuisine":"Poké bowl","address":{"@type":"PostalAddress","addressLocality":commune,"addressRegion":"Drôme","addressCountry":"FR"},"openingHoursSpecification":cs.map(c=>{const m=c.horaires.match(/(\d{1,2})h(\d{2})?\D+(\d{1,2})h(\d{2})?/);return {"@type":"OpeningHoursSpecification","dayOfWeek":({Lundi:'Monday',Mardi:'Tuesday',Mercredi:'Wednesday',Jeudi:'Thursday',Vendredi:'Friday',Samedi:'Saturday',Dimanche:'Sunday'})[c.jour],"opens":m?`${m[1].padStart(2,'0')}:${m[2]||'00'}`:undefined,"closes":m?`${m[3].padStart(2,'0')}:${m[4]||'00'}`:undefined,"description":c.lieu+(c.adresse?' — '+c.adresse:'')};})};
   const corps=`
 <div class="planning-page"><div class="planning-inner" style="max-width:760px">
   <nav aria-label="Fil d'Ariane" style="font-size:.78rem;color:var(--ink3);margin-bottom:.8rem"><a href="/" style="color:inherit">Accueil</a> › <a href="/emplacements" style="color:inherit">Emplacements</a> › ${esc(commune)}</nav>
   <div class="pg-eyebrow">Où nous trouver</div>
-  <h1 class="pg-h1">Food truck poké bowl à ${esc(commune)}</h1>
-  <p class="pg-sub">Pok&amp;Ben s'installe à ${esc(commune)} chaque semaine. Poké bowls frais préparés à la commande, en trois tailles, avec choix de la protéine et de la sauce — et la formule avec dessert et boisson.</p>
+  <h1 class="pg-h1">Food truck poké bowl ${esc(aLa(commune))}</h1>
+  <p class="pg-sub">Pok&amp;Ben s'installe ${esc(aLa(commune))} chaque semaine. Poké bowls frais préparés à la commande, en trois tailles, avec choix de la protéine et de la sauce — et la formule avec dessert et boisson.</p>
   <h2 style="font-family:'Playfair Display',serif;font-size:1.25rem;margin:1.4rem 0 .5rem">Quand et où</h2>
   <ul class="pg-creneaux">${cs.map(c=>`<li><strong>${esc(c.jour)} ${esc(c.service||'')}</strong> · ${c.cam==='c1'?'Camion 1':'Camion 2'} · ${esc(c.lieu)}${c.adresse?' — '+esc(c.adresse):''} · ${esc(c.horaires)}${c.adresse?` · <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.adresse+' '+commune)}" target="_blank" rel="noopener">Itinéraire</a>`:''}</li>`).join('')}</ul>
-  <p class="pg-sub">Pour être sûr d'avoir votre bowl et ne pas attendre, <a href="/commander" style="color:var(--grn);font-weight:700">commandez en ligne</a> et retirez-le au camion. Commande par téléphone au <a href="tel:0482329536" style="color:var(--grn);font-weight:700">04 82 32 95 36</a> — précisez ${cs[0].cam==='c1'?'Camion 1':'Camion 2'}.</p>
+  <p class="pg-sub">Pour être sûr d'avoir votre bowl et ne pas attendre, <a href="/commander" style="color:var(--grn);font-weight:700">commandez en ligne</a> et retirez-le au camion. Commande par téléphone au <a href="tel:0482329536" style="color:var(--grn);font-weight:700">04 82 32 95 36</a> — précisez ${camsCommune.length>1?'le camion et l\'emplacement':(camsCommune[0]==='c1'?'Camion 1':'Camion 2')}.</p>
   <h2 style="font-family:'Playfair Display',serif;font-size:1.25rem;margin:1.4rem 0 .5rem">Nos autres emplacements</h2>
-  <ul>${communes.filter(c=>c!==commune).map(c=>`<li><a href="/emplacements/${slug(c)}/" style="color:var(--grn);font-weight:700">Food truck à ${esc(c)}</a></li>`).join('')}</ul>
-  <p class="pg-sub" style="margin-top:1.2rem">Un événement à ${esc(commune)} ou dans les environs ? <a href="/evenements" style="color:var(--grn);font-weight:700">On privatise le camion</a> pour vos mariages, séminaires et anniversaires.</p>
+  <ul>${communes.filter(c=>c!==commune).map(c=>`<li><a href="/emplacements/${slug(c)}/" style="color:var(--grn);font-weight:700">Food truck ${esc(aLa(c))}</a></li>`).join('')}</ul>
+  <p class="pg-sub" style="margin-top:1.2rem">Un événement ${esc(aLa(commune))} ou dans les environs ? <a href="/evenements" style="color:var(--grn);font-weight:700">On privatise le camion</a> pour vos mariages, séminaires et anniversaires.</p>
 </div></div>`;
   // Page = même coquille (nav, styles, pied) que le site, corps statique, sans l'app de commande
   let ph = page
@@ -276,4 +345,6 @@ https://www.pokeben.fr/*                https://pokeben.fr/:splat   301!
 fs.writeFileSync(path.join(OUT,'_redirects'), redirects.trimStart());
 fs.writeFileSync(path.join(OUT,'_headers'), `/*\n  X-Frame-Options: DENY\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: strict-origin-when-cross-origin\n  Cache-Control: public, max-age=0, must-revalidate\n/*.png\n  Cache-Control: public, max-age=31536000, immutable\n`);
 
-console.log(`✔ pokeben/ généré — source planning : ${SOURCE} — ${creneaux.length} créneaux, ${communes.length} pages communes : ${communes.join(', ')}`);
+console.log(`✔ pokeben/ généré — source planning : ${SOURCE} — ${creneaux.length} créneaux publics, ${PRIVATISATIONS_MASQUEES} privatisation(s) masquée(s), ${communes.length} pages communes :`);
+for(const c of communes) console.log(`   · ${c}  ←  ${[...new Set(creneaux.filter(x=>x.commune===c).map(x=>x.lieu))].join(', ')}`);
+if(ALERTES_COMMUNES.size){ console.log('⚠ À corriger dans l\'admin :'); for(const a of ALERTES_COMMUNES) console.log('   · '+a); }
