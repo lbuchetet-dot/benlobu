@@ -1256,6 +1256,8 @@ function _rebuildPlanningPb(){
       ['midi','soir'].forEach(function(sv){
         var info=(p[jk]||{})[sv];
         if(!info || !info.nom) return;
+        // Créneau privatisé : réservé à un client, jamais affiché ni commandable sur le site
+        if(/privati[sz]/i.test(info.nom)) return;
         out[jour]=out[jour]||{};
         out[jour][cam]=out[jour][cam]||[];
         out[jour][cam].push({service: sv==='midi'?'Midi':'Soir', lieu:info.nom,
