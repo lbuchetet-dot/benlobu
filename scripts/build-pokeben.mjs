@@ -258,7 +258,7 @@ for(const commune of communes){
   const ld={"@context":"https://schema.org","@type":"FoodEstablishment","name":`Pok&Ben — food truck ${aLa(commune)}`,"parentOrganization":{"@id":`${ORIGIN}/#org`},"url":url,"telephone":"+33482329536","servesCuisine":"Poké bowl","address":{"@type":"PostalAddress","addressLocality":commune,"addressRegion":"Drôme","addressCountry":"FR"},"openingHoursSpecification":cs.map(c=>{const m=c.horaires.match(/(\d{1,2})h(\d{2})?\D+(\d{1,2})h(\d{2})?/);return {"@type":"OpeningHoursSpecification","dayOfWeek":({Lundi:'Monday',Mardi:'Tuesday',Mercredi:'Wednesday',Jeudi:'Thursday',Vendredi:'Friday',Samedi:'Saturday',Dimanche:'Sunday'})[c.jour],"opens":m?`${m[1].padStart(2,'0')}:${m[2]||'00'}`:undefined,"closes":m?`${m[3].padStart(2,'0')}:${m[4]||'00'}`:undefined,"description":c.lieu+(c.adresse?' — '+c.adresse:'')};})};
   const corps=`
 <div class="planning-page"><div class="planning-inner" style="max-width:760px">
-  <nav aria-label="Fil d'Ariane" style="font-size:.78rem;color:var(--ink3);margin-bottom:.8rem"><a href="/" style="color:inherit">Accueil</a> › <a href="/emplacements" style="color:inherit">Emplacements</a> › ${esc(commune)}</nav>
+  <div role="navigation" aria-label="Fil d'Ariane" style="font-size:.78rem;color:var(--ink3);margin-bottom:.8rem"><a href="/" style="color:inherit">Accueil</a> › <a href="/emplacements" style="color:inherit">Emplacements</a> › ${esc(commune)}</div>
   <div class="pg-eyebrow">Où nous trouver</div>
   <h1 class="pg-h1">Food truck poké bowl ${esc(aLa(commune))}</h1>
   <p class="pg-sub">Pok&amp;Ben s'installe ${esc(aLa(commune))} chaque semaine. Poké bowls frais préparés à la commande, en trois tailles, avec choix de la protéine et de la sauce — et la formule avec dessert et boisson.</p>
@@ -302,7 +302,10 @@ fs.writeFileSync(path.join(OUT,'robots.txt'), `User-agent: *\nAllow: /\nDisallow
 // Redirections : migration WordPress → nouveau site (301), puis routes de l'app (200)
 const redirects = `
 # ── Migration pokeben.fr (WordPress) → nouveau site : 301, jamais vers l'accueil par facilité
-/la-carte/                              /la-carte              301
+# ATTENTION : Netlify ignore la barre finale en comparant les URLs. Une règle
+# « /la-carte/ → /la-carte » boucle à l'infini. Les anciennes URLs WordPress avec « / »
+# (/la-carte/, /evenements/, /a-propos/, /contact/) sont servies par les réécritures
+# 200 plus bas ; la balise canonical pointe vers la version sans barre.
 /product-category/nos_pokes/            /la-carte              301
 /product-category/nos_pokes             /la-carte              301
 /product-category/nos-desserts/         /la-carte#desserts     301
@@ -312,11 +315,8 @@ const redirects = `
 /product/*                              /la-carte              301
 /nos-emplacements/                      /emplacements          301
 /nos-emplacements                       /emplacements          301
-/evenements/                            /evenements            301
 /livraison-repas-valence/               /evenements            301
 /livraison-repas-valence                /evenements            301
-/a-propos/                              /a-propos              301
-/contact/                               /contact               301
 /my-account/*                           /commander             301
 /cart/                                  /commander             301
 /checkout/*                             /commander             301
@@ -342,6 +342,13 @@ https://www.pokeben.fr/*                https://pokeben.fr/:splat   301!
 /contact                                /index.html            200
 /ma-commande                            /index.html            200
 `;
+const _sansBarre = u => u.replace(/#.*$/,'').replace(/\/+$/,'') || '/';
+const boucles = redirects.split('\n').map(l=>l.trim()).filter(l=>l && !l.startsWith('#'))
+  .map(l=>l.split(/\s+/)).filter(([de,vers,code]) => /^30[12]/.test(code||'') && !de.includes('*') && _sansBarre(de)===_sansBarre(vers));
+if(boucles.length){
+  console.error('✖ Redirection en boucle (Netlify ignore la barre finale) : '+boucles.map(b=>b[0]+' → '+b[1]).join(', '));
+  process.exit(1);
+}
 fs.writeFileSync(path.join(OUT,'_redirects'), redirects.trimStart());
 fs.writeFileSync(path.join(OUT,'_headers'), `/*\n  X-Frame-Options: DENY\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: strict-origin-when-cross-origin\n  Cache-Control: public, max-age=0, must-revalidate\n/*.png\n  Cache-Control: public, max-age=31536000, immutable\n`);
 
