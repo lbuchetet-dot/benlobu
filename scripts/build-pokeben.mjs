@@ -229,7 +229,10 @@ function ldCarte(){
 }
 
 // ── 4. Page principale ──────────────────────────────────────────────────────
-let page = html
+// Validation Search Console posée par l'agence sur l'ancien site : la supprimer à la bascule
+// ferait perdre la validation de la propriété. Conservée tant que Loïc n'a pas sa propre validation DNS.
+const GSC_VERIF = '<meta name="google-site-verification" content="7A7r9nrwvhJyXZr-b8muqZAEDNMvg9Wd-9ShQGhUodA">';
+let page = (html.includes('google-site-verification') ? html : html.replace('<meta charset="UTF-8">', '<meta charset="UTF-8">\n'+GSC_VERIF))
   .replace('<!--PLANNING_STATIQUE-->', blocPlanning())
   .replace('<!--CARTE_STATIQUE-->', blocCarte())
   .replace('</head>', `<script type="application/ld+json" id="ld-menu">${JSON.stringify(ldCarte())}</script>\n</head>`);
@@ -263,7 +266,7 @@ for(const commune of communes){
   <h1 class="pg-h1">Food truck poké bowl ${esc(aLa(commune))}</h1>
   <p class="pg-sub">Pok&amp;Ben s'installe ${esc(aLa(commune))} chaque semaine. Poké bowls frais préparés à la commande, en trois tailles, avec choix de la protéine et de la sauce — et la formule avec dessert et boisson.</p>
   <h2 style="font-family:'Playfair Display',serif;font-size:1.25rem;margin:1.4rem 0 .5rem">Quand et où</h2>
-  <ul class="pg-creneaux">${cs.map(c=>`<li><strong>${esc(c.jour)} ${esc(c.service||'')}</strong> · ${c.cam==='c1'?'Camion 1':'Camion 2'} · ${esc(c.lieu)}${c.adresse?' — '+esc(c.adresse):''} · ${esc(c.horaires)}${c.adresse?` · <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.adresse+' '+commune)}" target="_blank" rel="noopener">Itinéraire</a>`:''}</li>`).join('')}</ul>
+  <ul class="pg-creneaux">${cs.map(c=>`<li><strong>${esc(c.jour)} ${esc(c.service||'')}</strong> · ${c.cam==='c1'?'Camion 1':'Camion 2'} · ${esc(c.lieu)}${c.adresse?' — '+esc(c.adresse):''} · ${esc(c.horaires)}${c.adresse?` · <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.adresse+' '+commune)}" target="_blank" rel="noopener" style="color:var(--grn);font-weight:700">Itinéraire</a>`:''}</li>`).join('')}</ul>
   <p class="pg-sub">Pour être sûr d'avoir votre bowl et ne pas attendre, <a href="/commander" style="color:var(--grn);font-weight:700">commandez en ligne</a> et retirez-le au camion. Commande par téléphone au <a href="tel:0482329536" style="color:var(--grn);font-weight:700">04 82 32 95 36</a> — précisez ${camsCommune.length>1?'le camion et l\'emplacement':(camsCommune[0]==='c1'?'Camion 1':'Camion 2')}.</p>
   <h2 style="font-family:'Playfair Display',serif;font-size:1.25rem;margin:1.4rem 0 .5rem">Nos autres emplacements</h2>
   <ul>${communes.filter(c=>c!==commune).map(c=>`<li><a href="/emplacements/${slug(c)}/" style="color:var(--grn);font-weight:700">Food truck ${esc(aLa(c))}</a></li>`).join('')}</ul>
@@ -283,9 +286,48 @@ for(const commune of communes){
   // Le routeur ne connaît pas /emplacements/<ville>/ : il ne doit ni changer la page
   // affichée ni réécrire les balises SEO déjà correctes de cette page statique.
   ph = ph.replace("(function(){ var p=_routeFromPath(); if(p==='home') _applySeo('home'); else if(p) go(p,true); })();", "");
+  // Menu : cette page appartient à « Où nous trouver », pas à l'accueil
+  ph = ph.replace('id="nav-home" class="active"', 'id="nav-home"')
+         .replace('id="nav-emp"', 'id="nav-emp" class="active"')
+         .replace('class="mobile-nav-item active" id="mnav-home"', 'class="mobile-nav-item" id="mnav-home"')
+         .replace('class="mobile-nav-item" id="mnav-emplacements"', 'class="mobile-nav-item active" id="mnav-emplacements"');
+  // Ici le bloc « accueil » contient la page commune : « Accueil » doit charger la vraie page d'accueil,
+  // sinon le contenu de la commune s'afficherait sous l'adresse « / ».
+  ph = ph.replace('</body>', `<script>(function(){ var _go=go; go=function(p,h){ if(p==='home'){ location.href='/'; return false; } return _go(p,h); }; })();</script>\n</body>`);
   // le routeur ne doit pas rediriger (l'URL n'est pas une route connue) : il laisse la page telle quelle
   const dir=path.join(OUT,'emplacements',slug(commune)); fs.mkdirSync(dir,{recursive:true});
   fs.writeFileSync(path.join(dir,'index.html'), ph);
+}
+
+// ── 5 bis. Pages légales ────────────────────────────────────────────────────
+// Vraies URLs (obligation LCEN : mentions accessibles ; reprise des anciennes URLs WordPress).
+// Contenu lu dans la modale du site (_legalTexts) : une seule source à maintenir.
+const texteLegal = cle => { const m = html.match(new RegExp(cle+':`([\\s\\S]*?)`')); return m ? m[1] : null; };
+for (const [dossier, cle, titre, desc] of [
+  ['mentions-legales','mentions','Mentions légales · Pok&Ben','Mentions légales du site Pok&Ben : éditeur, directeur de la publication, hébergement.'],
+  ['confidentialite','confidentialite','Politique de confidentialité · Pok&Ben','Données collectées lors des commandes Pok&Ben, durée de conservation, vos droits et cookies.']
+]) {
+  const contenu = texteLegal(cle);
+  if (!contenu) { console.warn(`⚠ texte légal « ${cle} » introuvable dans pokeben-site.html : page /${dossier}/ non générée`); continue; }
+  const url = `${ORIGIN}/${dossier}/`;
+  const corps = `
+<div class="planning-page"><div class="planning-inner" style="max-width:760px">
+  <div role="navigation" aria-label="Fil d'Ariane" style="font-size:.78rem;color:var(--ink3);margin-bottom:.8rem"><a href="/" style="color:inherit">Accueil</a> › ${esc(titre.split(' · ')[0])}</div>
+  <div class="page-legale" style="line-height:1.7">${contenu.replace('<h2>','<h1 class="pg-h1">').replace('</h2>','</h1>').replace(/<h3>/g,'<h2 style="font-family:\'Playfair Display\',serif;font-size:1.2rem;margin:1.4rem 0 .4rem">').replace(/<\/h3>/g,'</h2>')}</div>
+</div></div>`;
+  let pl = page
+    .replace(/<title>[^<]*<\/title>/, `<title>${esc(titre)}</title>`)
+    .replace(/<meta name="description" content="[^"]*">/, `<meta name="description" content="${esc(desc)}">`)
+    .replace(/<link rel="canonical" href="[^"]*">/, `<link rel="canonical" href="${url}">`)
+    .replace(/<meta property="og:title" content="[^"]*">/, `<meta property="og:title" content="${esc(titre)}">`)
+    .replace(/<meta property="og:description" content="[^"]*">/, `<meta property="og:description" content="${esc(desc)}">`)
+    .replace(/<meta property="og:url" content="[^"]*">/, `<meta property="og:url" content="${url}">`);
+  pl = pl.replace(/<div class="page active" id="page-home">[\s\S]*?(?=<div class="page" id="page-events">)/, `<div class="page active" id="page-home">${corps}</div>\n`);
+  pl = pl.replace("(function(){ var p=_routeFromPath(); if(p==='home') _applySeo('home'); else if(p) go(p,true); })();", "");
+  pl = pl.replace('id="nav-home" class="active"', 'id="nav-home"').replace('class="mobile-nav-item active" id="mnav-home"', 'class="mobile-nav-item" id="mnav-home"');
+  pl = pl.replace('</body>', `<script>(function(){ var _go=go; go=function(p,h){ if(p==='home'){ location.href='/'; return false; } return _go(p,h); }; })();</script>\n</body>`);
+  fs.mkdirSync(path.join(OUT, dossier), { recursive: true });
+  fs.writeFileSync(path.join(OUT, dossier, 'index.html'), pl);
 }
 
 // ── 6. sitemap, robots, redirections ─────────────────────────────────────────
@@ -293,7 +335,8 @@ const today=new Date().toISOString().slice(0,10);
 const urls=[
   {u:'/',pr:'1.0',f:'daily'},{u:'/la-carte',pr:'0.9',f:'weekly'},{u:'/commander',pr:'0.8',f:'weekly'},
   {u:'/emplacements',pr:'0.9',f:'daily'},{u:'/evenements',pr:'0.9',f:'monthly'},{u:'/a-propos',pr:'0.5',f:'yearly'},{u:'/contact',pr:'0.5',f:'yearly'},
-  ...communes.map(c=>({u:`/emplacements/${slug(c)}/`,pr:'0.8',f:'weekly'}))
+  ...communes.map(c=>({u:`/emplacements/${slug(c)}/`,pr:'0.8',f:'weekly'})),
+  {u:'/mentions-legales/',pr:'0.2',f:'yearly'},{u:'/confidentialite/',pr:'0.2',f:'yearly'}
 ];
 fs.writeFileSync(path.join(OUT,'sitemap.xml'),
 `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map(x=>`  <url><loc>${ORIGIN}${x.u}</loc><lastmod>${today}</lastmod><changefreq>${x.f}</changefreq><priority>${x.pr}</priority></url>`).join('\n')}\n</urlset>\n`);
@@ -316,12 +359,22 @@ const redirects = `
 /nos-emplacements/                      /emplacements          301
 /nos-emplacements                       /emplacements          301
 /livraison-repas-valence/               /evenements            301
+/composition-du-produit/                /la-carte              301
+/politique_de_confidentialite/          /confidentialite/      301
+/politique-de-confidentialite-2/        /confidentialite/      301
+/politique-de-confidentialite-3/        /confidentialite/      301
+/conditions-generales-de-vente/         /                      301
+/plan-du-site/                          /                      301
+/plan-du-site-2/                        /                      301
+/page-d-exemple/                        /                      410
+/category/*                             /                      410
+/author/*                               /                      410
 /livraison-repas-valence                /evenements            301
 /my-account/*                           /commander             301
 /cart/                                  /commander             301
 /checkout/*                             /commander             301
-/wp/mentions-legal                      /                      301
-/wp/politique_de_confidentialite        /                      301
+/wp/mentions-legal                      /mentions-legales/     301
+/wp/politique_de_confidentialite        /confidentialite/      301
 /wp/plan_du_site                        /                      301
 /feed/                                  /                      410
 /wp-json/*                              /                      410
