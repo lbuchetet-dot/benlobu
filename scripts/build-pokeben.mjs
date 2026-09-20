@@ -45,7 +45,21 @@ const JOURS_K = {lundi:'Lundi',mardi:'Mardi',mercredi:'Mercredi',jeudi:'Jeudi',v
 const HORAIRES = {midi:'11h30 – 14h30', soir:'19h00 – 22h00'};
 const _slugLieu = n => String(n||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'');
 const _hFmt = h => String(h||'').replace(':','h');
-const EST_PRIVATISATION = nom => /privati[sz]/i.test(String(nom||''));
+// ── Créneaux privés ────────────────────────────────────────────────────────────
+// Convention admin : le mot « privatisation » (ou « privé »), seul ou ajouté au nom du lieu.
+//   « Privatisation »                → événement privé sans lieu public : jamais affiché.
+//   « Conduent "privatisation" »     → site client privé : AFFICHÉ dans le planning et
+//     ou « Conduent (privé) »          commandable (les salariés commandent en ligne), mais
+//                                      sans page commune ni sitemap, et affiché sans le marqueur.
+const MARQUEUR_PRIVE = /\s*[("«\[]?\s*(?:privatisation|privatis[ée]e?|priv[ée]e?)\s*[)"»\]]?/gi;
+const lirePrive = nom => {
+  const brut = String(nom||'').trim();
+  const propre = brut.replace(MARQUEUR_PRIVE,'').replace(/\s+/g,' ').trim();
+  const marque = propre !== brut;
+  // marqueur en tête (« Privatisation mariage Dupont ») = événement privé : masqué
+  const enTete = /^\s*[("«\[]?\s*privati/i.test(brut);
+  return { masque: marque && (!propre || enTete), prive: marque && !!propre && !enTete, nom: propre || brut };
+};
 let PRIVATISATIONS_MASQUEES = 0;
 let CAMIONS_PB = [];
 async function planningDepuisAdmin(){
@@ -86,13 +100,16 @@ async function planningDepuisAdmin(){
         const info = services[sv];
         if(!info || !info.nom) return;
         // Créneau privatisé : jamais publié (ni page, ni planning, ni sitemap, ni HTML embarqué)
-        if(EST_PRIVATISATION(info.nom)){ PRIVATISATIONS_MASQUEES++; return; }
+        const pv = lirePrive(info.nom);
+        if(pv.masque){ PRIVATISATIONS_MASQUEES++; return; }
+        // l'adresse est rangée sous le nom brut saisi dans l'admin
         const ent = entreeDe(etabId, info.nom);
         out[jour] = out[jour] || {};
         out[jour][cam] = out[jour][cam] || [];
         out[jour][cam].push({
           service: sv==='midi' ? 'Midi' : 'Soir',
-          lieu: info.nom,
+          lieu: pv.nom,
+          prive: pv.prive,
           adresse: ent.adresse || '',
           commune: ent.commune || '',
           horaires: (info.h_debut && info.h_fin) ? `${_hFmt(info.h_debut)} – ${_hFmt(info.h_fin)}` : HORAIRES[sv]
@@ -194,13 +211,15 @@ for(const j of JOURS){
   const d=planning[j]; if(!d) continue;
   for(const cam of ['c1','c2']) (d[cam]||[]).forEach(s=>{
     if(!s || !s.lieu) return;
-    if(EST_PRIVATISATION(s.lieu)){ PRIVATISATIONS_MASQUEES++; return; }
-    creneaux.push({jour:j,cam,lieu:s.lieu,adresse:s.adresse||'',horaires:s.horaires||'',service:s.service||'',commune:COMMUNE_DE(s)});
+    const pv = lirePrive(s.lieu);               // repli spots_pokeben : même convention
+    if(pv.masque){ PRIVATISATIONS_MASQUEES++; return; }
+    s.lieu = pv.nom; s.prive = s.prive || pv.prive;
+    // site privé : dans le planning, commandable, mais aucune page commune ni sitemap
+    creneaux.push({jour:j,cam,lieu:s.lieu,prive:!!s.prive,adresse:s.adresse||'',horaires:s.horaires||'',service:s.service||'',commune:s.prive?'':COMMUNE_DE(s)});
   });
-  // le planning embarqué dans la page ne doit pas non plus contenir de privatisation
-  for(const cam of ['c1','c2']) if(Array.isArray(d[cam])) d[cam]=d[cam].filter(s=>s && !EST_PRIVATISATION(s.lieu));
+  for(const cam of ['c1','c2']) if(Array.isArray(d[cam])) d[cam]=d[cam].filter(s=>s && !lirePrive(s.lieu).masque);
 }
-for(const c of creneaux) if(!c.commune) ALERTES_COMMUNES.add(`lieu sans commune (pas de page) : « ${c.lieu} » — ${c.jour} ${c.service.toLowerCase()}, ${c.cam==='c1'?'Camion 1':'Camion 2'} → ajouter code postal et ville à son adresse dans l'admin`);
+for(const c of creneaux) if(!c.commune && !c.prive) ALERTES_COMMUNES.add(`lieu sans commune (pas de page) : « ${c.lieu} » — ${c.jour} ${c.service.toLowerCase()}, ${c.cam==='c1'?'Camion 1':'Camion 2'} → ajouter code postal et ville à son adresse dans l'admin`);
 const communes=[...new Set(creneaux.map(c=>c.commune).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'fr'));
 
 // ── 3. Blocs statiques ──────────────────────────────────────────────────────
@@ -411,6 +430,7 @@ if(boucles.length){
 fs.writeFileSync(path.join(OUT,'_redirects'), redirects.trimStart());
 fs.writeFileSync(path.join(OUT,'_headers'), `/*\n  X-Frame-Options: DENY\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: strict-origin-when-cross-origin\n  Cache-Control: public, max-age=0, must-revalidate\n/*.png\n  Cache-Control: public, max-age=31536000, immutable\n`);
 
-console.log(`✔ pokeben/ généré — source planning : ${SOURCE} — ${creneaux.length} créneaux publics, ${PRIVATISATIONS_MASQUEES} privatisation(s) masquée(s), ${communes.length} pages communes :`);
+const NB_PRIVES = creneaux.filter(c=>c.prive).length;
+console.log(`✔ pokeben/ généré — source planning : ${SOURCE} — ${creneaux.length} créneaux affichés dont ${NB_PRIVES} site(s) privé(s) sans page, ${PRIVATISATIONS_MASQUEES} privatisation(s) masquée(s), ${communes.length} pages communes :`);
 for(const c of communes) console.log(`   · ${c}  ←  ${[...new Set(creneaux.filter(x=>x.commune===c).map(x=>x.lieu))].join(', ')}`);
 if(ALERTES_COMMUNES.size){ console.log('⚠ À corriger dans l\'admin :'); for(const a of ALERTES_COMMUNES) console.log('   · '+a); }
