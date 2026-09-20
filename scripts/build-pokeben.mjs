@@ -47,6 +47,7 @@ const _slugLieu = n => String(n||'').toLowerCase().normalize('NFD').replace(/[\u
 const _hFmt = h => String(h||'').replace(':','h');
 const EST_PRIVATISATION = nom => /privati[sz]/i.test(String(nom||''));
 let PRIVATISATIONS_MASQUEES = 0;
+let CAMIONS_PB = [];
 async function planningDepuisAdmin(){
   const [etabs, plans, repert] = await Promise.all([
     fb('etablissements').catch(e=>{console.warn('⚠ '+e.message);return null;}),
@@ -71,6 +72,10 @@ async function planningDepuisAdmin(){
       return ra!==rb ? ra-rb : String(a[1].nom||'').localeCompare(String(b[1].nom||''),'fr');
     });
   if(!camions.length) return null;
+  // Liste publique des camions (aucune donnée sensible : pas de PIN ni de config caisse).
+  // Le site s'en sert pour écouter le planning en direct sans lire « etablissements »,
+  // nœud réservé au staff (il contient le PIN de la caisse).
+  CAMIONS_PB = camions.map(([id,e]) => ({ id, nom:String(e.nom||''), rang:Number(e.rang)||99 }));
   const out = {};
   camions.forEach(([etabId, etab], idx) => {
     const cam = 'c'+(idx+1);                      // c1 = 1er camion, c2 = 2e
@@ -240,6 +245,7 @@ let page = (html.includes('google-site-verification') ? html : html.replace('<me
 // Planning écrit dans la page : le visiteur voit les bons emplacements immédiatement,
 // avant même que Firebase réponde ; l'écoute temps réel prend ensuite le relais.
 page = page.replace('const PLANNING_DEFAULT={};', 'const PLANNING_DEFAULT='+JSON.stringify(planning)+';');
+page = page.replace('const PB_CAMIONS=[];', 'const PB_CAMIONS='+JSON.stringify(CAMIONS_PB)+';');
 
 fs.rmSync(OUT,{recursive:true,force:true}); fs.mkdirSync(OUT,{recursive:true});
 fs.writeFileSync(path.join(OUT,'index.html'), page);
