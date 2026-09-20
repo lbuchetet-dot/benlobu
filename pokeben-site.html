@@ -1216,6 +1216,7 @@ function canCancelPb(order){
 // emplacements que l'admin ne connaissait plus. Même source que la caisse,
 // la tablette fidélité et le site Capt&Fish.
 const PLANNING_DEFAULT={};          // rempli au build avec le planning admin du jour
+const PB_CAMIONS=[];                // rempli au build : [{id,nom,rang}] des camions Poké
 let PLANNING=PLANNING_DEFAULT;
 var _pbEtabs={}, _pbPlans={}, _pbRepert={};
 const _JOURS_K_PB={lundi:'Lundi',mardi:'Mardi',mercredi:'Mercredi',jeudi:'Jeudi',vendredi:'Vendredi',samedi:'Samedi',dimanche:'Dimanche'};
@@ -1268,16 +1269,26 @@ function _rebuildPlanningPb(){
   PLANNING=out;
   try{ renderToday(); renderPlanningGrid(); }catch(e){}
 }
-_pbWhenAuth(function(){
-  db.ref('etablissements').on('value',function(sn){ _pbEtabs=sn.val()||{};
-    // On n'écoute le planning que des camions Poké, pas ceux de Capt&Fish
-    _camionsPb().forEach(function(e){
-      var id=e[0];
-      db.ref('planning_emplacements/'+id).on('value',function(s2){ _pbPlans[id]=s2.val()||{}; _rebuildPlanningPb(); });
-      db.ref('emplacements_repertoire/'+id).on('value',function(s3){ _pbRepert[id]=s3.val()||{}; _rebuildPlanningPb(); });
-    });
-    _rebuildPlanningPb();
+function _pbEcouterPlanning(){
+  // On n'écoute le planning que des camions Poké, pas ceux de Capt&Fish
+  _camionsPb().forEach(function(e){
+    var id=e[0];
+    db.ref('planning_emplacements/'+id).on('value',function(s2){ _pbPlans[id]=s2.val()||{}; _rebuildPlanningPb(); });
+    db.ref('emplacements_repertoire/'+id).on('value',function(s3){ _pbRepert[id]=s3.val()||{}; _rebuildPlanningPb(); });
   });
+  _rebuildPlanningPb();
+}
+_pbWhenAuth(function(){
+  // Le nœud « etablissements » est réservé au staff (il contient le PIN de la caisse) :
+  // un visiteur anonyme ne peut pas le lire. La liste des camions est donc écrite dans
+  // la page au build (PB_CAMIONS) ; lecture directe seulement en repli.
+  if(PB_CAMIONS && PB_CAMIONS.length){
+    _pbEtabs={};
+    PB_CAMIONS.forEach(function(c){ _pbEtabs[c.id]={nom:c.nom, carte:'poke', rang:c.rang}; });
+    _pbEcouterPlanning();
+  } else {
+    db.ref('etablissements').on('value',function(sn){ _pbEtabs=sn.val()||{}; _pbEcouterPlanning(); });
+  }
 });
 
 // La carte vient exclusivement de Firebase (admin → BDD Produits). Aucune carte
