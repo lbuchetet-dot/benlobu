@@ -228,7 +228,7 @@ function blocPlanning(){
   for(const j of JOURS){
     const cs=creneaux.filter(c=>c.jour===j); if(!cs.length) continue;
     for(const c of cs){
-      h+=`<li><strong>${esc(j)} ${esc(c.service||'')}</strong> · ${c.cam==='c1'?'Camion 1':'Camion 2'} · ${c.commune?`<a href="/emplacements/${slug(c.commune)}/">${esc(c.lieu)}</a>`:esc(c.lieu)}${c.adresse?' — '+esc(c.adresse):''} · ${esc(c.horaires)}</li>`;
+      h+=`<li><strong>${esc(j)} ${esc(c.service||'')}</strong> · ${c.cam==='c1'?'Camion 1':'Camion 2'} · ${c.commune?`<a href="/emplacements/${slug(c.commune)}/">${esc(c.lieu)}</a>`:esc(c.lieu)}${c.prive?' (privatisation)':''}${c.adresse?' — '+esc(c.adresse):''} · ${esc(c.horaires)}</li>`;
     }
   }
   h+='</ul><h2>Nos communes</h2><ul>'+communes.map(c=>`<li><a href="/emplacements/${slug(c)}/">Food truck poké bowl ${esc(aLa(c))}</a></li>`).join('')+'</ul>';
