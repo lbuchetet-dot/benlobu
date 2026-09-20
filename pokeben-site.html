@@ -298,6 +298,8 @@ nav{position:fixed;top:0;left:0;right:0;z-index:500;height:64px;background:rgba(
 .ot-cam.c1{color:var(--grn);}
 .ot-cam.c2{color:var(--coral);}
 .ot-lieu{font-family:"Playfair Display",serif;font-weight:800;font-size:0.82rem;color:var(--ink);line-height:1.2;margin-bottom:1px;}
+.badge-prive{display:inline-block;font-family:"Inter",sans-serif;font-size:0.58rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--honey);background:var(--honey-bg);border-radius:4px;padding:1px 5px;margin:1px 0 2px;vertical-align:middle;}
+.spot-modal-prive{font-size:0.78rem;color:var(--ink3);margin:-4px 0 10px;}
 .ot-hrs{font-size:0.65rem;color:var(--ink3);}
 @media(max-width:600px){.order-table-wrap{border-radius:var(--r-sm);}.order-table{min-width:440px;}}
 .field-err{outline:2px solid var(--coral)!important;animation:shake 0.3s ease;}
@@ -1798,11 +1800,11 @@ function renderPlanningGrid(){
     var data=PLANNING[j];if(!data)return;
     if(data.c1){data.c1.forEach(function(s){
       var key=getServiceType(s.horaires);
-      if(!map[j][key].c1)map[j][key].c1={jour:j,cam:'c1',lieu:s.lieu,adresse:s.adresse||'',horaires:s.horaires,service:s.service,commandable:isSlotCommandable(j,s.horaires)};
+      if(!map[j][key].c1)map[j][key].c1={jour:j,cam:'c1',lieu:s.lieu,prive:!!s.prive,adresse:s.adresse||'',horaires:s.horaires,service:s.service,commandable:isSlotCommandable(j,s.horaires)};
     });}
     if(data.c2){data.c2.forEach(function(s){
       var key=getServiceType(s.horaires);
-      if(!map[j][key].c2)map[j][key].c2={jour:j,cam:'c2',lieu:s.lieu,adresse:s.adresse||'',horaires:s.horaires,service:s.service,commandable:isSlotCommandable(j,s.horaires)};
+      if(!map[j][key].c2)map[j][key].c2={jour:j,cam:'c2',lieu:s.lieu,prive:!!s.prive,adresse:s.adresse||'',horaires:s.horaires,service:s.service,commandable:isSlotCommandable(j,s.horaires)};
     });}
   });
   var joursVis=JOURS.filter(function(j){
@@ -1816,6 +1818,7 @@ function renderPlanningGrid(){
     var camcls=e.cam==='c2'?' ot-c2':' ot-c1';
     var inner='<div class="ot-cam '+(e.cam==='c1'?'c1':'c2')+'">● '+_nomCamionPb(e.cam)+'</div>'
       +'<div class="ot-lieu">'+e.lieu+'</div>'
+      +(e.prive?'<span class="badge-prive">Privatisation</span>':'')
       +'<div class="ot-hrs">'+e.horaires+'</div>';
     if(e.commandable){
       inner+='<div style="margin-top:0.4rem;font-size:0.6rem;font-weight:800;letter-spacing:0.8px;text-transform:uppercase;color:'+(e.cam==='c1'?'var(--grn)':'var(--coral)')+';">Commander →</div>';
@@ -1903,6 +1906,7 @@ function renderOrderTable(){
     return '<div class="ot-slot'+camcls+(isOn?' on':'')+'" data-slotid="'+slot.id+'">'
       +'<div class="ot-cam '+(slot.cam==='c1'?'c1':'c2')+'">&#9679; '+(slot.cam==='c1'?'Camion 1':'Camion 2')+'</div>'
       +'<div class="ot-lieu">'+slot.lieu+'</div>'
+      +(slot.prive?'<span class="badge-prive">Privatisation</span>':'')
       +'<div class="ot-hrs">'+slot.horaires+'</div>'
       +'</div>';
   }
@@ -2284,6 +2288,7 @@ function openSpotModalFromEmp(jour,cam,horaires){
     '<div class="spot-modal-cam '+cam+'">'+label+'</div>'+
     '<div class="spot-modal-name">'+targetService.lieu+'</div>'+
     '<div class="spot-modal-meta">'+jour+' · '+(svcKey==='midi'?'Midi':'Soir')+' · '+targetService.horaires+'</div>'+
+    (targetService.prive?'<div class="spot-modal-prive"><span class="badge-prive">Privatisation</span> Site privé : réservé aux personnes présentes sur place.</div>':'')+
     (targetService.adresse?'<div class="spot-modal-addr">📌 '+targetService.adresse+'</div>':'')+
     '<button class="btn-modal-order" onclick="orderFromModal()">Commander ici →</button>'+
     '<div class="spot-modal-note">Paiement sur place au retrait</div>'+
