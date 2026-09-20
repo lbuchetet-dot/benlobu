@@ -1225,9 +1225,16 @@ function _horairesPb(info,service){
   if(info && info.h_debut && info.h_fin) return _hFmt(info.h_debut)+' – '+_hFmt(info.h_fin);
   return service==='midi' ? '11h30 – 14h30' : '19h00 – 22h00';
 }
-function _nomCamionPb(cam){
-  var l=_camionsPb(), i=(cam==='c2')?1:0;
-  return (l[i] && l[i][1].nom) ? l[i][1].nom : (cam==='c2'?'Camion 2':'Camion 1');
+// Libellé stable « Camion 1 / Camion 2 » (celui du numéro de téléphone), quel que soit
+// le nom interne de l'établissement dans l'admin (« Camion 1 Poké »…).
+function _nomCamionPb(cam){ return cam==='c2' ? 'Camion 2' : 'Camion 1'; }
+var _MARQUEUR_PRIVE_PB=/\s*[("«\[]?\s*(?:privatisation|privatis[ée]e?|priv[ée]e?)\s*[)"»\]]?/gi;
+function _lirePrivePb(nom){
+  var brut=String(nom||'').trim();
+  var propre=brut.replace(_MARQUEUR_PRIVE_PB,'').replace(/\s+/g,' ').trim();
+  var marque=propre!==brut;
+  var enTete=/^\s*[("«\[]?\s*privati/i.test(brut);
+  return {masque:marque && (!propre || enTete), prive:marque && !!propre && !enTete, nom:propre||brut};
 }
 function _slugLieuPb(nom){ return (nom||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,''); }
 // Adresse : par identifiant dérivé du nom, puis repli sur le nom exact (comme Capt&Fish)
@@ -1257,11 +1264,13 @@ function _rebuildPlanningPb(){
       ['midi','soir'].forEach(function(sv){
         var info=(p[jk]||{})[sv];
         if(!info || !info.nom) return;
-        // Créneau privatisé : réservé à un client, jamais affiché ni commandable sur le site
-        if(/privati[sz]/i.test(info.nom)) return;
+        // Convention admin : « Privatisation » seul = événement privé, jamais affiché ;
+        // « Conduent "privatisation" » = site client privé, affiché et commandable, sans le marqueur.
+        var pv=_lirePrivePb(info.nom);
+        if(pv.masque) return;
         out[jour]=out[jour]||{};
         out[jour][cam]=out[jour][cam]||[];
-        out[jour][cam].push({service: sv==='midi'?'Midi':'Soir', lieu:info.nom,
+        out[jour][cam].push({service: sv==='midi'?'Midi':'Soir', lieu:pv.nom, prive:pv.prive,
                              adresse:_adressePb(etabId,info.nom), horaires:_horairesPb(info,sv)});
       });
     });
