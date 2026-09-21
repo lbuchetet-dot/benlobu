@@ -5213,6 +5213,52 @@ function acquitterWebAnnul(id){
     .catch(()=>showNotif('Erreur réseau','error'));
 }
 
+// ── DIALOGUES INTÉGRÉS (remplacent confirm()/prompt() natifs) ──
+// Sur iPad en mode app « écran d'accueil » (standalone), iOS peut bloquer silencieusement
+// confirm()/prompt() — ils renvoient false/null SANS s'afficher (typiquement après un
+// aller-retour vers une autre app, ex. TM Print Assistant). Résultat : le bouton « ne fait rien ».
+// Ces dialogues sont en HTML pur → toujours affichés, et dimensionnés pour le tactile.
+function _uiDialog(msg, opts){
+  opts = opts || {};
+  return new Promise(function(resolve){
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:100500;display:flex;align-items:center;justify-content:center;padding:20px';
+    const box = document.createElement('div');
+    box.style.cssText = 'background:#fff;border-radius:18px;max-width:440px;width:100%;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.4);font-family:inherit';
+    const txt = document.createElement('div');
+    txt.style.cssText = 'font-size:15px;line-height:1.45;color:#1c1c1a;white-space:pre-wrap;margin-bottom:16px';
+    txt.textContent = msg;
+    box.appendChild(txt);
+    let input = null;
+    if(opts.prompt){
+      input = document.createElement('textarea');
+      input.rows = 3;
+      input.value = opts.def || '';
+      input.style.cssText = 'width:100%;box-sizing:border-box;padding:12px;border:1px solid #ccc;border-radius:10px;font-size:16px;font-family:inherit;margin-bottom:16px;resize:none';
+      box.appendChild(input);
+    }
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:10px';
+    const bNo = document.createElement('button');
+    bNo.type = 'button';
+    bNo.textContent = opts.cancel || 'Annuler';
+    bNo.style.cssText = 'flex:1;padding:15px;background:#eee;color:#333;border:none;border-radius:12px;font-weight:700;font-size:15px;cursor:pointer';
+    const bOk = document.createElement('button');
+    bOk.type = 'button';
+    bOk.textContent = opts.ok || 'Confirmer';
+    bOk.style.cssText = 'flex:1.4;padding:15px;background:'+(opts.danger?'#c0392b':'#0F6E56')+';color:#fff;border:none;border-radius:12px;font-weight:800;font-size:15px;cursor:pointer';
+    row.appendChild(bNo); row.appendChild(bOk);
+    box.appendChild(row); ov.appendChild(box);
+    let fini = false;
+    function fin(v){ if(fini) return; fini = true; ov.remove(); resolve(v); }
+    bNo.addEventListener('click', function(){ fin(opts.prompt ? null : false); });
+    bOk.addEventListener('click', function(){ fin(opts.prompt ? input.value : true); });
+    document.body.appendChild(ov);
+  });
+}
+function uiConfirm(msg, opts){ return _uiDialog(msg, opts); }
+function uiPrompt(msg, def){ return _uiDialog(msg, {prompt:true, def:def, ok:'✕ Refuser la commande', danger:true}); }
+
 // ----- Sheet À VALIDER -----
 function ouvrirWebValider(){
   renderWebValiderSheet();
@@ -5263,13 +5309,13 @@ function renderWebValiderSheet(){
   )).join('');
 }
 // Validation groupée : confirme toutes les commandes en attente d'un coup (caisse fermée)
-function validerToutWebCaptn(){
+async function validerToutWebCaptn(){
   const list = _webPending();
   if(!list.length){ showNotif('Aucune commande à valider','info'); return; }
   const node = (_webEtabNode||CAPTN_WEB_ETAB);
   const nbMail = list.filter(o=>o.email).length;
-  if(!confirm('Valider et confirmer les '+list.length+' commande(s) en attente ?'
-    + (nbMail? '\n\n✉️ '+nbMail+' email(s) de confirmation seront envoyés.' : ''))) return;
+  if(!(await uiConfirm('Valider et confirmer les '+list.length+' commande(s) en attente ?'
+    + (nbMail? '\n\n✉️ '+nbMail+' email(s) de confirmation seront envoyés.' : ''), {ok:'✓ Tout valider'}))) return;
   const _u = {};
   list.forEach(o=>{
     _u['commandes_web/'+node+'/'+o.id+'/status'] = 'confirmed';
@@ -5285,11 +5331,11 @@ function validerToutWebCaptn(){
     .then(()=>{ showNotif('✅ '+list.length+' commande(s) confirmée(s)','success'); renderWebValiderSheet(); renderWebOrdersAccueil(); })
     .catch(()=>showNotif('Erreur réseau — réessayez','error'));
 }
-function validerWebCaptn(id){
+async function validerWebCaptn(id){
   const o = _webOrders[id]; if(!o) return;
   const dest = o.email ? ('\n\n✉️ Un email de confirmation sera envoyé à : '+o.email) : '\n\n⚠️ Aucune adresse email — pas d\'email envoyé.';
-  if(!confirm('Confirmer la commande '+(o.num||'')+' de '+((o.fname||'')+' '+(o.lname||'')).trim()+' ?'
-    + dest + '\n\nElle passera en préparation.')) return;
+  if(!(await uiConfirm('Confirmer la commande '+(o.num||'')+' de '+((o.fname||'')+' '+(o.lname||'')).trim()+' ?'
+    + dest + '\n\nElle passera en préparation.', {ok:'✓ Valider & confirmer'}))) return;
   const _node = (_webEtabNode||CAPTN_WEB_ETAB);
   const _u = {};
   _u['commandes_web/'+_node+'/'+id+'/status'] = 'confirmed';
@@ -5306,9 +5352,9 @@ function validerWebCaptn(id){
     })
     .catch(()=>showNotif('Erreur réseau — réessayez','error'));
 }
-function refuserWebCaptn(id){
+async function refuserWebCaptn(id){
   const o = _webOrders[id]; if(!o) return;
-  const motif = prompt('Refuser la commande '+(o.num||'')+' ?\n\nMotif communiqué au client (optionnel) :', 'Nous ne pouvons malheureusement pas honorer cette commande.');
+  const motif = await uiPrompt('Refuser la commande '+(o.num||'')+' ?\n\nMotif communiqué au client (optionnel) :', 'Nous ne pouvons malheureusement pas honorer cette commande.');
   if(motif === null) return;
   const _node = (_webEtabNode||CAPTN_WEB_ETAB);
   const _u = {};
@@ -5326,10 +5372,10 @@ function refuserWebCaptn(id){
     .catch(()=>showNotif('Erreur réseau','error'));
 }
 // Réversibilité : remettre une commande confirmée en attente
-function remettreEnAttenteWebCaptn(id){
+async function remettreEnAttenteWebCaptn(id){
   const o = _webOrders[id]; if(!o) return;
-  if(!confirm('Remettre la commande '+(o.num||'')+' en attente de validation ?'
-    + (o.email_statut==='envoye' ? '\n\n⚠️ L\'email est déjà parti au client.' : ''))) return;
+  if(!(await uiConfirm('Remettre la commande '+(o.num||'')+' en attente de validation ?'
+    + (o.email_statut==='envoye' ? '\n\n⚠️ L\'email est déjà parti au client.' : '')))) return;
   const _node = (_webEtabNode||CAPTN_WEB_ETAB);
   const _u = {};
   _u['commandes_web/'+_node+'/'+id+'/status'] = 'pending';
@@ -5345,10 +5391,10 @@ function remettreEnAttenteWebCaptn(id){
     .catch(()=>showNotif('Erreur réseau','error'));
 }
 // Re-déclencher l'envoi de l'email (échec ou renvoi)
-function renvoyerEmailWebCaptn(id){
+async function renvoyerEmailWebCaptn(id){
   const o = _webOrders[id]; if(!o) return;
   if(!o.email){ showNotif('Pas d\'email sur cette commande','error'); return; }
-  if(!confirm('Renvoyer l\'email de confirmation à '+o.email+' ?')) return;
+  if(!(await uiConfirm('Renvoyer l\'email de confirmation à '+o.email+' ?'))) return;
   db.ref('commandes_web/'+(_webEtabNode||CAPTN_WEB_ETAB)+'/'+id).update({ email_statut:'en_attente' })
     .then(()=>{ showNotif('Email remis en file d\'envoi','success'); renderWebPreparerSheet(); })
     .catch(()=>showNotif('Erreur réseau','error'));
@@ -5641,11 +5687,11 @@ function reimprimerBonService(key, ev){
 }
 
 // ── PHASE 4 : réattribution inter-camion depuis l'iPad (camions Poké) ──
-function reattribuerWebCamion(id){
+async function reattribuerWebCamion(id){
   if(_webEtabNode!=='pokeben'){ showNotif('Réattribution réservée aux camions Poké','info'); return; }
   const o = _webOrders[id]; if(!o) return;
   const cible = (o.camion==='Camion 1') ? 'Camion 2' : 'Camion 1';
-  if(!confirm('Réattribuer '+(o.num||'')+' vers '+cible+' ?\n\nElle quittera cet iPad et apparaîtra sur '+cible+'.')) return;
+  if(!(await uiConfirm('Réattribuer '+(o.num||'')+' vers '+cible+' ?\n\nElle quittera cet iPad et apparaîtra sur '+cible+'.'))) return;
   db.ref('commandes_web/pokeben/'+id).update({
     camion: cible,
     reattribuee_le: firebase.database.ServerValue.TIMESTAMP,
