@@ -1618,7 +1618,11 @@ function lancerCaisse(etabId, e, directCaisse){
     const cmds = snap.val() || {};
     couverts_en_cours = Object.values(cmds).filter(c=>c.statut==='en_cours').reduce((s,c)=>s+(c.couverts||0),0);
     updateCouverts();
+    // Le midi est-il encore « vivant » ? (commandes midi ouvertes ou encaissées) → sert à detectService() entre 2 services
+    _majEtatMidi({actif: Object.values(cmds).some(c=>c && c.service==='midi' && (c.statut==='en_cours' || c.statut==='payee'))});
   });
+  // Fin de service midi déjà faite aujourd'hui ?
+  db.ref('clotures/'+etabId+'/'+today+'/midi').on('value', snap => { _majEtatMidi({clos: !!snap.val()}); });
 
   // Compteur commandes du jour — basé sur le n° MAX déjà attribué (robuste aux suppressions)
   db.ref('commandes/'+etabId+'/'+today).once('value', snap => {
@@ -4028,6 +4032,17 @@ function finaliserCommande(paiements){
   }
 }
 
+// État du service midi du jour (alimenté par les listeners Firebase à l'init)
+let _midiActifJour = false, _midiClosJour = false;
+function _majEtatMidi(e){
+  const avant = detectService(new Date());
+  if('actif' in e) _midiActifJour = e.actif;
+  if('clos' in e) _midiClosJour = e.clos;
+  // Si le service détecté vient de changer et que l'accueil est affiché → le rafraîchir
+  if(detectService(new Date()) !== avant){
+    try{ if(document.getElementById('screen-accueil').classList.contains('active')) afficherEcranAccueil(); }catch(_){}
+  }
+}
 function detectService(d){
   const h = d.getHours()*60 + d.getMinutes();
   const s = parametresData.services || {};
@@ -4036,6 +4051,14 @@ function detectService(d){
   const sdebut = heureToMin(s.soir_debut||'17:00');
   if(h>=mdebut && h<mfin) return 'midi';
   if(h>=sdebut) return 'soir';
+  // Entre la fin du midi et le début du soir (ex. 15h–17h) : avant, on retombait TOUJOURS sur
+  // « midi » → accueil, emplacement et commandes web à préparer restaient ceux du midi alors
+  // qu'on prépare le soir. Désormais : « midi » seulement s'il reste un midi à terminer
+  // (ventes midi non clôturées) ; sinon on bascule sur le soir.
+  // (Uniquement pour l'instant présent : un horodatage passé garde l'ancien comportement.)
+  if(h>=mfin && Math.abs(Date.now()-d.getTime()) < 120000){
+    if(_midiClosJour || !_midiActifJour) return 'soir';
+  }
   return 'midi';
 }
 
