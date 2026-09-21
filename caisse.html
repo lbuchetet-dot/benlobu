@@ -770,6 +770,7 @@ input,select,textarea{font-family:inherit;outline:none}
       <div class="sups-title">Suppléments</div>
       <div class="sups-grid" id="mt-sups"></div>
     </div>
+    <div id="mt-menu-section" style="display:none"></div>
     <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Commentaire / Allergie</div>
     <textarea class="comment-field" id="mt-comment" placeholder="Ex: sans avocat — allergie noix…"></textarea>
     <div class="sheet-actions">
@@ -1547,6 +1548,14 @@ function lancerCaisse(etabId, e, directCaisse){
     renderArticles();
   });
 
+  // Formules de la carte (mêmes données que l'admin et le site) + cache hors-ligne
+  const _fmCached = cacheGet('formules_'+etabId);
+  if(_fmCached) formulesData = _fmCached;
+  db.ref('cartes/'+(e.carte||'poke')+'/formules').on('value', snap => {
+    formulesData = snap.val() || {};
+    cacheSet('formules_'+etabId, formulesData);
+  });
+
   // Écouter l'état de l'établissement en temps réel
   db.ref('etablissements/'+etabId).on('value', snap => {
     const data = snap.val() || {};
@@ -1941,7 +1950,7 @@ function renderPilotage(){
     Object.values(allDates).forEach(dayCmds=>{
       Object.values(dayCmds||{}).filter(c=>c.statut==='payee').forEach(c=>{
         (c.articles||[]).forEach(a=>{
-          const k=a.nom+' '+a.taille;
+          const k=_cleTop(a);
           if(!parProd[k]) parProd[k]={qte:0,ca:0};
           parProd[k].qte+=a.qte; parProd[k].ca+=a.prix*a.qte;
         });
@@ -2043,7 +2052,7 @@ function envoyerBonCuisine(){
   const mapArt = i=>({
     prodId:i.prodId, nom:i.nom, taille:i.taille,
     prix:i.prixTotal, supplements:i.supplements||[],
-    commentaire:i.commentaire||'', qte:i.qte
+    commentaire:i.commentaire||'', qte:i.qte, ..._fmExtra(i)
   });
 
   // ── COMPLÉMENT : commande déjà ouverte (rouverte via "+") → on AJOUTE, on ne crée pas de nouvelle commande ──
@@ -2266,7 +2275,7 @@ function recupererAnnulation(key){
     panier = (c.articles||[]).map(a=>({
       prodId:a.prodId, nom:a.nom, taille:a.taille,
       prixBase:a.prix, supplements:a.supplements||[],
-      prixTotal:a.prix, commentaire:a.commentaire||'', qte:a.qte
+      prixTotal:a.prix, commentaire:a.commentaire||'', qte:a.qte, ..._fmExtra(a)
     }));
     document.getElementById('input-nom').value = c.nom_client||'';
     document.getElementById('input-couverts').value = c.couverts||'';
@@ -2425,7 +2434,7 @@ function corrigerPaiement(key, e){
     panier = (c.articles||[]).map(a=>({
       prodId:a.prodId, nom:a.nom, taille:a.taille,
       prixBase:a.prix, supplements:a.supplements||[],
-      prixTotal:a.prix, commentaire:a.commentaire||'', qte:a.qte
+      prixTotal:a.prix, commentaire:a.commentaire||'', qte:a.qte, ..._fmExtra(a)
     }));
     document.getElementById('input-nom').value = c.nom_client||'';
     document.getElementById('input-couverts').value = c.couverts||'';
@@ -2455,7 +2464,7 @@ function rouvriCommandePayee(key, e){
     panier = (c.articles||[]).map(a=>({
       prodId:a.prodId, nom:a.nom, taille:a.taille,
       prixBase:a.prix, supplements:a.supplements||[],
-      prixTotal:a.prix, commentaire:a.commentaire||'', qte:a.qte, _dejaEnvoye:true
+      prixTotal:a.prix, commentaire:a.commentaire||'', qte:a.qte, _dejaEnvoye:true, ..._fmExtra(a)
     }));
     document.getElementById('input-nom').value = c.nom_client||'';
     document.getElementById('input-couverts').value = c.couverts||'';
@@ -2485,7 +2494,7 @@ function rouvriCommande(key, e){
     panier = (c.articles||[]).map(a=>({
       prodId:a.prodId, nom:a.nom, taille:a.taille,
       prixBase:a.prix, supplements:a.supplements||[],
-      prixTotal:a.prix, commentaire:a.commentaire||'', qte:a.qte
+      prixTotal:a.prix, commentaire:a.commentaire||'', qte:a.qte, ..._fmExtra(a)
     }));
     document.getElementById('input-nom').value = c.nom_client||'';
     document.getElementById('input-couverts').value = c.couverts||'';
@@ -2514,7 +2523,7 @@ function rouvriCommandeAjouter(key, e){
     panier = (c.articles||[]).map(a=>({
       prodId:a.prodId, nom:a.nom, taille:a.taille,
       prixBase:a.prix, supplements:a.supplements||[],
-      prixTotal:a.prix, commentaire:a.commentaire||'', qte:a.qte, _dejaEnvoye:true
+      prixTotal:a.prix, commentaire:a.commentaire||'', qte:a.qte, _dejaEnvoye:true, ..._fmExtra(a)
     }));
     document.getElementById('input-nom').value = c.nom_client||'';
     document.getElementById('input-couverts').value = c.couverts||'';
@@ -2572,7 +2581,7 @@ function renderServiceDuJour(){
       // Top 3 (toutes commandes du jour)
       const parProduit={};
       cmds.forEach(c=>(c.articles||[]).forEach(a=>{
-        const k=a.nom+' '+a.taille;
+        const k=_cleTop(a);
         parProduit[k]=(parProduit[k]||0)+a.qte;
       }));
       const top3=Object.entries(parProduit).sort((a,b)=>b[1]-a[1]).slice(0,3);
@@ -2706,8 +2715,8 @@ function renderArticles(){
       return oa - ob;
     });
     articles.forEach(([id,p])=>{
-      const tailles = Object.entries(p.tailles || {});
-      const premierPrixNormal = tailles.length ? tailles[0][1].prix : 0;
+      const tailles = _taillesTriees(p);
+      const premierPrixNormal = tailles.length ? _prixMinProd(p) : 0;
       const premierPrix = _prixEventProd(id, premierPrixNormal);
       const _soiree = premierPrix !== premierPrixNormal;
       const qteTotal = panierQteProduit(id);
@@ -2728,7 +2737,113 @@ function renderArticles(){
 }
 
 function panierQteProduit(prodId){
-  return panier.filter(i=>i.prodId===prodId).reduce((s,i)=>s+i.qte,0);
+  return panier.filter(i=>i.prodId===prodId || (i.type==='formule' && (i.composition||[]).some(c=>String(c.prodId)===String(prodId)))).reduce((s,i)=>s+i.qte,0);
+}
+
+// ══════════════════════════════════════════════════════════
+// FORMULES — même source (cartes/{carte}/formules) et même calcul que le site :
+// prix menu = prix formule + écart du bowl (taille/protéine) + suppléments
+// ══════════════════════════════════════════════════════════
+let formulesData = {};
+let _mtMenu = false;      // false = seul, sinon id de formule
+let _mtMenuSel = {};      // index d'emplacement -> prodId choisi
+const _C_TAILLES = ['s','m','l','xl','petit','moyen','grand','unique'];
+function _cRangTaille(nomVar, val){
+  const t = String((val&&val.taille)||String(nomVar||'').trim().split(/\s+/)[0]||'').toLowerCase();
+  const i = _C_TAILLES.indexOf(t); return i<0?99:i;
+}
+// Tailles dans l'ordre S → M → L puis prix croissant (Firebase les rend par ordre alphabétique)
+function _taillesTriees(prod){
+  return Object.entries((prod&&prod.tailles)||{}).sort((a,b)=>{
+    const d=_cRangTaille(a[0],a[1])-_cRangTaille(b[0],b[1]);
+    return d!==0?d:(Number(a[1].prix)||0)-(Number(b[1].prix)||0);
+  });
+}
+function _prixMinProd(prod){
+  const px=Object.values((prod&&prod.tailles)||{}).map(v=>Number(v.prix)).filter(x=>!isNaN(x));
+  return px.length?Math.min.apply(null,px):0;
+}
+function _fmListe(){
+  return Object.entries(formulesData||{}).filter(([,f])=>f && f.actif!==false && (f.slots||[]).length)
+    .map(([id,f])=>({id, nom:f.nom||'Menu', prix:Number(f.prix)||0, slots:f.slots||[]}));
+}
+function _fmProduitsSlot(sl){
+  if(sl.categorieAuto) return Object.entries(carteData).filter(([,p])=>p && p.actif!==false && (p.categorie||'Autres')===sl.categorieAuto).map(([id])=>id);
+  return (sl.produits||[]).filter(id=>carteData[id] && carteData[id].actif!==false);
+}
+// La formule dont le PREMIER emplacement au choix contient ce produit
+function _fmPour(prodId){
+  return _fmListe().find(f=>{
+    const premier=(f.slots||[]).find(sl=>sl.mode!=='fixe');
+    return premier && _fmProduitsSlot(premier).indexOf(prodId)>=0;
+  })||null;
+}
+// Emplacements restant à remplir : tout sauf le bowl, les imposés et la sauce
+function _fmSlotsAChoisir(f){
+  const out=[]; let premierVu=false;
+  (f.slots||[]).forEach((sl,si)=>{
+    if(sl.mode==='fixe') return;
+    if(!premierVu){ premierVu=true; return; }
+    const ids=_fmProduitsSlot(sl);
+    if(!ids.length) return;   // aucun produit actif : l'emplacement ne bloque pas le menu
+    if(/sauce/i.test(sl.label||'') || (ids.length && ids.every(id=>/sauce/i.test((carteData[id]||{}).categorie||'')))) return;
+    out.push({si,sl});
+  });
+  return out;
+}
+function _fmExtra(x){ return (x && x.type==='formule') ? {type:'formule', formuleId:x.formuleId||x.prodId||'', composition:x.composition||[]} : {}; }
+// Sous-lignes d'un article pour les bons : une ligne par élément du menu
+function _artSousLignes(a){
+  if(a && a.type==='formule' && Array.isArray(a.composition) && a.composition.length)
+    return a.composition.map(c=>c.nom).filter(Boolean);
+  const sub=((a&&a.taille)||'')+(((a&&a.supplements)||[]).length?' + '+a.supplements.map(s=>s.nom).join(', '):'');
+  return sub.trim()?[sub]:[];
+}
+// Clé « top produits » : un menu compte pour son bowl
+function _cleTop(a){
+  if(a && a.type==='formule' && Array.isArray(a.composition) && a.composition[0]) return String(a.composition[0].nom||a.nom).replace(/\s*\(.*\)\s*$/,'');
+  return a.nom+' '+(a.taille||'');
+}
+function _mtPrixSeul(){
+  if(!articleEnCours || !tailleSelectionnee) return null;
+  const {prodId, prod} = articleEnCours;
+  const t=prod.tailles[tailleSelectionnee]; if(!t) return null;
+  return _prixEventProd(prodId, t.prix) + Object.values(supsSelectionnes).reduce((s,x)=>s+(Number(x.prix)||0),0);
+}
+function _mtPrixMenu(f){
+  if(!articleEnCours || !tailleSelectionnee) return null;
+  const {prod} = articleEnCours;
+  const t=prod.tailles[tailleSelectionnee]; if(!t) return null;
+  const ecart=Math.max(0,(Number(t.prix)||0)-_prixMinProd(prod));
+  return Math.round((f.prix + ecart + Object.values(supsSelectionnes).reduce((s,x)=>s+(Number(x.prix)||0),0))*100)/100;
+}
+function mtChoixMenu(v){ _mtMenu=v; if(v===false) _mtMenuSel={}; renderMenuSection(); }
+function mtChoixSlot(si,pid){ _mtMenuSel[si]=pid; renderMenuSection(); }
+function renderMenuSection(){
+  const sec=document.getElementById('mt-menu-section'); if(!sec) return;
+  const f = articleEnCours ? _fmPour(articleEnCours.prodId) : null;
+  const ok=document.getElementById('mt-ok');
+  if(!f){ sec.style.display='none'; sec.innerHTML=''; _mtMenu=false; if(ok) ok.textContent='Ajouter au panier'; return; }
+  sec.style.display='block';
+  const pSeul=_mtPrixSeul(), pMenu=_mtPrixMenu(f);
+  const bs='flex:1;padding:14px 10px;border-radius:var(--radius);text-align:center;font-size:15px;font-weight:700;';
+  const on='border:2px solid var(--green);background:var(--green-light);color:var(--green-dark);';
+  const off='border:2px solid var(--border);background:var(--white);color:var(--text);';
+  let h='<div class="sups-title">Seul ou en menu ?</div><div style="display:flex;gap:10px;margin-bottom:14px">'
+    +'<button style="'+bs+(_mtMenu===false?on:off)+'" onclick="mtChoixMenu(false)">Seul<div style="font-size:12px;font-weight:500;opacity:.8;margin-top:2px">'+(pSeul!=null?fmtPrix(pSeul):'—')+'</div></button>'
+    +'<button style="'+bs+(_mtMenu===f.id?on:off)+'" onclick="mtChoixMenu(\''+f.id+'\')">🧮 '+f.nom+'<div style="font-size:12px;font-weight:500;opacity:.8;margin-top:2px">'+(pMenu!=null?fmtPrix(pMenu):'dès '+fmtPrix(f.prix))+'</div></button></div>';
+  if(_mtMenu===f.id){
+    _fmSlotsAChoisir(f).forEach(({si,sl})=>{
+      h+='<div class="sups-title">'+(sl.label||'Au choix')+' <span style="font-weight:500;text-transform:none;color:var(--coral,#c0392b)">'+(_mtMenuSel[si]?'':'— à choisir')+'</span></div><div class="sups-grid" style="margin-bottom:12px">';
+      _fmProduitsSlot(sl).forEach(pid=>{
+        const pr=carteData[pid]||{};
+        h+='<button class="sup-btn'+(_mtMenuSel[si]===pid?' selected':'')+'" onclick="mtChoixSlot('+si+',\''+pid+'\')"><span class="sup-btn-nom">'+(pr.nom||'?')+'</span><span class="sup-btn-prix">inclus</span></button>';
+      });
+      h+='</div>';
+    });
+  }
+  sec.innerHTML=h;
+  if(ok) ok.textContent = (_mtMenu===f.id) ? ('Ajouter le menu'+(pMenu!=null?' · '+fmtPrix(pMenu):'')) : ('Ajouter au panier'+(pSeul!=null?' · '+fmtPrix(pSeul):''));
 }
 
 // ══════════════════════════════════════════════════════════
@@ -2740,8 +2855,9 @@ function ouvrirTaille(prodId, prod){
   supsSelectionnes = {};
   document.getElementById('mt-title').textContent = prod.nom;
   document.getElementById('mt-comment').value = '';
+  _mtMenu = false; _mtMenuSel = {};
   // Tailles
-  const tailles = Object.entries(prod.tailles || {});
+  const tailles = _taillesTriees(prod);
   const grid = document.getElementById('mt-tailles');
   grid.innerHTML = '';
   if(tailles.length === 1){
@@ -2761,6 +2877,7 @@ function ouvrirTaille(prodId, prod){
       btn.classList.add('selected');
       tailleSelectionnee = nom;
       renderSups(prod);
+      renderMenuSection();
     };
     grid.appendChild(btn);
   });
@@ -2773,6 +2890,7 @@ function ouvrirTaille(prodId, prod){
   } else {
     supsSection.style.display = 'none';
   }
+  renderMenuSection();
   document.getElementById('modal-taille').classList.add('open');
 }
 
@@ -2788,6 +2906,7 @@ function renderSups(prod){
       if(supsSelectionnes[id]) delete supsSelectionnes[id];
       else supsSelectionnes[id] = s;
       btn.classList.toggle('selected');
+      renderMenuSection();
     };
     grid.appendChild(btn);
   });
@@ -2808,8 +2927,35 @@ function confirmerArticle(){
   const prixBase = _prixEventProd(prodId, taille.prix);
   const prixTotal = prixBase + sups.reduce((s,sup)=>s+sup.prix,0);
   const comment = document.getElementById('mt-comment').value.trim();
+  const fMenu = _mtMenu ? _fmListe().find(x=>x.id===_mtMenu) : null;
+  if(fMenu){
+    const manque = _fmSlotsAChoisir(fMenu).find(x=>!_mtMenuSel[x.si]);
+    if(manque){ showNotif('Menu : choisis « '+(manque.sl.label||'un produit')+' »','error'); return; }
+    const multi = Object.keys(prod.tailles||{}).length>1;
+    const supsTot = sups.reduce((s,x)=>s+(Number(x.prix)||0),0);
+    const supsLbl = sups.map(x=>x.nom).join(', ');
+    const ecart = Math.max(0,(Number(taille.prix)||0)-_prixMinProd(prod));
+    const composition = []; let premierVu=false;
+    (fMenu.slots||[]).forEach((sl,si)=>{
+      if(sl.mode==='fixe'){ const pid=_fmProduitsSlot(sl)[0]; if(pid) composition.push({label:sl.label||'',prodId:String(pid),nom:(carteData[pid]||{}).nom||'',taille:'',ecart:0}); return; }
+      if(!premierVu){
+        premierVu=true;
+        composition.push({label:sl.label||'',prodId:String(prodId),nom:prod.nom+(multi?' '+tailleSelectionnee:'')+(supsLbl?' ('+supsLbl+')':''),
+          taille:tailleSelectionnee,proteine:(taille.proteine||''),supplements:sups,ecart:Math.round((ecart+supsTot)*100)/100});
+        return;
+      }
+      if(/sauce/i.test(sl.label||'')) return;
+      const choix=_mtMenuSel[si]; if(!choix) return;
+      composition.push({label:sl.label||'',prodId:String(choix),nom:(carteData[choix]||{}).nom||'',taille:'',ecart:0});
+    });
+    const prixMenu = Math.round((fMenu.prix+ecart+supsTot)*100)/100;
+    articleEnAttente = { prodId:fMenu.id, type:'formule', formuleId:fMenu.id, nom:fMenu.nom,
+      taille:composition.map(c=>c.nom).filter(Boolean).join(' · '), prixBase:fMenu.prix, supplements:[],
+      composition, prixTotal:prixMenu, commentaire:comment, qte:1 };
+  } else {
   // Stocker l'article en attente
   articleEnAttente = { prodId, nom:prod.nom, taille:tailleSelectionnee, prixBase, supplements:sups, prixTotal, commentaire:comment, qte:1 };
+  }
   fermerModal('modal-taille');
   // Premier article → imposer nom + couverts
   if(panier.length === 0){
@@ -2906,7 +3052,7 @@ function renderPanier(){
       <div class="panier-item-top">
         <div style="flex:1">
           <div class="panier-item-name">${item.nom}</div>
-          <div class="panier-item-taille">${item.taille}${item.supplements?.length?' · '+supsStr:''}</div>
+          <div class="panier-item-taille">${item.type==='formule' ? _artSousLignes(item).map(l=>'• '+l).join('<br>') : item.taille+(item.supplements?.length?' · '+supsStr:'')}</div>
           ${item.commentaire?`<div class="panier-item-comment">⚠️ ${item.commentaire}</div>`:''}
         </div>
         <div style="text-align:right">
@@ -3653,7 +3799,7 @@ function _assurerCommandeOuverte(apres){
     const articles = panier.map(i=>({
       prodId:i.prodId, nom:i.nom, taille:i.taille,
       prix:i.prixTotal, supplements:i.supplements||[],
-      commentaire:i.commentaire||'', qte:i.qte
+      commentaire:i.commentaire||'', qte:i.qte, ..._fmExtra(i)
     }));
     const cmd = {
       num, nom_client:nom, couverts, retrait_souhaite:retrait,
@@ -3983,7 +4129,7 @@ function finaliserCommande(paiements){
       articles: panier.length > 0 ? panier.map(i=>({
         prodId:i.prodId, nom:i.nom, taille:i.taille,
         prix:i.prixTotal, supplements:i.supplements||[],
-        commentaire:i.commentaire||'', qte:i.qte
+        commentaire:i.commentaire||'', qte:i.qte, ..._fmExtra(i)
       })) : (base.articles || []),
       paiements,
       date: todayKey(),
@@ -4090,7 +4236,7 @@ function ouvrirBonAvantPaiement(){
     articles: panier.map(i=>({
       prodId:i.prodId, nom:i.nom, taille:i.taille,
       prix:i.prixTotal, supplements:i.supplements||[],
-      commentaire:i.commentaire||'', qte:i.qte
+      commentaire:i.commentaire||'', qte:i.qte, ..._fmExtra(i)
     })),
     total: getTotal(),
     paiements: []
@@ -4114,7 +4260,7 @@ function ouvrirBonAvantPaiement(){
       <div class="bon-qty">×${a.qte}</div>
       <div class="bon-item-right">
         <div class="bon-item-name">${a.nom}</div>
-        <div class="bon-item-taille">${a.taille}${supsStr?' + '+supsStr:''}</div>
+        <div class="bon-item-taille">${_artSousLignes(a).join('<br>')}</div>
         ${a.commentaire?`<div class="bon-item-comment">⚠️ ${a.commentaire}</div>`:''}
       </div>`;
     items.appendChild(div);
@@ -4161,7 +4307,7 @@ function afficherBon(cmd){
       <div class="bon-qty">×${a.qte}</div>
       <div class="bon-item-right">
         <div class="bon-item-name">${a.nom}</div>
-        <div class="bon-item-taille">${a.taille}${supsStr?' + '+supsStr:''}</div>
+        <div class="bon-item-taille">${_artSousLignes(a).join('<br>')}</div>
         ${a.commentaire?`<div class="bon-item-comment">⚠️ ${a.commentaire}</div>`:''}
       </div>`;
     items.appendChild(div);
@@ -4251,7 +4397,7 @@ function imprimerBon(){
   const retrait = document.getElementById('input-retrait').value || commandeEnCours?.retrait_souhaite || '';
   const articles = commandeEnCours ? commandeEnCours.articles : panier.map(i=>({
     nom:i.nom, taille:i.taille, qte:i.qte,
-    supplements:i.supplements||[], commentaire:i.commentaire||''
+    supplements:i.supplements||[], commentaire:i.commentaire||'', ..._fmExtra(i)
   }));
   const num = commandeEnCours ? commandeEnCours.num : cmdCounter + 1;
   const total = commandeEnCours ? commandeEnCours.total : getTotal();
@@ -4273,7 +4419,7 @@ function imprimerBon(){
         <div style="font-size:24px;font-weight:bold;min-width:36px">×${a.qte}</div>
         <div>
           <div style="font-size:16px;font-weight:bold">${a.nom}</div>
-          <div style="font-size:13px;color:#555">${a.taille}${(a.supplements||[]).length?' + '+(a.supplements.map(s=>s.nom).join(', ')):''}</div>
+          <div style="font-size:13px;color:#555">${_artSousLignes(a).join('<br>')}</div>
           ${a.commentaire?`<div style="font-size:13px;color:#c00;font-weight:600">⚠️ ${a.commentaire}</div>`:''}
         </div>
       </div>`).join('')}
@@ -4296,7 +4442,7 @@ function bonHtmlPourImpression(c){
         <div style="font-size:24px;font-weight:bold;min-width:36px">×${a.qte}</div>
         <div>
           <div style="font-size:16px;font-weight:bold">${a.nom}</div>
-          <div style="font-size:13px;color:#555">${a.taille||''}${(a.supplements||[]).length?' + '+(a.supplements.map(s=>s.nom).join(', ')):''}</div>
+          <div style="font-size:13px;color:#555">${_artSousLignes(a).join('<br>')}</div>
           ${a.commentaire?`<div style="font-size:13px;color:#c00;font-weight:600">⚠️ ${a.commentaire}</div>`:''}
         </div>
       </div>`).join('')}
@@ -4339,7 +4485,7 @@ function imprimerBonComplement(cmd, nouveauxArticles, heuresPrec, heure){
         <div style="font-size:24px;font-weight:bold;min-width:36px">×${a.qte}</div>
         <div>
           <div style="font-size:16px;font-weight:bold">${a.nom}</div>
-          <div style="font-size:13px;color:#555">${a.taille}${(a.supplements||[]).length?' + '+(a.supplements.map(s=>s.nom).join(', ')):''}</div>
+          <div style="font-size:13px;color:#555">${_artSousLignes(a).join('<br>')}</div>
           ${a.commentaire?`<div style="font-size:13px;color:#c00;font-weight:600">⚠️ ${a.commentaire}</div>`:''}
         </div>
       </div>`).join('')}`;
@@ -5573,17 +5719,25 @@ function fermerPopupReattrib(){
   try{ renderWebOrdersAccueil(); renderWebDuJour(); }catch(e){}
 }
 
+// Article de service à partir d'une ligne de commande web (même forme que la saisie caisse)
+function _webArticle(it){
+  const base = { prodId: it.id||'', prix: it.prix||0, prixBase: it.prixBase!=null?it.prixBase:(it.prix||0),
+    commentaire:'', qte: it.qty||it.qte||1, _dejaEnvoye:true };
+  if(it.type==='formule'){
+    const compo = Array.isArray(it.composition) ? it.composition : [];
+    const nomMenu = String(it.nomBase||it.nom||'Menu').split(' — ')[0];
+    return Object.assign(base, { nom:nomMenu, taille:compo.map(c=>c.nom).filter(Boolean).join(' · '),
+      supplements:[], type:'formule', formuleId:it.id||'', composition:compo });
+  }
+  const t = [it.taille||''].filter(Boolean).join(' ');
+  return Object.assign(base, { nom: it.nomBase||it.nom||'', taille: t, supplements: it.supplements||[] });
+}
 function envoyerWebEnService(id){
   const o = _webOrders[id]; if(!o){ showNotif('Commande introuvable','error'); return; }
   if(o.service_cmd_key){ showNotif('Déjà envoyée en service','info'); return; }
   const now = new Date();
   const hRetrait = _webHeure(o) || now.toTimeString().substring(0,5);
-  const articles = (o.items||[]).map(it=>({
-    prodId: it.id||'', nom: it.nomBase||it.nom||'', taille:'',
-    prix: it.prix||0, prixBase: it.prixBase!=null?it.prixBase:(it.prix||0),
-    supplements: it.supplements||[], type: it.type||null, composition: it.composition||null,
-    commentaire:'', qte: it.qty||1, _dejaEnvoye:true
-  }));
+  const articles = (o.items||[]).map(_webArticle);
   const couverts = (o.items||[]).reduce((s,it)=>s+(it.qty||1),0) || 1;
   const nomClient = ((o.fname||o.prenom||'')+' '+(o.lname||o.nom||'')).trim() || (o.num||'Client web');
   reserverNumero(num=>{
@@ -5648,7 +5802,7 @@ function imprimerEtEnvoyerService(){
       list.forEach((o, idx)=>{
         const num = startNum + idx;
         const hRetrait = _webHeure(o) || now.toTimeString().substring(0,5);
-        const articles = (o.items||[]).map(it=>({prodId:it.id||'', nom:it.nomBase||it.nom||'', taille:(it.taille||''), prix:it.prix||0, prixBase:(it.prixBase!=null?it.prixBase:(it.prix||0)), supplements:it.supplements||[], type:it.type||null, composition:it.composition||null, commentaire:'', qte:it.qty||1, _dejaEnvoye:true}));
+        const articles = (o.items||[]).map(_webArticle);
         const couverts = (o.items||[]).reduce((s,it)=>s+(it.qty||1),0)||1;
         const nomClient = ((o.fname||o.prenom||'')+' '+(o.lname||o.nom||'')).trim() || (o.num||'Client web');
         const cmdKey = 'web_'+String(o.id);
@@ -6065,8 +6219,8 @@ function eposLignesBon(d){
   L.push({sep:true});
   (d.articles||[]).forEach(a=>{
     L.push({v:'x'+a.qte+'  '+a.nom, align:'left', bold:true, dh:true});
-    const sub = (a.taille||'') + ((a.supplements||[]).length ? ' + '+a.supplements.map(s=>s.nom).join(', ') : '');
-    if(sub.trim()) L.push({v:'    '+sub, align:'left'});
+    const _fm = a.type==='formule';
+    _artSousLignes(a).forEach(sub=>L.push({v:(_fm?'    - ':'    ')+sub, align:'left', bold:_fm}));
     if(a.commentaire) L.push({v:'    !! '+a.commentaire, align:'left', bold:true});
   });
   L.push({sep:true});

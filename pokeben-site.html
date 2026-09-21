@@ -2549,6 +2549,8 @@ function _pbSlotsMenu(f){
   (f.slots||[]).forEach(function(sl,si){
     if(sl.mode==='fixe') return;
     if(!premierVu){ premierVu=true; return; }
+    // Emplacement dont plus aucun produit n'est actif : il ne doit pas bloquer le menu
+    if(!_fmProduitsSlot(sl).some(function(pid){return MENU.find(function(y){return y.id===pid;});})) return;
     if(/sauce/i.test(sl.label||'') || _fmProduitsSlot(sl).every(function(pid){var x=MENU.find(function(m){return m.id===pid;});return x&&/sauce/i.test(x.cat||'');})) return;
     out.push({si:si,sl:sl});
   });
