@@ -1340,6 +1340,7 @@ function _buildMenuPoke(){
   Object.keys(_prodsPoke).forEach(function(id){
     var pr=_prodsPoke[id];
     if(!pr || pr.actif===false) return;
+    if(pr.canaux && pr.canaux.site===false) return;   // produit réservé à la caisse (réglage admin « Visible sur »)
     // Variantes taille × protéine (admin). Le prix affiché sur la carte est le plus bas
     // de la gamme, préfixé par « dès » quand il y a plusieurs variantes.
     var variantes=[];

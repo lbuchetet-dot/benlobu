@@ -558,6 +558,7 @@ input,select,textarea{font-family:inherit;outline:none}
         <div id="panier-header">
           <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">
             <h2 style="margin:0">Commande</h2>
+            <button onclick="ouvrirFidelite()" title="Offrir une récompense fidélité" style="padding:6px 10px;background:#fff7e6;border:1.5px solid #e8a33c;border-radius:var(--radius);font-size:12px;font-weight:700;color:#9a6b00;cursor:pointer">🎁 Fidélité</button>
             <button id="btn-nouvelle-cmd" onclick="demarrerNouvelleCommande()" style="padding:6px 12px;background:var(--green-light);border:1.5px solid var(--green);border-radius:var(--radius);font-size:12px;font-weight:600;color:var(--green-dark);cursor:pointer">＋ Nouvelle commande</button>
           </div>
           <!-- Saisie centralisée : ces champs sont en LECTURE SEULE, l'édition passe par la modale (un clic l'ouvre) -->
@@ -766,6 +767,10 @@ input,select,textarea{font-family:inherit;outline:none}
     <div class="sheet-title" id="mt-title"></div>
     <div class="sheet-sub">Choisir la taille</div>
     <div class="taille-grid" id="mt-tailles"></div>
+    <div id="mt-sauces-section" style="display:none">
+      <div class="sups-title">Sauce <span id="mt-sauces-hint" style="font-weight:500;color:var(--text-muted)"></span></div>
+      <div class="sups-grid" id="mt-sauces"></div>
+    </div>
     <div id="mt-sups-section" style="display:none">
       <div class="sups-title">Suppléments</div>
       <div class="sups-grid" id="mt-sups"></div>
@@ -1118,6 +1123,19 @@ input,select,textarea{font-family:inherit;outline:none}
     <div class="sheet-actions">
       <button class="btn-sheet-cancel" onclick="fermerModal('modal-nom-couverts')">Annuler</button>
       <button class="btn-sheet-ok" onclick="validerNomCouverts()">Confirmer →</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL FIDÉLITÉ — offrir une récompense (points débités à l'encaissement) -->
+<div class="modal-overlay" id="modal-fidelite">
+  <div class="sheet" style="max-width:440px">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">🎁 Récompense fidélité</div>
+    <div class="sheet-sub">Le client a utilisé sa récompense sur la tablette (points déjà déduits) : choisis-la ici, l'article s'ajoute à 0 €</div>
+    <div id="fid-result" style="min-height:40px"></div>
+    <div class="sheet-actions" style="margin-top:12px">
+      <button class="btn-sheet-cancel" onclick="fermerModal('modal-fidelite')" style="flex:1">Fermer</button>
     </div>
   </div>
 </div>
@@ -1554,6 +1572,23 @@ function lancerCaisse(etabId, e, directCaisse){
   db.ref('cartes/'+(e.carte||'poke')+'/formules').on('value', snap => {
     formulesData = snap.val() || {};
     cacheSet('formules_'+etabId, formulesData);
+  });
+
+  // Sauces de la carte (réglage admin partagé avec le site) — temps réel + cache hors-ligne
+  const _scCached = cacheGet('sauces_'+etabId);
+  if(_scCached){ parametresData.sauces = Object.assign({}, parametresData.sauces||{}, _scCached); }
+  db.ref('parametres/sauces').on('value', snap => {
+    parametresData.sauces = snap.val() || {};
+    cacheSet('sauces_'+etabId, parametresData.sauces);
+  });
+  // Récompenses fidélité de la marque (réglage admin partagé avec la tablette fidélité)
+  const _brandFid = (e.carte==='burger') ? 'captn' : 'poke';
+  const _rwCached = cacheGet('rewards_'+_brandFid);
+  if(Array.isArray(_rwCached)) _fidRewards = _rwCached;
+  db.ref('site_config/fidelite/'+_brandFid+'/rewards').on('value', snap => {
+    const v = snap.val();
+    _fidRewards = Array.isArray(v) ? v.filter(r=>r && r.actif!==false && Number(r.pts)>0) : [];
+    cacheSet('rewards_'+_brandFid, _fidRewards);
   });
 
   // Écouter l'état de l'établissement en temps réel
@@ -2687,7 +2722,7 @@ function renderArticles(){
 
   // Construire liste des catégories ordonnées
   let cats = [...new Set(Object.values(carteData)
-    .filter(p=>p.actif!==false && !CATS_EXCLUES.includes((p.categorie||'').toLowerCase()))
+    .filter(p=>p.actif!==false && _visibleCaisse(p) && !CATS_EXCLUES.includes((p.categorie||'').toLowerCase()))
     .map(p=>p.categorie))];
   // Trier selon l'ordre admin
   cats.sort((a,b)=>{
@@ -2708,7 +2743,7 @@ function renderArticles(){
     grid.className = 'articles-grid';
     // Articles de cette catégorie, triés
     let articles = Object.entries(carteData)
-      .filter(([,p])=>p.categorie===cat && p.actif!==false);
+      .filter(([,p])=>p.categorie===cat && p.actif!==false && _visibleCaisse(p));
     articles.sort(([ida],[idb])=>{
       const oa = artConfig[ida]?.ordre ?? 99;
       const ob = artConfig[idb]?.ordre ?? 99;
@@ -2768,9 +2803,11 @@ function _fmListe(){
     .map(([id,f])=>({id, nom:f.nom||'Menu', prix:Number(f.prix)||0, slots:f.slots||[]}));
 }
 function _fmProduitsSlot(sl){
-  if(sl.categorieAuto) return Object.entries(carteData).filter(([,p])=>p && p.actif!==false && (p.categorie||'Autres')===sl.categorieAuto).map(([id])=>id);
-  return (sl.produits||[]).filter(id=>carteData[id] && carteData[id].actif!==false);
+  if(sl.categorieAuto) return Object.entries(carteData).filter(([,p])=>p && p.actif!==false && _visibleCaisse(p) && (p.categorie||'Autres')===sl.categorieAuto).map(([id])=>id);
+  return (sl.produits||[]).filter(id=>carteData[id] && carteData[id].actif!==false && _visibleCaisse(carteData[id]));
 }
+// Réglage admin « Visible sur » : un produit peut être réservé au site client (canaux.caisse=false)
+function _visibleCaisse(p){ return !(p && p.canaux && p.canaux.caisse===false); }
 // La formule dont le PREMIER emplacement au choix contient ce produit
 function _fmPour(prodId){
   return _fmListe().find(f=>{
@@ -2791,13 +2828,18 @@ function _fmSlotsAChoisir(f){
   });
   return out;
 }
-function _fmExtra(x){ return (x && x.type==='formule') ? {type:'formule', formuleId:x.formuleId||x.prodId||'', composition:x.composition||[]} : {}; }
+function _fmExtra(x){
+  const o = (x && x.offert_fidelite) ? {offert_fidelite:x.offert_fidelite} : {};
+  return (x && x.type==='formule') ? Object.assign(o,{type:'formule', formuleId:x.formuleId||x.prodId||'', composition:x.composition||[]}) : o;
+}
 // Sous-lignes d'un article pour les bons : une ligne par élément du menu
 function _artSousLignes(a){
   if(a && a.type==='formule' && Array.isArray(a.composition) && a.composition.length)
     return a.composition.map(c=>c.nom).filter(Boolean);
   const sub=((a&&a.taille)||'')+(((a&&a.supplements)||[]).length?' + '+a.supplements.map(s=>s.nom).join(', '):'');
-  return sub.trim()?[sub]:[];
+  const out = sub.trim()?[sub]:[];
+  if(a && a.offert_fidelite) out.push('🎁 Offert fidélité');
+  return out;
 }
 // Clé « top produits » : un menu compte pour son bowl
 function _cleTop(a){
@@ -2808,14 +2850,14 @@ function _mtPrixSeul(){
   if(!articleEnCours || !tailleSelectionnee) return null;
   const {prodId, prod} = articleEnCours;
   const t=prod.tailles[tailleSelectionnee]; if(!t) return null;
-  return _prixEventProd(prodId, t.prix) + Object.values(supsSelectionnes).reduce((s,x)=>s+(Number(x.prix)||0),0);
+  return _prixEventProd(prodId, t.prix) + _saucesEnSupplements().concat(Object.values(supsSelectionnes)).reduce((s,x)=>s+(Number(x.prix)||0),0);
 }
 function _mtPrixMenu(f){
   if(!articleEnCours || !tailleSelectionnee) return null;
   const {prod} = articleEnCours;
   const t=prod.tailles[tailleSelectionnee]; if(!t) return null;
   const ecart=Math.max(0,(Number(t.prix)||0)-_prixMinProd(prod));
-  return Math.round((f.prix + ecart + Object.values(supsSelectionnes).reduce((s,x)=>s+(Number(x.prix)||0),0))*100)/100;
+  return Math.round((f.prix + ecart + _saucesEnSupplements().concat(Object.values(supsSelectionnes)).reduce((s,x)=>s+(Number(x.prix)||0),0))*100)/100;
 }
 function mtChoixMenu(v){ _mtMenu=v; if(v===false) _mtMenuSel={}; renderMenuSection(); }
 function mtChoixSlot(si,pid){ _mtMenuSel[si]=pid; renderMenuSection(); }
@@ -2849,10 +2891,48 @@ function renderMenuSection(){
 // ══════════════════════════════════════════════════════════
 // MODAL TAILLE
 // ══════════════════════════════════════════════════════════
+// ── Sauces (source : parametres/sauces/{carte}, 1re incluse, suivantes à prix_extra — même règle que le site)
+let saucesSelectionnees = [];
+function _saucesCarte(){
+  const sc = (parametresData.sauces||{})[etabInfo.carte||'poke'] || {};
+  return { liste: Array.isArray(sc.liste)?sc.liste.filter(Boolean):[], prix_extra: Number(sc.prix_extra)||0 };
+}
+function _estBowl(prod){ return /pok|bowl/i.test((prod&&prod.categorie)||''); }
+function renderSauces(prod){
+  const sec = document.getElementById('mt-sauces-section');
+  const sc = _saucesCarte();
+  if(!_estBowl(prod) || !sc.liste.length){ sec.style.display='none'; saucesSelectionnees=[]; return; }
+  sec.style.display = 'block';
+  document.getElementById('mt-sauces-hint').textContent = '· 1re incluse' + (sc.prix_extra>0 ? ', suivantes +'+fmtPrix(sc.prix_extra) : '');
+  const grid = document.getElementById('mt-sauces');
+  grid.innerHTML = '';
+  sc.liste.forEach(nom => {
+    const rang = saucesSelectionnees.indexOf(nom);
+    const on = rang>=0;
+    const btn = document.createElement('button');
+    btn.className = 'sup-btn' + (on?' selected':'');
+    const lbl = on ? (rang===0 ? 'incluse' : '+'+fmtPrix(sc.prix_extra)) : (saucesSelectionnees.length ? '+'+fmtPrix(sc.prix_extra) : 'incluse');
+    btn.innerHTML = `<span class="sup-btn-nom">${nom}</span><span class="sup-btn-prix">${lbl}</span>`;
+    btn.onclick = () => {
+      const k = saucesSelectionnees.indexOf(nom);
+      if(k>=0) saucesSelectionnees.splice(k,1); else saucesSelectionnees.push(nom);
+      renderSauces(prod);
+      renderMenuSection();
+    };
+    grid.appendChild(btn);
+  });
+}
+// Sauces choisies → format « supplément » identique au site ({nom:'Sauce X', prix, sauce:true})
+function _saucesEnSupplements(){
+  const extra = _saucesCarte().prix_extra;
+  return saucesSelectionnees.map((sc,i)=>({ nom:'Sauce '+sc, prix:(i===0?0:extra), sauce:true }));
+}
 function ouvrirTaille(prodId, prod){
   articleEnCours = {prodId, prod};
   tailleSelectionnee = null;
   supsSelectionnes = {};
+  saucesSelectionnees = [];
+  renderSauces(prod);
   document.getElementById('mt-title').textContent = prod.nom;
   document.getElementById('mt-comment').value = '';
   _mtMenu = false; _mtMenuSel = {};
@@ -2923,7 +3003,7 @@ function confirmerArticle(){
   if(!tailleSelectionnee){ showNotif('Choisis une taille','error'); return; }
   const {prodId, prod} = articleEnCours;
   const taille = prod.tailles[tailleSelectionnee];
-  const sups = Object.values(supsSelectionnes);
+  const sups = _saucesEnSupplements().concat(Object.values(supsSelectionnes));
   const prixBase = _prixEventProd(prodId, taille.prix);
   const prixTotal = prixBase + sups.reduce((s,sup)=>s+sup.prix,0);
   const comment = document.getElementById('mt-comment').value.trim();
@@ -2959,22 +3039,25 @@ function confirmerArticle(){
   fermerModal('modal-taille');
   // Premier article → imposer nom + couverts
   if(panier.length === 0){
-    // Si un bon avait été envoyé (commande précédente terminée) → on repart sur une commande VIERGE
-    if(bonImprime || commandeEnCoursKey){
-      bonImprime = false;
-      commandeEnCours = null;
-      commandeEnCoursKey = null;
-      remiseEnCours = null;   // ③ nouvelle commande vierge → pas de remise héritée
-      multiPaiementsValides = [];
-      document.getElementById('input-nom').value = '';
-      document.getElementById('input-couverts').value = '';
-      document.getElementById('input-retrait').value = '';
-      document.getElementById('footer-avant-bon').style.display = 'flex';
-      document.getElementById('footer-apres-bon').style.display = 'none';
-    }
+    _preparerCommandeVierge();
     ouvrirModalNomCouverts();
   } else {
     ajouterArticleEnAttente();
+  }
+}
+// Si un bon avait été envoyé (commande précédente terminée) → on repart sur une commande VIERGE
+function _preparerCommandeVierge(){
+  if(bonImprime || commandeEnCoursKey){
+    bonImprime = false;
+    commandeEnCours = null;
+    commandeEnCoursKey = null;
+    remiseEnCours = null;   // ③ nouvelle commande vierge → pas de remise héritée
+    multiPaiementsValides = [];
+    document.getElementById('input-nom').value = '';
+    document.getElementById('input-couverts').value = '';
+    document.getElementById('input-retrait').value = '';
+    document.getElementById('footer-avant-bon').style.display = 'flex';
+    document.getElementById('footer-apres-bon').style.display = 'none';
   }
 }
 
@@ -3027,6 +3110,46 @@ function demarrerNouvelleCommande(){
   ouvrirModalNomCouverts();
 }
 
+// ══════════════════════════════════════════════════════════
+// FIDÉLITÉ EN CAISSE — récompense offerte contre des points
+// Source des récompenses : site_config/fidelite/{marque}/rewards (admin) ; comptes : clients_fidelite/{tel}
+// La ligne est ajoutée à 0 € et taguée offert_fidelite ; les points sont débités à l'ENCAISSEMENT (transaction).
+// ══════════════════════════════════════════════════════════
+let _fidRewards = [];
+// La fidélité reste sur la tablette : le client y valide ses passages et y utilise ses récompenses
+// (points débités là-bas). La caisse ne fait que passer l'article correspondant à 0 €, tagué pour le pilotage.
+function ouvrirFidelite(){
+  const box = document.getElementById('fid-result');
+  const rows = (_fidRewards||[]).slice().sort((a,b)=>a.pts-b.pts).map((r,idx)=>{
+    const prod = r.prodId && carteData[r.prodId];
+    const sous = prod ? ('→ '+prod.nom) : '→ ligne « '+r.nom+' » (aucun article lié dans l\'admin)';
+    return `<button onclick="ajouterRecompenseFidelite(${idx})" style="width:100%;display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 14px;margin-bottom:8px;border:1.5px solid #e8a33c;border-radius:var(--radius);background:#fff7e6;text-align:left;cursor:pointer">
+      <span><span style="font-size:18px">${r.emoji||'🎁'}</span> <b>${r.nom}</b><div style="font-size:11px;color:var(--text-muted)">${sous}</div></span>
+      <span style="font-weight:800;color:#9a6b00;white-space:nowrap">${r.pts} pts</span></button>`;
+  }).join('');
+  box.innerHTML = rows || '<div style="font-size:13px;color:var(--text-muted)">Aucune récompense configurée dans l\'admin (Fidélité → Récompenses).</div>';
+  document.getElementById('modal-fidelite').classList.add('open');
+}
+function ajouterRecompenseFidelite(idx){
+  const r=(_fidRewards||[]).slice().sort((a,b)=>a.pts-b.pts)[idx]; if(!r) return;
+  const prod = r.prodId && carteData[r.prodId];
+  let item;
+  if(prod){
+    // Variante la moins chère de l'article lié (sa valeur normale sert au pilotage)
+    const tl=Object.entries(prod.tailles||{}).sort((a,b)=>(Number(a[1].prix)||0)-(Number(b[1].prix)||0));
+    const [tNom,tVal]=tl[0]||['—',{prix:0}];
+    item = { prodId:r.prodId, nom:prod.nom, taille:tNom, prixBase:0, supplements:[], prixTotal:0, commentaire:'', qte:1,
+      offert_fidelite:{ recompense:r.nom, pts:r.pts, valeur:Number(tVal.prix)||0 } };
+  } else {
+    item = { prodId:'fid_'+r.pts, nom:r.nom, taille:'—', prixBase:0, supplements:[], prixTotal:0, commentaire:'', qte:1,
+      offert_fidelite:{ recompense:r.nom, pts:r.pts, valeur:0 } };
+  }
+  fermerModal('modal-fidelite');
+  articleEnAttente = item;
+  if(panier.length===0){ _preparerCommandeVierge(); ouvrirModalNomCouverts(); }
+  else { ajouterArticleEnAttente(); }
+  showNotif('🎁 '+r.nom+' offert (0 €)');
+}
 function ajouterArticleEnAttente(){
   if(!articleEnAttente) return;
   panier.push(articleEnAttente);
@@ -3053,6 +3176,7 @@ function renderPanier(){
         <div style="flex:1">
           <div class="panier-item-name">${item.nom}</div>
           <div class="panier-item-taille">${item.type==='formule' ? _artSousLignes(item).map(l=>'• '+l).join('<br>') : item.taille+(item.supplements?.length?' · '+supsStr:'')}</div>
+          ${item.offert_fidelite?`<div style="font-size:11px;font-weight:700;color:#9a6b00">🎁 Offert fidélité (${item.offert_fidelite.pts} pts)</div>`:''}
           ${item.commentaire?`<div class="panier-item-comment">⚠️ ${item.commentaire}</div>`:''}
         </div>
         <div style="text-align:right">
@@ -4137,6 +4261,10 @@ function finaliserCommande(paiements){
     };
     // La remise ne survit pas au ticket : si elle a été retirée, purger celle de la base.
     if(remiseRec) commande.remise = remiseRec; else delete commande.remise;
+    // Récompenses fidélité offertes : récap pour le pilotage (nb + valeur normale des articles)
+    { const of=(commande.articles||[]).filter(a=>a.offert_fidelite);
+      if(of.length) commande.offerts_fidelite={ nb:of.reduce((s,a)=>s+(a.qte||1),0), valeur:Math.round(of.reduce((s,a)=>s+(a.offert_fidelite.valeur||0)*(a.qte||1),0)*100)/100, pts:of.reduce((s,a)=>s+(a.offert_fidelite.pts||0)*(a.qte||1),0) };
+      else delete commande.offerts_fidelite; }
     // Les acomptes deviennent des `paiements` définitifs : on ne les recopie pas.
     delete commande.acomptes;
     delete commande.ouverte_par_partage;
@@ -4779,6 +4907,10 @@ function confirmerFinDeService(){
     const parPmt={};
     const normaliser=m=>m.replace('Especes','Espèces').replace('Tickets_resto','Tickets resto').replace('Cheques','Chèques').replace('CB','Carte bancaire');
     payees.forEach(([,c])=>(c.paiements||[]).forEach(p=>{const m=normaliser(p.mode||'');parPmt[m]=(parPmt[m]||0)+p.montant;}));
+    // Remises commerciales et offerts fidélité (pilotage admin : rapport comptable + suivi remises)
+    const remises = Math.round(payees.reduce((s,[,c])=>s+((c.remise&&c.remise.montant)||0),0)*100)/100;
+    const offFid = payees.reduce((a,[,c])=>{ const o=c.offerts_fidelite; if(o){ a.nb+=o.nb||0; a.valeur+=o.valeur||0; a.pts+=o.pts||0; } return a; },{nb:0,valeur:0,pts:0});
+    offFid.valeur = Math.round(offFid.valeur*100)/100;
     // Sauvegarder snapshot service (avec emplacement réel du jour)
     lireEmplacementJour(service, empl=>{
       db.ref('clotures/'+selectedEtabId+'/'+today+'/'+service).set({
@@ -4788,6 +4920,7 @@ function confirmerFinDeService(){
         evenement: empl.evenement||false, type_event: empl.type_event||null,
         ca, nb_commandes:nb, nb_couverts:cvt, panier_moyen:Math.round(pm*100)/100,
         detail_paiements:parPmt, non_soldees:enCours.length,
+        remises, offerts_fidelite:offFid,
         type:'fin_service'
       });
     });

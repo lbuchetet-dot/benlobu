@@ -334,13 +334,10 @@
     <div><div class="p-name" id="p-name">—</div><div class="p-phone" id="p-phone">—</div><div class="p-since" id="p-since">—</div></div>
   </div>
   <div class="badge-info badge-absent" id="p-absent" style="display:none">👋 Ça faisait longtemps, content de te revoir !</div>
-  <div class="reward-gift" id="p-gift" style="display:none">
-    <div class="ic">🎁</div><div><div class="t">Repas offert disponible !</div><div class="s">Montre cet écran à l'équipe</div></div>
-  </div>
   <div class="card">
-    <div class="card-title">🐟 Ta carte de fidélité</div>
-    <div class="stamps" id="p-stamps"></div>
-    <div class="stamp-prog" id="p-prog">— / 10 passages</div>
+    <div class="card-title">🐟 Ta prochaine récompense</div>
+    <div style="height:12px;background:var(--g3);border-radius:8px;overflow:hidden;margin:4px 0 10px"><div id="p-bar" style="height:100%;width:0;background:var(--orange);border-radius:8px;transition:width .4s"></div></div>
+    <div class="stamp-prog" id="p-prog">—</div>
   </div>
   <div class="card">
     <div class="pts-hello" id="p-hello">Hello ! 👋 Tu disposes de</div>
@@ -361,15 +358,6 @@
   <div class="confetti">🐠🥑🍋🌿🐡</div>
 </div>
 
-<!-- GIFT -->
-<div class="screen" id="screen-gift">
-  <div class="s-emoji">🎁</div>
-  <div class="s-title" style="color:var(--cream)">Félicitations !</div>
-  <div class="s-sub">Ta carte est complète</div>
-  <div class="gift-badge">🎉 Repas offert 🎉</div>
-  <div class="s-sub" style="color:var(--cream)">Montre cet écran à l'équipe</div>
-  <button class="btn-ghost" onclick="goVeille()" style="margin-top:14px;width:auto;padding:12px 24px">← Retour accueil</button>
-</div>
 
 <!-- ADMIN PIN -->
 <!-- LOGIN ADMIN (email/mot de passe) -->
@@ -421,7 +409,7 @@
     <div class="stat-grid" id="stat-grid"></div>
     <div class="sect">Répartition par âge</div>
     <div class="stat-grid" id="age-grid" style="grid-template-columns:repeat(2,1fr)"></div>
-    <div class="sect">Récompenses en attente</div>
+    <div class="sect">Clients avec une récompense débloquée</div>
     <div class="list" id="rewards-list"></div>
   </div>
   <div id="t-clients" style="display:none">
@@ -461,7 +449,6 @@
   <div class="p-head"><div class="avatar" id="d-avatar">?</div><div><div class="p-name" id="d-name">—</div><div class="p-phone" id="d-phone">—</div><div class="p-since" id="d-since">—</div></div></div>
   <div style="display:flex;gap:8px;flex-wrap:wrap">
     <button class="btn-sm danger" onclick="cancelLast()">Annuler dernier passage</button>
-    <button class="btn-sm ok" onclick="useReward()">Récompense utilisée</button>
   </div>
   <div class="sect">Informations</div>
   <div class="seg-list" id="d-data"></div>
@@ -498,7 +485,6 @@ const firebaseConfig = {
 };
 
 const ADMIN_PIN = "2205";
-const PASSAGES_FOR_REWARD = 10;       // 10 passages = repas offert
 const POINTS_PER_PASSAGE = 10;        // +10 points / passage
 const REWARDS_DEFAUT = [
   { pts:30,  nom:'Une boisson',        emoji:'🥤' },
@@ -724,7 +710,7 @@ window.registerClient=async()=>{
   const _cam=getCamion();
   const c={
     prenom, telephone:tel, date_naissance:naissance||null,
-    points:0, visites:0, rewards_used:0,
+    points:0, visites:0,
     consent_marketing:regConsent,
     date_inscription:todayKey(), derniere_visite:null,
     acquisition_emplacement:getEmplacementFinal()||null,
@@ -735,6 +721,43 @@ window.registerClient=async()=>{
   catch(e){ toast("Erreur à l'inscription",'error'); }
 };
 
+// ── DIALOGUES INTÉGRÉS (remplacent confirm()/prompt() natifs) ──
+// Tablette en mode app « écran d'accueil » : iOS peut bloquer silencieusement confirm()/prompt()
+// (retour false/null sans affichage) → la tuile récompense « ne faisait rien ». HTML pur = toujours affiché.
+function _uiDialog(msg, opts){
+  opts = opts || {};
+  return new Promise(function(resolve){
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:100500;display:flex;align-items:center;justify-content:center;padding:20px';
+    const box = document.createElement('div');
+    box.style.cssText = 'background:#fff;border-radius:18px;max-width:440px;width:100%;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.5);font-family:inherit;color:#1c1c1a';
+    const txt = document.createElement('div');
+    txt.style.cssText = 'font-size:16px;line-height:1.45;white-space:pre-wrap;margin-bottom:16px';
+    txt.textContent = msg; box.appendChild(txt);
+    let input = null;
+    if(opts.prompt){
+      input = document.createElement('input');
+      input.type = 'text'; input.autocapitalize = 'characters';
+      input.style.cssText = 'width:100%;box-sizing:border-box;padding:12px;border:1px solid #ccc;border-radius:10px;font-size:16px;margin-bottom:16px;color:#1c1c1a;background:#fff';
+      box.appendChild(input);
+    }
+    const row = document.createElement('div'); row.style.cssText = 'display:flex;gap:10px';
+    const bNo = document.createElement('button'); bNo.type='button'; bNo.textContent = opts.cancel || 'Annuler';
+    bNo.style.cssText = 'flex:1;padding:16px;background:#eee;color:#333;border:none;border-radius:12px;font-weight:700;font-size:16px;cursor:pointer';
+    const bOk = document.createElement('button'); bOk.type='button'; bOk.textContent = opts.ok || 'Confirmer';
+    bOk.style.cssText = 'flex:1.4;padding:16px;background:'+(opts.danger?'#c0392b':'#e8742c')+';color:#fff;border:none;border-radius:12px;font-weight:800;font-size:16px;cursor:pointer';
+    row.appendChild(bNo); row.appendChild(bOk); box.appendChild(row); ov.appendChild(box);
+    let fini=false;
+    function fin(v){ if(fini) return; fini=true; ov.remove(); resolve(v); }
+    bNo.addEventListener('click', ()=>fin(opts.prompt ? null : false));
+    bOk.addEventListener('click', ()=>fin(opts.prompt ? input.value : true));
+    document.body.appendChild(ov);
+    if(input) setTimeout(()=>input.focus(),50);
+  });
+}
+function uiConfirm(msg, opts){ return _uiDialog(msg, opts); }
+function uiPrompt(msg, opts){ return _uiDialog(msg, Object.assign({prompt:true}, opts||{})); }
+
 // PROFILE
 // Utiliser une récompense : confirmation → déduction des points → traçabilité
 window.utiliserRecompense = async (idx) => {
@@ -742,7 +765,7 @@ window.utiliserRecompense = async (idx) => {
   if(!r || !cur || !curTel) return;
   const pts = cur.points || 0;
   if(pts < r.pts){ toast('Pas assez de points','error'); return; }
-  const ok = window.confirm(`Utiliser « ${r.nom} » ?\nCela déduit ${r.pts} points (il te restera ${pts - r.pts} points).`);
+  const ok = await uiConfirm(`Utiliser « ${r.nom} » ?\nCela déduit ${r.pts} points (il te restera ${pts - r.pts} points).`, {ok:'🎁 Utiliser '+r.pts+' pts'});
   if(!ok) return;
   const newPts = pts - r.pts;
   const cam = getCamion();
@@ -771,19 +794,18 @@ function showProfile(){
   const absentEl=document.getElementById('p-absent');
   absentEl.style.display=(last && (Date.now()-last)/86400000>=ABSENCE_Q_DAYS)?'block':'none';
 
-  const visites=c.visites||0;
-  const earnedReward=Math.floor(visites/PASSAGES_FOR_REWARD);
-  const pending=earnedReward-(c.rewards_used||0);
-  document.getElementById('p-gift').style.display=pending>0?'flex':'none';
-
-  const stampN=visites%PASSAGES_FOR_REWARD;
-  const grid=document.getElementById('p-stamps'); grid.innerHTML='';
-  for(let i=0;i<PASSAGES_FOR_REWARD;i++){
-    const d=document.createElement('div'); d.className='stamp'+(i<stampN?' fill':''); d.textContent=i<stampN?'🐟':''; grid.appendChild(d);
-  }
-  document.getElementById('p-prog').textContent=`${stampN} / ${PASSAGES_FOR_REWARD} passages`;
-
   const pts=c.points||0;
+  // Progression vers la prochaine récompense (le « repas offert tous les 10 passages » est supprimé : tout passe par les points)
+  const prochaine=REWARDS.find(r=>r.pts>pts);
+  const bar=document.getElementById('p-bar'), prog=document.getElementById('p-prog');
+  if(prochaine){
+    const prec=REWARDS.filter(r=>r.pts<=pts).reduce((m,r)=>Math.max(m,r.pts),0);
+    bar.style.width=Math.round(100*(pts-prec)/Math.max(1,prochaine.pts-prec))+'%';
+    prog.textContent=`Plus que ${prochaine.pts-pts} pts pour ${prochaine.emoji} ${prochaine.nom}`;
+  } else {
+    bar.style.width='100%';
+    prog.textContent='🎉 Toutes les récompenses sont débloquées !';
+  }
   document.getElementById('p-pts').textContent=pts;
 
   // Carousel
@@ -893,8 +915,6 @@ async function doPassage(tel, ts, opts){
     const c=snap.val();
     const visites=(c.visites||0)+1;
     const points=(c.points||0)+POINTS_PER_PASSAGE;
-    const earned=Math.floor(visites/PASSAGES_FOR_REWARD);
-    const isGift=earned>Math.floor((c.visites||0)/PASSAGES_FOR_REWARD);
     const cam=getCamion();
     const camions=c.camions||{};
     if(cam) camions[cam.id]=(camions[cam.id]||0)+1;
@@ -904,8 +924,7 @@ async function doPassage(tel, ts, opts){
     ecrireFiableF('clients_fidelite/'+tel, {visites,points,derniere_visite:ts,history:hist,camions}, 'update');
     cur={...c,visites,points,derniere_visite:ts,camions};
     if(!silent){
-      if(isGift) showScreen('screen-gift');
-      else showSuccess(false, visites%PASSAGES_FOR_REWARD);
+      showSuccess(false, points);
     }
     return true;
   }catch(e){
@@ -919,7 +938,7 @@ function showSuccess(offline, stamps){
   document.querySelector('#screen-success .boom').textContent=offline?'📴':'BOOM !';
   document.querySelector('#screen-success .s-title').textContent=offline?'Passage enregistré':'+10 points 🎉';
   document.querySelector('#screen-success .s-sub').textContent=offline?'Synchro au retour réseau':"Parce qu'on t'adore !";
-  document.getElementById('s-stamps').textContent=stamps!==undefined?`${stamps} / ${PASSAGES_FOR_REWARD} tampons`:'';
+  document.getElementById('s-stamps').textContent=stamps!==undefined?`Total : ${stamps} points`:'';
   showScreen('screen-success'); setTimeout(goVeille,5000);
 }
 
@@ -970,21 +989,21 @@ function renderDash(){
   const cl=Object.values(all);
   const totVisites=cl.reduce((s,c)=>s+(c.visites||0),0);
   const actifs=cl.filter(c=>c.derniere_visite&&(Date.now()-c.derniere_visite)<30*86400000).length;
-  const pending=cl.filter(c=>Math.floor((c.visites||0)/PASSAGES_FOR_REWARD)>(c.rewards_used||0)).length;
+  const minPts=REWARDS.length?Math.min(...REWARDS.map(r=>r.pts)):Infinity;
+  const pending=cl.filter(c=>(c.points||0)>=minPts).length;
   document.getElementById('stat-grid').innerHTML=`
     <div class="stat"><div class="v">${cl.length}</div><div class="l">Clients enrôlés</div></div>
     <div class="stat"><div class="v">${totVisites}</div><div class="l">Visites totales</div></div>
     <div class="stat"><div class="v">${actifs}</div><div class="l">Actifs ce mois</div></div>
-    <div class="stat"><div class="v">${pending}</div><div class="l">Récompenses dûes</div></div>`;
+    <div class="stat"><div class="v">${pending}</div><div class="l">Récompense débloquée</div></div>`;
   const tr={'-25 ans':0,'25-35 ans':0,'35-50 ans':0,'+50 ans':0};
   cl.forEach(c=>{ const t=tranche(ageOf(c.date_naissance)); if(tr[t]!==undefined) tr[t]++; });
   document.getElementById('age-grid').innerHTML=Object.entries(tr).map(([k,v])=>`<div class="stat"><div class="v">${v}</div><div class="l">${k}</div></div>`).join('');
-  const pend=Object.entries(all).filter(([,c])=>Math.floor((c.visites||0)/PASSAGES_FOR_REWARD)>(c.rewards_used||0));
-  document.getElementById('rewards-list').innerHTML=pend.length?pend.map(([t,c])=>cliRow(t,c,'gift')).join(''):'<div style="color:#666;font-size:13px">Aucune en attente</div>';
+  const pend=Object.entries(all).filter(([,c])=>(c.points||0)>=minPts).sort((a,b)=>(b[1].points||0)-(a[1].points||0));
+  document.getElementById('rewards-list').innerHTML=pend.length?pend.map(([t,c])=>cliRow(t,c)).join(''):'<div style="color:#666;font-size:13px">Aucun client</div>';
 }
 function cliRow(tel,c,mode){
-  const pend=Math.floor((c.visites||0)/PASSAGES_FOR_REWARD)-(c.rewards_used||0);
-  const bdg=(mode==='gift'||pend>0)?`<div class="bdg gift">🎁 repas</div>`:`<div class="bdg">${c.points||0} pts</div>`;
+  const bdg=`<div class="bdg">${c.points||0} pts</div>`;
   return `<div class="cli" onclick="openDetail('${tel}')"><div><div class="n">${c.prenom||'?'}</div><div class="ph">${fmtPhone(tel)} · ${c.visites||0} visites</div></div>${bdg}</div>`;
 }
 window.renderClients=()=>{
@@ -1049,12 +1068,12 @@ window.openDetail=(tel)=>{
   document.getElementById('d-phone').textContent=fmtPhone(tel);
   document.getElementById('d-since').textContent=c.date_inscription?'Depuis '+c.date_inscription:'';
   const a=ageOf(c.date_naissance);
-  const rows=[['Visites',c.visites||0],['Points',(c.points||0)+' pts'],['Repas gagnés',Math.floor((c.visites||0)/PASSAGES_FOR_REWARD)],['Repas utilisés',c.rewards_used||0],
+  const rows=[['Visites',c.visites||0],['Points',(c.points||0)+' pts'],['Récompenses utilisées',(c.history?Object.values(c.history):[]).filter(x=>x&&x.type==='recompense').length],
     ['Dernière visite',c.derniere_visite?fmtDate(c.derniere_visite):'—'],['Âge',a!==null?a+' ans ('+tranche(a)+')':'—'],['SMS marketing',c.consent_marketing?'✅ Accepté':'❌ Refusé'],
     ['Préférences',c.profile?.pref||'—'],['Anniversaire',c.date_naissance||'—'],['Plat favori',c.profile?.favori||'—'],['Acquisition',c.profile?.acquisition||'—']];
   document.getElementById('d-data').innerHTML=rows.map(([k,v])=>`<div class="row"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('');
   const h=c.history?Object.values(c.history).reverse():[];
-  document.getElementById('d-hist').innerHTML=h.length?h.slice(0,20).map(x=>`<div class="hist"><span>Passage #${x.visites||'?'}</span><span class="d">${fmtDate(x.ts)}</span></div>`).join(''):'<div style="color:#666;font-size:13px">Aucun</div>';
+  document.getElementById('d-hist').innerHTML=h.length?h.slice(0,20).map(x=>`<div class="hist"><span>${x.type==='recompense'?'🎁 '+(x.nom||'Récompense')+' (−'+(x.points_deduits||0)+' pts)':'Passage #'+(x.visites||'?')}</span><span class="d">${fmtDate(x.ts)}</span></div>`).join(''):'<div style="color:#666;font-size:13px">Aucun</div>';
   showScreen('screen-detail');
 };
 window.cancelLast=async()=>{
@@ -1063,12 +1082,6 @@ window.cancelLast=async()=>{
   const visites=c.visites-1, points=Math.max(0,(c.points||0)-POINTS_PER_PASSAGE);
   await update(ref(db,'clients_fidelite/'+detailTel),{visites,points,history:h});
   all[detailTel]={...c,visites,points,history:h}; toast('Passage annulé','ok'); openDetail(detailTel);
-};
-window.useReward=async()=>{
-  const c=all[detailTel]; const pend=Math.floor((c.visites||0)/PASSAGES_FOR_REWARD)-(c.rewards_used||0);
-  if(pend<=0){ toast('Aucune récompense en attente','error'); return; }
-  const used=(c.rewards_used||0)+1; await update(ref(db,'clients_fidelite/'+detailTel),{rewards_used:used});
-  all[detailTel]={...c,rewards_used:used}; toast('Récompense marquée utilisée ✅','ok'); openDetail(detailTel);
 };
 
 // CSV
@@ -1157,14 +1170,14 @@ window.importCSV=(ev)=>{
     const ecraser = !!(document.getElementById('csv-ecraser')||{}).checked;
     if(ecraser){
       const nb = Object.keys(all).length;
-      const ok = window.confirm(
+      const ok = await uiConfirm(
         'MODE ÉCRASEMENT\n\n'+
         'Les clients du CSV déjà présents seront REMPLACÉS :\n'+
         'points, visites, historique et récompenses remis aux valeurs du fichier.\n\n'+
         nb+' fiche(s) actuellement en base.\n\n'+
-        'Cette action est IRRÉVERSIBLE. Continuer ?');
+        'Cette action est IRRÉVERSIBLE. Continuer ?', {ok:'Continuer', danger:true});
       if(!ok){ ev.target.value=''; return; }
-      const ok2 = window.prompt('Confirme en tapant ECRASER (en majuscules) :');
+      const ok2 = await uiPrompt('Confirme en tapant ECRASER (en majuscules) :', {ok:'Écraser', danger:true});
       if(ok2 !== 'ECRASER'){ ev.target.value=''; toast('Import annulé','error'); return; }
     }
 
@@ -1192,8 +1205,6 @@ window.importCSV=(ev)=>{
 
       const c={
         prenom, telephone:tel, points, visites,
-        // Pas de repas offert rétroactif : on considère les repas déjà acquis comme consommés.
-        rewards_used: Math.floor(visites/PASSAGES_FOR_REWARD),
         consent_marketing: iSms>=0 ? (String(c0[iSms]).trim()==='1') : false,
         date_inscription: inscr,
         profile:{}, history:[]

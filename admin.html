@@ -881,7 +881,7 @@ tr:hover td{background:var(--bg)}
           <div class="stat-card"><div class="stat-label">Clients enrôlés (total)</div><div class="stat-value" id="fid-total">—</div></div>
           <div class="stat-card"><div class="stat-label" id="fid-actifs-lbl">Actifs sur la période</div><div class="stat-value" id="fid-actifs">—</div></div>
           <div class="stat-card"><div class="stat-label">Solde points total</div><div class="stat-value" id="fid-points" style="color:var(--amber,#d98c1f)">—</div></div>
-          <div class="stat-card"><div class="stat-label">Repas à honorer</div><div class="stat-value green" id="fid-repas">—</div></div>
+          <div class="stat-card"><div class="stat-label">Récompense débloquée</div><div class="stat-value green" id="fid-repas" title="Clients ayant assez de points pour au moins une récompense">—</div></div>
         </div>
 
         <div class="card">
@@ -1196,7 +1196,7 @@ tr:hover td{background:var(--bg)}
             <p>Tous les outils partagent <strong>une seule base de données</strong> (Firebase « pokeben-caisse »). Le <strong>numéro de téléphone du client</strong> est la clé qui relie tout : un client reconnu à la caisse l'est aussi sur la tablette fidélité et dans cet admin.</p>
             <table class="man-table">
               <tr><th>Outil</th><th>À quoi il sert</th><th>Qui l'utilise</th><th>Support</th></tr>
-              <tr><td><strong>App Fidélité</strong></td><td>Le client valide ses passages, cumule points &amp; tampons</td><td>Le client (en autonomie)</td><td>Tablette Android sur le camion</td></tr>
+              <tr><td><strong>App Fidélité</strong></td><td>Le client valide ses passages et cumule des points</td><td>Le client (en autonomie)</td><td>Tablette Android sur le camion</td></tr>
               <tr><td><strong>Caisse</strong></td><td>Encaisser, imprimer les bons, ouvrir le tiroir</td><td>L'équipe</td><td>iPad</td></tr>
               <tr><td><strong>Admin</strong> (ce site)</td><td>Piloter : ventes, produits, planning, CRM fidélité</td><td>Gérant / responsable</td><td>Ordinateur</td></tr>
               <tr><td><strong>Site Capt&amp;Fish</strong></td><td>Commander à l'avance, voir les emplacements</td><td>Les clients</td><td>Web (téléphone/PC)</td></tr>
@@ -1214,8 +1214,8 @@ tr:hover td{background:var(--bg)}
             <div class="man-screen"><div class="ms-t">1. Écran de veille</div><div class="ms-benef">Bénéfice : attire l'œil, donne envie de s'inscrire.</div>Logo + « On a un cadeau pour toi 🎁 » + bouton <span class="man-kbd">LET'S GO</span>. En haut à gauche, le camion rattaché s'affiche (ex : « 📍 Poké C1 »).</div>
             <div class="man-screen"><div class="ms-t">2. Saisie du numéro</div><div class="ms-benef">Bénéfice : identification rapide, sans clavier compliqué.</div>Indicatif +33 + pavé numérique. Le client tape son numéro et valide.</div>
             <div class="man-screen"><div class="ms-t">3. Inscription (nouveau client)</div><div class="ms-benef">Bénéfice : compte créé en 20 s, conforme RGPD.</div>Prénom, date de naissance, et la question de consentement marketing (Oui/Non) — <strong>obligatoire pour pouvoir lui envoyer un SMS plus tard</strong>.</div>
-            <div class="man-screen"><div class="ms-t">4. Profil &amp; validation</div><div class="ms-benef">Bénéfice : le client voit sa progression → il revient.</div>Carte de tampons (🐟), total de points, carrousel des récompenses (avec cadenas 🔒 tant que le palier n'est pas atteint), parfois une petite question. Gros bouton <span class="man-kbd">Valider mon passage</span>.</div>
-            <div class="man-screen"><div class="ms-t">5. Gratification</div><div class="ms-benef">Bénéfice : la récompense immédiate crée l'habitude.</div>« BOOM ! +10 points » avec confettis. Si la carte est complète : écran « Repas offert » à montrer à l'équipe.</div>
+            <div class="man-screen"><div class="ms-t">4. Profil &amp; validation</div><div class="ms-benef">Bénéfice : le client voit sa progression → il revient.</div>Barre de progression vers la prochaine récompense, total de points, carrousel des récompenses (avec cadenas 🔒 tant que le palier n'est pas atteint), parfois une petite question. Gros bouton <span class="man-kbd">Valider mon passage</span>.</div>
+            <div class="man-screen"><div class="ms-t">5. Gratification</div><div class="ms-benef">Bénéfice : la récompense immédiate crée l'habitude.</div>« BOOM ! +10 points » avec confettis et le total de points.</div>
 
             <h4>Espace admin de la tablette (code <span class="man-kbd">2205</span>)</h4>
             <ul>
@@ -1235,8 +1235,8 @@ tr:hover td{background:var(--bg)}
             <h4>Pourquoi des passages et pas le chiffre d'affaires ?</h4>
             <p>On ne peut pas se connecter au terminal SumUp pour récupérer les montants. Le <strong>passage</strong> est donc la seule donnée fiable, et il se valide en autonomie par le client. Simple, lisible, sans dépendance technique.</p>
 
-            <h4>Carte de tampons : 10 passages = 1 repas offert</h4>
-            <p><strong>Pourquoi 10 ?</strong> Assez court pour rester atteignable (un habitué y arrive en quelques semaines, ce qui entretient sa motivation), assez long pour rester rentable : le repas offert représente environ 1 repas sur 11, soit ~9 % de remise effective sur les clients très fidèles — un coût maîtrisé pour fidéliser durablement.</p>
+            <h4>Un seul système : les points</h4>
+            <p>Depuis le 22/09/2026, la carte à tampons (10 passages = 1 repas offert) est supprimée. Tout passe par les points et le barème de récompenses ci-dessous, réglé dans l'onglet Fidélité. Le client utilise sa récompense sur la tablette (points déduits à ce moment-là) et montre l'écran ; en caisse, le bouton 🎁 Fidélité ajoute l'article lié à 0 €, tagué pour le pilotage.</p>
 
             <h4>Points : +10 par passage</h4>
             <p><strong>Pourquoi +10 ?</strong> Un chiffre rond et valorisant (« +10 points » sonne mieux que « +1 »). Les points alimentent un carrousel de petites récompenses qui jalonnent le parcours.</p>
@@ -1849,6 +1849,12 @@ tr:hover td{background:var(--bg)}
     </div>
     <div class="form-field"><label class="form-label">Statut</label>
       <select class="form-select" id="prod-actif"><option value="true">Actif</option><option value="false">Inactif</option></select>
+    </div>
+    <div class="form-field"><label class="form-label">Visible sur <small style="font-weight:500;color:var(--text-muted)">(un produit inactif n'apparaît nulle part, quelles que soient ces cases)</small></label>
+      <div style="display:flex;gap:18px;flex-wrap:wrap;font-size:13px">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="prod-canal-site" checked style="width:auto"> 🌐 Site client</label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="prod-canal-caisse" checked style="width:auto"> 🧾 Caisse (iPad)</label>
+      </div>
     </div>
     </div>
     <div class="modal-actions">
@@ -3498,6 +3504,7 @@ function renderProduits(data){
           </div>
         </div>
         <span class="badge ${p.actif?'badge-green':'badge-gray'}">${p.actif?'Actif':'Inactif'}</span>
+        <span style="font-size:11px;color:var(--text-muted);white-space:nowrap" title="Canaux où le produit est proposé">${(p.canaux&&p.canaux.site===false)?'':'🌐 '}${(p.canaux&&p.canaux.caisse===false)?'':'🧾'}</span>
         <button class="btn btn-secondary btn-sm" onclick="ouvrirModalProduit('${id}')">Modifier</button>
         <button class="btn btn-icon btn-danger" onclick="supprimerProduit('${id}')">🗑</button>`;
       sec.appendChild(item);
@@ -3516,6 +3523,8 @@ function ouvrirModalProduit(id){
     document.getElementById('prod-carte').value=currentCarte;
     document.getElementById('prod-tva').value=p.tva||'sur_place';
     document.getElementById('prod-actif').value=String(p.actif!==false);
+    document.getElementById('prod-canal-site').checked = !(p.canaux && p.canaux.site===false);
+    document.getElementById('prod-canal-caisse').checked = !(p.canaux && p.canaux.caisse===false);
     document.getElementById('prod-desc').value=p.description||'';
     document.getElementById('prod-photo-data').value=p.photo||'';
     renderPhotoPreviewProduit(p.photo||'');
@@ -3525,6 +3534,8 @@ function ouvrirModalProduit(id){
   } else {
     document.getElementById('modal-produit-title').textContent='Nouveau produit';
     ['prod-nom','prod-cat','prod-desc'].forEach(i=>document.getElementById(i).value='');
+    document.getElementById('prod-canal-site').checked=true;
+    document.getElementById('prod-canal-caisse').checked=true;
     document.getElementById('prod-photo-data').value='';
     renderPhotoPreviewProduit('');
     renderAllergenesProduit({});
@@ -3941,12 +3952,15 @@ function sauvegarderProduit(){
   const carte=document.getElementById('prod-carte').value;
   const tva=document.getElementById('prod-tva').value;
   const actif=document.getElementById('prod-actif').value==='true';
+  // Canaux : le produit reste actif mais n'est proposé que là où c'est coché (site client / caisse iPad)
+  const canaux={ site:document.getElementById('prod-canal-site').checked, caisse:document.getElementById('prod-canal-caisse').checked };
   const description=document.getElementById('prod-desc').value.trim();
   const photo=document.getElementById('prod-photo-data').value||'';
   const allergenes={};
   document.querySelectorAll('.prod-alg-cb:checked').forEach(cb=>{ allergenes[cb.value]=true; });
   const editId=document.getElementById('prod-edit-id').value;
   if(!nom||!cat){ showNotif('Nom et catégorie requis','error'); return; }
+  if(actif && !canaux.site && !canaux.caisse){ showNotif('Coche au moins un canal (site ou caisse), sinon passe le produit en Inactif','error'); return; }
   const tailles=_tailleseDepuisGrille();
   if(!Object.keys(tailles).length){ showNotif('Renseigne au moins un prix dans la grille','error'); return; }
   const options_ids=[...document.querySelectorAll('.prod-opt-cb:checked')].map(cb=>cb.value);
@@ -3954,7 +3968,7 @@ function sauvegarderProduit(){
   // `supplements` = copie résolue depuis le référentiel (compat caisse / site Pok&Ben)
   const supplements=_resoudreSupplements(carte, options_ids, accomp_ids);
   const key=editId||'prod_'+Date.now();
-  db.ref(`cartes/${carte}/produits/${key}`).set({nom,categorie:cat,tva,actif,description,photo,allergenes,tailles,supplements,options_ids,accomp_ids})
+  db.ref(`cartes/${carte}/produits/${key}`).set({nom,categorie:cat,tva,actif,canaux,description,photo,allergenes,tailles,supplements,options_ids,accomp_ids})
     .then(()=>{ fermerModal('modal-produit'); showNotif('Produit enregistré','success'); chargerProduits(carte); })
     .catch(()=>showNotif('Erreur Firebase','error'));
 }
@@ -5853,7 +5867,7 @@ async function chargerRapportComptable(){
     const allClotures=clotSnap.val()||{};
     const tvaParams=tvaSnap.val()||{sur_place:10,a_emporter:5.5};
     let caTTC_sp=0,caTTC_ae=0,caTTC_total=0;
-    const pmtTotaux={}; let totAnn=0,totRem=0,nbSvc=0,nbCmd=0;
+    const pmtTotaux={}; let totAnn=0,totRem=0,nbSvc=0,nbCmd=0,fidNb=0,fidVal=0,fidPts=0;
     etabIds.forEach(eid=>{
       Object.entries(allClotures[eid]||{}).forEach(([date,services])=>{
         if(!dates.includes(date)) return;
@@ -5871,6 +5885,7 @@ async function chargerRapportComptable(){
           Object.entries(pn).forEach(([m,v])=>{ pmtTotaux[m]=(pmtTotaux[m]||0)+v; });
           totAnn+=cl.annulations||cl.total_annulations||cl.montant_annulations||0;
           totRem+=cl.remises||cl.total_remises||cl.offerts||cl.montant_offerts||0;
+          if(cl.offerts_fidelite){ fidNb+=cl.offerts_fidelite.nb||0; fidVal+=cl.offerts_fidelite.valeur||0; fidPts+=cl.offerts_fidelite.pts||0; }
         });
       });
     });
@@ -5880,6 +5895,7 @@ async function chargerRapportComptable(){
     const htAE=caTTC_ae/(1+tauxAE);
     _rcData={
       debut,fin,etabIds,tvaParams,
+      fidNb, fidVal:Math.round(fidVal*100)/100, fidPts,
       caTTC_total:Math.round(caTTC_total*100)/100,
       caTTC_sp:Math.round(caTTC_sp*100)/100,
       caTTC_ae:Math.round(caTTC_ae*100)/100,
@@ -5959,9 +5975,10 @@ function _afficherRapportComptable(){
       <div class="table-wrap"><table>
         <thead><tr><th>Catégorie</th><th>Montant</th></tr></thead>
         <tbody>
-          <tr><td>Total remises &amp; offerts</td><td style="font-weight:600">${fmt2(d.totRem)}</td></tr>
+          <tr><td>Remises commerciales</td><td style="font-weight:600">${fmt2(d.totRem)}</td></tr>
+          <tr><td>Offerts fidélité <span style="color:var(--text-muted);font-size:11px">(${d.fidNb||0} article${(d.fidNb||0)>1?'s':''} · ${d.fidPts||0} pts débités · valeur carte)</span></td><td style="font-weight:600">${fmt2(d.fidVal||0)}</td></tr>
           <tr><td>Total annulations</td><td style="font-weight:600;color:var(--coral)">${fmt2(d.totAnn)}</td></tr>
-          <tr style="font-weight:700;background:var(--bg)"><td>Total</td><td>${fmt2(d.totRem+d.totAnn)}</td></tr>
+          <tr style="font-weight:700;background:var(--bg)"><td>Total</td><td>${fmt2(d.totRem+(d.fidVal||0)+d.totAnn)}</td></tr>
         </tbody>
       </table></div>
       <p style="font-size:11px;color:var(--text-muted);margin-top:10px">⚠️ Remises et annulations remontées uniquement si les champs <code>annulations</code> / <code>remises</code> / <code>offerts</code> sont renseignés lors des clôtures dans la caisse.</p>
@@ -5989,9 +6006,10 @@ function exportRapportComptable(){
     // Feuille remises & annulations
     const rowsRem=[
       {data:['Catégorie','Montant (€)'],style:'header'},
-      {data:['Total remises & offerts',n(d.totRem)],style:''},
+      {data:['Remises commerciales',n(d.totRem)],style:''},
+      {data:['Offerts fidélité ('+(d.fidNb||0)+' art., '+(d.fidPts||0)+' pts)',n(d.fidVal||0)],style:''},
       {data:['Total annulations',n(d.totAnn)],style:''},
-      {data:['Total',n(d.totRem+d.totAnn)],style:'total'}
+      {data:['Total',n(d.totRem+(d.fidVal||0)+d.totAnn)],style:'total'}
     ];
     _telechargerXLS(_genXLS([
       {name:'TVA',rows:rowsTVA},
@@ -6005,7 +6023,9 @@ function exportRapportComptable(){
 // ============================================================
 // FIDELITE
 // ============================================================
-const FID_PASSAGES_REPAS = 10; // 10 passages = 1 repas offert (aligné app fidélité)
+// Le « repas offert tous les 10 passages » est supprimé (22/09/2026) : tout passe par les points.
+function _fidMinPts(){ const l=(_pfRewards.poke||[]).concat(_pfRewards.captn||[]).filter(r=>r&&r.actif!==false&&r.pts>0).map(r=>r.pts); return l.length?Math.min(...l):Infinity; }
+function _fidRecompensesUtilisees(c){ return (c&&c.history?Object.values(c.history):[]).filter(h=>h&&h.type==='recompense').length; }
 let _fidCache = {}; // clients_fidelite chargés
 let _fidPeriode = 'semaine';
 let _fidCamion = 'tous';
@@ -6165,6 +6185,7 @@ function chargerSuiviRemises(){
 }
 
 function chargerParamFidelite(){
+  if(!_pfProduits._ecoute){ _pfProduits._ecoute=true; _pfChargerProduits(); }
   db.ref('site_config/fidelite/home_message').once('value',s=>{
     const el=document.getElementById('pf-home-msg'); if(el) el.value = (s.exists()&&typeof s.val()==='string') ? s.val() : '3 camions, 1 fidélité 🎁\nÇa se passe juste ici 👇';
   });
@@ -6173,6 +6194,19 @@ function chargerParamFidelite(){
     _pfRewards.captn = (sc.exists()&&Array.isArray(sc.val())) ? sc.val() : _pfDefaut.captn.slice();
     pfSetBrand(_pfBrand);
   });
+}
+// Produits de la carte par marque (poke → carte poke, captn → carte burger) pour lier une récompense à un article
+let _pfProduits = { poke:{}, captn:{} };
+function _pfChargerProduits(){
+  db.ref('cartes/poke/produits').on('value', s=>{ _pfProduits.poke = s.val()||{}; if(_pfBrand==='poke') pfRenderRewards(); });
+  db.ref('cartes/burger/produits').on('value', s=>{ _pfProduits.captn = s.val()||{}; if(_pfBrand==='captn') pfRenderRewards(); });
+}
+function _pfOptionsProduits(brand, sel){
+  const prods=_pfProduits[brand]||{};
+  return '<option value="">— Aucun article lié (saisie manuelle en caisse) —</option>'+Object.entries(prods)
+    .filter(([,p])=>p && p.actif!==false)
+    .sort((a,b)=>String(a[1].categorie||'').localeCompare(String(b[1].categorie||''))||String(a[1].nom||'').localeCompare(String(b[1].nom||'')))
+    .map(([id,p])=>'<option value="'+id+'"'+(id===sel?' selected':'')+'>'+String(p.categorie||'')+' · '+String(p.nom||id).replace(/</g,'&lt;')+'</option>').join('');
 }
 function pfSetBrand(b){
   _pfBrand=b;
@@ -6192,6 +6226,7 @@ function pfRenderRewards(){
     +'<div style="display:flex;align-items:center;gap:4px"><input type="number" min="0" step="10" value="'+(r.pts!=null?r.pts:0)+'" oninput="pfEdit('+i+',\'pts\',this.value)" style="width:72px;padding:6px;border:1px solid var(--border);border-radius:6px;font-size:13px;text-align:right"><span style="color:var(--text-muted);font-size:12px">pts</span></div>'
     +'<label style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer"><input type="checkbox" '+(r.actif!==false?'checked':'')+' onchange="pfEdit('+i+',\'actif\',this.checked)" style="width:auto"> Actif</label>'
     +'<button class="btn btn-icon btn-danger" onclick="pfDelReward('+i+')" title="Supprimer">🗑</button>'
+    +'<div style="flex-basis:100%;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-muted)">🧾 Article offert en caisse : <select onchange="pfEdit('+i+',\'prodId\',this.value)" style="flex:1;min-width:200px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px">'+_pfOptionsProduits(_pfBrand, r.prodId||'')+'</select></div>'
     +'</div>'
   ).join('');
 }
@@ -6204,7 +6239,7 @@ function pfEdit(i,champ,val){
 function pfAddReward(){ _pfRewards[_pfBrand].push({pts:0,nom:'',emoji:'🎁',actif:true}); pfRenderRewards(); }
 function pfDelReward(i){ _pfRewards[_pfBrand].splice(i,1); pfRenderRewards(); }
 function pfSaveRewards(){
-  const clean=(_pfRewards[_pfBrand]||[]).filter(r=>r && (r.nom||'').trim()).map(r=>({pts:parseInt(r.pts)||0,nom:(r.nom||'').trim(),emoji:(r.emoji||'🎁').trim(),actif:r.actif!==false})).sort((a,b)=>a.pts-b.pts);
+  const clean=(_pfRewards[_pfBrand]||[]).filter(r=>r && (r.nom||'').trim()).map(r=>({pts:parseInt(r.pts)||0,nom:(r.nom||'').trim(),emoji:(r.emoji||'🎁').trim(),actif:r.actif!==false,prodId:(r.prodId||'')})).sort((a,b)=>a.pts-b.pts);
   _pfRewards[_pfBrand]=clean;
   db.ref('site_config/fidelite/'+_pfBrand+'/rewards').set(clean)
     .then(()=>{ const el=document.getElementById('pf-result'); el.style.color='var(--green-dark)'; el.textContent='✅ Récompenses '+(_pfBrand==='poke'?'Poké':'Capt&Fish')+' enregistrées ('+clean.length+'). La tablette se met à jour au prochain chargement.'; pfRenderRewards(); })
@@ -6230,7 +6265,7 @@ function renderFidelite(){
   // KPIs globaux
   set('fid-total', clients.length);
   set('fid-points', clients.reduce((s,c)=>s+(c.points||0),0).toLocaleString('fr-FR'));
-  set('fid-repas', clients.reduce((s,c)=>s+Math.max(0,Math.floor((c.visites||0)/FID_PASSAGES_REPAS)-(c.rewards_used||0)),0));
+  { const mp=_fidMinPts(); set('fid-repas', clients.filter(c=>(c.points||0)>=mp).length); }
   // Actifs sur la période = au moins une visite depuis le début de période
   const actifs=clients.filter(c=>c.derniere_visite && c.derniere_visite>=debut && camMatch(c)).length;
   set('fid-actifs', actifs);
@@ -6316,11 +6351,10 @@ function filtrerListe(filtre){
 // Exporte la liste actuellement affichée
 function exportFidAffiche(){
   if(!_fidListe.length){ showNotif('Affiche d\'abord une liste','error'); return; }
-  const head=['Prénom','Téléphone','Marque','Visites','Points','Carte (x/10)','Repas dûs','Dernière visite','Anniversaire','Plat favori','SMS OK'];
+  const head=['Prénom','Téléphone','Marque','Visites','Points','Récompenses utilisées','Dernière visite','Anniversaire','Plat favori','SMS OK'];
   const rows=_fidListe.map(([tel,c])=>{
-    const repasDus=Math.max(0,Math.floor((c.visites||0)/FID_PASSAGES_REPAS)-(c.rewards_used||0));
     const dv=c.derniere_visite?new Date(c.derniere_visite).toLocaleDateString('fr-FR'):'';
-    return [c.prenom||'',tel,_fidMarque(c),c.visites||0,c.points||0,(c.visites||0)%FID_PASSAGES_REPAS,repasDus,dv,c.date_naissance||'',(c.profile&&c.profile.favori)||'',c.consent_marketing?'Oui':'Non'];
+    return [c.prenom||'',tel,_fidMarque(c),c.visites||0,c.points||0,_fidRecompensesUtilisees(c),dv,c.date_naissance||'',(c.profile&&c.profile.favori)||'',c.consent_marketing?'Oui':'Non'];
   });
   const csv='\ufeff'+[head,...rows].map(r=>r.map(_csvCell).join(';')).join('\n');
   const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
@@ -6340,12 +6374,10 @@ function rechercherClient(){
     const div=document.getElementById('fid-result');
     if(!c){ div.innerHTML='<p style="color:var(--text-muted);font-size:13px">Client non trouvé.</p>'; return; }
     const visites=c.visites||0;
-    const repasGagnes=Math.floor(visites/FID_PASSAGES_REPAS);
-    const repasDus=repasGagnes-(c.rewards_used||0);
-    const prog=visites%FID_PASSAGES_REPAS;
+    const recUt=_fidRecompensesUtilisees(c);
     const hist=c.history?Object.values(c.history):[];
     const histHtml=hist.length
-      ? hist.slice().reverse().slice(0,30).map(h=>`<div style="display:flex;justify-content:space-between;padding:8px 12px;background:var(--card,#fff);border-radius:8px;font-size:13px;margin-bottom:6px;border:1px solid var(--border,#eee)"><span>🐟 Passage #${h.visites||'?'}${h.points!=null?' · '+h.points+' pts':''}</span><span style="color:var(--text-muted)">${_fidDate(h.ts)}</span></div>`).join('')
+      ? hist.slice().reverse().slice(0,30).map(h=>`<div style="display:flex;justify-content:space-between;padding:8px 12px;background:var(--card,#fff);border-radius:8px;font-size:13px;margin-bottom:6px;border:1px solid var(--border,#eee)"><span>${h.type==='recompense' ? ('🎁 '+(h.nom||'Récompense')+' (−'+(h.points_deduits||0)+' pts'+(h.source==='caisse'?', caisse':'')+')') : ('🐟 Passage #'+(h.visites||'?')+(h.points!=null?' · '+h.points+' pts':''))}</span><span style="color:var(--text-muted)">${_fidDate(h.ts)}</span></div>`).join('')
       : '<p style="color:var(--text-muted);font-size:13px">Aucun passage enregistré.</p>';
     const prenom=c.prenom?c.prenom+' · ':'';
     const consent=c.consent_marketing?'✅ SMS accepté':'❌ SMS refusé';
@@ -6356,8 +6388,8 @@ function rechercherClient(){
         <div class="stats-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:12px">
           <div class="stat-card"><div class="stat-label">Points</div><div class="stat-value green">${c.points||0}</div></div>
           <div class="stat-card"><div class="stat-label">Visites</div><div class="stat-value">${visites}</div></div>
-          <div class="stat-card"><div class="stat-label">Carte</div><div class="stat-value" style="font-size:16px">${prog}/${FID_PASSAGES_REPAS}</div></div>
-          <div class="stat-card"><div class="stat-label">Repas dûs</div><div class="stat-value ${repasDus>0?'green':''}" style="font-size:18px">${repasDus>0?'🎁 '+repasDus:'0'}</div></div>
+          <div class="stat-card"><div class="stat-label">Récompenses utilisées</div><div class="stat-value" style="font-size:18px">${recUt?'🎁 '+recUt:'0'}</div></div>
+          <div class="stat-card"><div class="stat-label">Débloquée</div><div class="stat-value ${(c.points||0)>=_fidMinPts()?'green':''}" style="font-size:18px">${(c.points||0)>=_fidMinPts()?'Oui':'Non'}</div></div>
         </div>
         <div style="font-size:13px;font-weight:600;margin:14px 0 8px">Historique des passages</div>
         ${histHtml}
