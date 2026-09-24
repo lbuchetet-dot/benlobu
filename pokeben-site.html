@@ -2532,7 +2532,9 @@ function _pbRenderConf(){
 
   // 5 · Suppléments — une fois le bowl défini
   var sups=Object.keys(m.supplements||{}).filter(function(k){return m.supplements[k]&&m.supplements[k].nom;});
-  if(sups.length && tailleOk && protOk && (_pbMenu!==null || !f)){
+  // Visibles dès que le bowl est défini (taille + protéine), sans attendre « Seul ou en menu ? » :
+  // avant, un poké proposé en formule ne montrait jamais ses suppléments tant que le client n'avait pas choisi.
+  if(sups.length && tailleOk && protOk){
     html+='<div class="pb-step" data-step="supplement"><div class="pb-step-lbl">'+(n++)+' \u00b7 Choisir son suppl\u00e9ment <span style="font-weight:600;letter-spacing:0;text-transform:none;color:var(--ink3)">pour les gourmands</span></div>'
       +sups.map(function(k){
         var sp=m.supplements[k];

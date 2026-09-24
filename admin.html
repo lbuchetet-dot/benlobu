@@ -3743,9 +3743,10 @@ function migrerOptionsCarte(){
     if(catalogue[k]){ accompagnements[id]={prodId:catalogue[k],prix:l.prix}; l.produits.forEach(pid=>{ (parProduit[pid]=parProduit[pid]||{o:[],a:[]}).a.push(id); }); }
     else { supplements[id]={nom:l.nom,prix:l.prix,cout_revient:l.cout_revient}; l.produits.forEach(pid=>{ (parProduit[pid]=parProduit[pid]||{o:[],a:[]}).o.push(id); }); }
   });
-  OPTIONS_CARTE[currentCarte]={supplements,accompagnements};
   const up={};
   up['parametres/options_carte/'+currentCarte]={supplements,accompagnements};
+  const _prev=OPTIONS_CARTE[currentCarte];
+  OPTIONS_CARTE[currentCarte]={supplements,accompagnements};   // nécessaire à _resoudreSupplements ci-dessous
   Object.entries(parProduit).forEach(([pid,v])=>{
     up[`cartes/${currentCarte}/produits/${pid}/options_ids`]=v.o;
     up[`cartes/${currentCarte}/produits/${pid}/accomp_ids`]=v.a;
@@ -3753,7 +3754,7 @@ function migrerOptionsCarte(){
   });
   db.ref().update(up)
     .then(()=>{ showNotif('Référentiel créé à partir des fiches ('+Object.keys(supplements).length+' suppléments, '+Object.keys(accompagnements).length+' accompagnements)','success'); chargerProduits(currentCarte); fermerModal('modal-options'); setTimeout(ouvrirModalOptions,300); })
-    .catch(()=>showNotif('Erreur Firebase','error'));
+    .catch(e=>{ OPTIONS_CARTE[currentCarte]=_prev; console.error('migrerOptionsCarte',e); showNotif(/permission/i.test((e&&e.code)||'')?'Refusé par Firebase (règles) : parametres/options_carte n\'est pas autorisé en écriture':'Échec : '+((e&&e.message)||e),'error'); });
 }
 function moAjouterSup(nom='',prix='',cout='',id=''){
   const rid=id||('o'+(Date.now()+Math.random()).toString(36).slice(-7));
@@ -3800,22 +3801,37 @@ function enregistrerOptionsCarte(){
   const catalogue=Object.values(produitsData).map(p=>(p.nom||'').trim().toLowerCase());
   const doublon=noms.find(n=>catalogue.includes(n.toLowerCase()));
   if(doublon && !confirm('« '+doublon+' » existe déjà comme produit du catalogue.\nUtilise plutôt un accompagnement (coût et TVA repris de sa fiche).\n\nEnregistrer quand même ?')) return;
-  OPTIONS_CARTE[currentCarte]={supplements,accompagnements};
-  const up={};
-  up['parametres/options_carte/'+currentCarte]={supplements,accompagnements};
-  // Resynchronise la copie `supplements` de chaque produit de la carte
-  Object.entries(produitsData).forEach(([pid,p])=>{
-    if(!p) return;
-    const o=(p.options_ids||[]).filter(i=>supplements[i]);
-    const a=(p.accomp_ids||[]).filter(i=>accompagnements[i]);
-    if(!(p.options_ids||p.accomp_ids)) return;      // fiche jamais migrée : on ne touche pas
-    up[`cartes/${currentCarte}/produits/${pid}/options_ids`]=o;
-    up[`cartes/${currentCarte}/produits/${pid}/accomp_ids`]=a;
-    up[`cartes/${currentCarte}/produits/${pid}/supplements`]=_resoudreSupplements(currentCarte,o,a);
-  });
-  db.ref().update(up)
-    .then(()=>{ fermerModal('modal-options'); showNotif('Référentiel enregistré — fiches produits mises à jour','success'); chargerProduits(currentCarte); })
-    .catch(()=>showNotif('Erreur Firebase','error'));
+  // AVANT : OPTIONS_CARTE était modifié en local AVANT l'écriture, et tout partait dans une seule
+  // mise à jour atomique. Si Firebase refusait (règles, réseau), la fiche produit affichait quand même
+  // le supplément (« ça s'affiche ») alors que rien n'était enregistré, avec un simple « Erreur Firebase ».
+  // MAINTENANT : 1) le référentiel seul, 2) relecture serveur, 3) resynchro des fiches — erreur exacte affichée.
+  const carte=currentCarte;
+  const ref={supplements,accompagnements};
+  const btn=document.querySelector('#modal-options .btn-primary'); if(btn){ btn.disabled=true; btn.textContent='Enregistrement…'; }
+  const fin=()=>{ if(btn){ btn.disabled=false; btn.textContent='Enregistrer'; } };
+  db.ref('parametres/options_carte/'+carte).set(ref)
+    .then(()=>db.ref('parametres/options_carte/'+carte).once('value'))
+    .then(sn=>{
+      const lu=sn.val()||{};
+      const nLu=Object.keys(lu.supplements||{}).length, nAtt=Object.keys(supplements).length;
+      if(nLu!==nAtt) throw {code:'relecture', message:'relu '+nLu+' supplément(s) au lieu de '+nAtt};
+      OPTIONS_CARTE[carte]={supplements:lu.supplements||{}, accompagnements:lu.accompagnements||{}};
+      // Resynchronise la copie `supplements` de chaque produit de la carte
+      const up={};
+      Object.entries(produitsData).forEach(([pid,p])=>{
+        if(!p) return;
+        if(!(p.options_ids||p.accomp_ids)) return;      // fiche jamais migrée : on ne touche pas
+        const o=(p.options_ids||[]).filter(i=>supplements[i]);
+        const a=(p.accomp_ids||[]).filter(i=>accompagnements[i]);
+        up[`cartes/${carte}/produits/${pid}/options_ids`]=o;
+        up[`cartes/${carte}/produits/${pid}/accomp_ids`]=a;
+        up[`cartes/${carte}/produits/${pid}/supplements`]=_resoudreSupplements(carte,o,a);
+      });
+      return Object.keys(up).length ? db.ref().update(up).catch(e=>{ throw {code:(e&&e.code)||'fiches', message:'référentiel OK mais fiches produits non mises à jour ('+((e&&e.message)||e)+')'}; }) : null;
+    })
+    .then(()=>{ fin(); fermerModal('modal-options'); showNotif('Référentiel enregistré — fiches produits mises à jour','success'); chargerProduits(carte); })
+    .catch(e=>{ fin(); const c=(e&&e.code)||''; console.error('enregistrerOptionsCarte',e);
+      showNotif(/permission/i.test(c)?'Refusé par Firebase (règles) : parametres/options_carte n\'est pas autorisé en écriture':'Échec enregistrement : '+((e&&e.message)||c||e),'error'); });
 }
 
 /* ---------- Modal « Sauces de la carte » ---------- */
@@ -3972,9 +3988,29 @@ function sauvegarderProduit(){
   // `supplements` = copie résolue depuis le référentiel (compat caisse / site Pok&Ben)
   const supplements=_resoudreSupplements(carte, options_ids, accomp_ids);
   const key=editId||'prod_'+Date.now();
-  db.ref(`cartes/${carte}/produits/${key}`).set({nom,categorie:cat,tva,actif,canaux,description,photo,allergenes,tailles,supplements,options_ids,accomp_ids})
-    .then(()=>{ fermerModal('modal-produit'); showNotif('Produit enregistré','success'); chargerProduits(carte); })
-    .catch(()=>showNotif('Erreur Firebase','error'));
+  // Garde-fou : un supplément coché doit exister dans le référentiel ENREGISTRÉ (sinon il disparaîtrait)
+  const manquants=options_ids.filter(id=>!supplements['sup_'+id]);
+  if(manquants.length){ showNotif('Supplément introuvable dans le référentiel — enregistre d\'abord « 🍟 Suppléments & accompagnements »','error'); return; }
+  const rec={nom,categorie:cat,tva,actif,canaux,description,photo,allergenes,tailles,supplements,options_ids,accomp_ids};
+  // Valeurs refusées par Firebase (NaN, Infinity) → message clair au lieu d'une exception silencieuse
+  const badNum=JSON.stringify(rec,(k,v)=>(typeof v==='number'&&!isFinite(v))?'__BAD__':v).indexOf('__BAD__')>=0;
+  if(badNum){ showNotif('Un prix ou un coût de la grille n\'est pas un nombre valide — corrige-le avant d\'enregistrer','error'); return; }
+  const btnP=document.querySelector('#modal-produit .btn-primary'); if(btnP){ btnP.disabled=true; btnP.textContent='Enregistrement…'; }
+  const finP=()=>{ if(btnP){ btnP.disabled=false; btnP.textContent='Enregistrer'; } };
+  let _w;
+  try{ _w=db.ref(`cartes/${carte}/produits/${key}`).set(rec); }
+  catch(e){ finP(); console.error('sauvegarderProduit (sync)',e); showNotif('Enregistrement impossible : '+((e&&e.message)||e),'error'); return; }
+  _w.then(()=>db.ref(`cartes/${carte}/produits/${key}`).once('value'))
+    .then(sn=>{
+      finP();
+      const lu=sn.val();
+      if(!lu){ showNotif('Enregistrement non confirmé par le serveur — réessaie','error'); return; }
+      const nSup=Object.keys(lu.supplements||{}).length;
+      fermerModal('modal-produit');
+      showNotif('✓ '+(lu.nom||'Produit')+' enregistré'+(nSup?' · '+nSup+' supplément(s)':' · aucun supplément'),'success');
+      chargerProduits(carte);
+    })
+    .catch(e=>{ finP(); console.error('sauvegarderProduit',e); showNotif(/permission/i.test((e&&e.code)||'')?'Refusé par Firebase (règles) : cartes/'+carte+'/produits':'Échec enregistrement produit : '+((e&&e.code)||(e&&e.message)||e),'error'); });
 }
 
 function supprimerProduit(id){
