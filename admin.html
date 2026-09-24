@@ -3770,8 +3770,13 @@ function migrerOptionsCarte(){
     .then(()=>{ showNotif('Référentiel créé à partir des fiches ('+Object.keys(supplements).length+' suppléments, '+Object.keys(accompagnements).length+' accompagnements)','success'); chargerProduits(currentCarte); fermerModal('modal-options'); setTimeout(ouvrirModalOptions,300); })
     .catch(e=>{ OPTIONS_CARTE[currentCarte]=_prev; console.error('migrerOptionsCarte',e); showNotif(/permission/i.test((e&&e.code)||'')?'Refusé par Firebase (règles) : parametres/options_carte n\'est pas autorisé en écriture':'Échec : '+((e&&e.message)||e),'error'); });
 }
+// Identifiant sûr pour une clé Firebase : jamais de « . # $ / [ ] ».
+// AVANT : (Date.now()+Math.random()).toString(36) produisait « opld.jll » → « . » interdit dans une clé
+// → db.ref().set() levait une exception SYNCHRONE (jamais attrapée) : aucun message, rien d'enregistré,
+// bouton figé sur « Enregistrement… ». C'était la cause du supplément « qui s'affiche mais ne s'enregistre pas ».
+function _moId(prefix){ return prefix+Date.now().toString(36)+Math.floor(Math.random()*1679616).toString(36).padStart(4,'0'); }
 function moAjouterSup(nom='',prix='',cout='',id=''){
-  const rid=id||('o'+(Date.now()+Math.random()).toString(36).slice(-7));
+  const rid=id||_moId('o');
   const div=document.createElement('div');
   div.className='mo-sup-row'; div.dataset.id=rid;
   div.style.cssText='display:grid;grid-template-columns:1.4fr 1fr 1fr auto;gap:10px;align-items:center;margin-bottom:8px';
@@ -3782,7 +3787,7 @@ function moAjouterSup(nom='',prix='',cout='',id=''){
   document.getElementById('mo-sups-list').appendChild(div);
 }
 function moAjouterAcc(prodId='',prix='',id=''){
-  const rid=id||('a'+(Date.now()+Math.random()).toString(36).slice(-7));
+  const rid=id||_moId('a');
   const div=document.createElement('div');
   div.className='mo-acc-row'; div.dataset.id=rid;
   div.style.cssText='display:grid;grid-template-columns:1.4fr 1fr 1fr auto;gap:10px;align-items:center;margin-bottom:8px';
@@ -3836,8 +3841,12 @@ function enregistrerOptionsCarte(){
   const ref={supplements,accompagnements};
   const btn=document.querySelector('#modal-options .btn-primary'); if(btn){ btn.disabled=true; btn.textContent='Enregistrement…'; }
   const fin=()=>{ if(btn){ btn.disabled=false; btn.textContent='Enregistrer'; } };
-  db.ref('parametres/options_carte/'+carte).set(ref)
-    .then(()=>db.ref('parametres/options_carte/'+carte).once('value'))
+  const badKey=Object.keys(supplements).concat(Object.keys(accompagnements)).find(k=>/[.#$\/\[\]]/.test(k));
+  if(badKey){ fin(); showNotif('Identifiant invalide ('+badKey+') — supprime cette ligne et ressaisis-la','error'); return; }
+  let _wr;
+  try{ _wr=db.ref('parametres/options_carte/'+carte).set(ref); }
+  catch(e){ fin(); console.error('enregistrerOptionsCarte (sync)',e); showNotif('Enregistrement impossible : '+((e&&e.message)||e),'error'); return; }
+  _wr.then(()=>db.ref('parametres/options_carte/'+carte).once('value'))
     .then(sn=>{
       const lu=sn.val()||{};
       const nLu=Object.keys(lu.supplements||{}).length, nAtt=Object.keys(supplements).length;
