@@ -2894,14 +2894,18 @@ function renderMenuSection(){
 // ══════════════════════════════════════════════════════════
 // ── Sauces (source : parametres/sauces/{carte}, 1re incluse, suivantes à prix_extra — même règle que le site)
 let saucesSelectionnees = [];
-function _saucesCarte(){
+function _saucesCarte(prod){
   const sc = (parametresData.sauces||{})[etabInfo.carte||'poke'] || {};
-  return { liste: Array.isArray(sc.liste)?sc.liste.filter(Boolean):[], prix_extra: Number(sc.prix_extra)||0 };
+  let liste = Array.isArray(sc.liste)?sc.liste.filter(Boolean):[];
+  // Réglage « Sauces proposées » de la fiche produit (admin) : toutes / seulement celles cochées / aucune
+  if(prod && prod.sauces_mode==='aucune') liste=[];
+  else if(prod && prod.sauces_mode==='choix'){ const ok={}; (prod.sauces_liste||[]).forEach(n=>ok[n]=true); liste=liste.filter(n=>ok[n]); }
+  return { liste, prix_extra: Number(sc.prix_extra)||0 };
 }
 function _estBowl(prod){ return /pok|bowl/i.test((prod&&prod.categorie)||''); }
 function renderSauces(prod){
   const sec = document.getElementById('mt-sauces-section');
-  const sc = _saucesCarte();
+  const sc = _saucesCarte(prod);
   if(!_estBowl(prod) || !sc.liste.length){ sec.style.display='none'; saucesSelectionnees=[]; return; }
   sec.style.display = 'block';
   document.getElementById('mt-sauces-hint').textContent = '· 1re incluse' + (sc.prix_extra>0 ? ', suivantes +'+fmtPrix(sc.prix_extra) : '');

@@ -1853,6 +1853,13 @@ tr:hover td{background:var(--bg)}
       <div class="gt-hint" id="gt-regle"></div>
       <div id="tailles-list"></div>
     </div>
+    <div style="font-size:13px;font-weight:600;margin-bottom:4px;color:var(--text)">Sauces proposées <small style="font-weight:500;color:var(--text-muted)">(liste pilotée dans « 🥫 Sauces de la carte » — ne concerne que les bowls)</small></div>
+    <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:13px;margin-bottom:8px">
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="radio" name="prod-sauces-mode" value="toutes" checked onchange="prodSaucesModeChange()" style="width:auto"> Toutes les sauces de la carte</label>
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="radio" name="prod-sauces-mode" value="choix" onchange="prodSaucesModeChange()" style="width:auto"> Seulement celles cochées</label>
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="radio" name="prod-sauces-mode" value="aucune" onchange="prodSaucesModeChange()" style="width:auto"> Pas de choix de sauce</label>
+    </div>
+    <div id="prod-sauces" style="display:none;max-height:140px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:8px 10px;background:var(--bg);margin-bottom:14px"></div>
     <div style="font-size:13px;font-weight:600;margin-bottom:4px;color:var(--text)">Suppléments proposés <small style="font-weight:500;color:var(--text-muted)">(liste pilotée dans « 🍟 Suppléments &amp; accompagnements »)</small></div>
     <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px">Coche les suppléments que le client peut ajouter sur ce produit. Les prix sont définis une fois pour toute la carte.</div>
     <div id="prod-options" style="max-height:160px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:8px 10px;background:var(--bg);margin-bottom:14px"></div>
@@ -3550,6 +3557,7 @@ function ouvrirModalProduit(id){
     renderAllergenesProduit(p.allergenes||{});
     chargerGrilleDepuisProduit(p.tailles||{}, currentCarte);
     renderOptionsProduit(id, p);
+    renderSaucesProduit(p);
   } else {
     document.getElementById('modal-produit-title').textContent='Nouveau produit';
     ['prod-nom','prod-cat','prod-desc'].forEach(i=>document.getElementById(i).value='');
@@ -3561,6 +3569,7 @@ function ouvrirModalProduit(id){
     document.getElementById('prod-carte').value=currentCarte;
     chargerGrilleDepuisProduit({}, currentCarte);
     renderOptionsProduit(null, {});
+    renderSaucesProduit({});
   }
   const pf=document.getElementById('prod-photo-file'); if(pf) pf.value='';
   document.getElementById('modal-produit').classList.add('open');
@@ -3705,6 +3714,22 @@ function _resoudreSupplements(carte, options_ids, accomp_ids){
     out['acc_'+id]={nom:p.nom,prix:Number(a.prix)||0,cout_revient:Number(coutRef.cout_revient)||0,prodId:a.prodId,accompagnement:true};
   });
   return out;
+}
+// Sauces par produit : sauces_mode = 'toutes' (défaut) | 'choix' (sauces_liste) | 'aucune'
+function renderSaucesProduit(p){
+  const carte=document.getElementById('prod-carte')?.value||currentCarte;
+  const liste=((SAUCES_CARTE[carte]||{}).liste)||[];
+  const mode=(p&&p.sauces_mode)||'toutes';
+  const sel={}; ((p&&p.sauces_liste)||[]).forEach(n=>sel[n]=true);
+  const r=document.querySelector('input[name="prod-sauces-mode"][value="'+mode+'"]'); if(r) r.checked=true;
+  const box=document.getElementById('prod-sauces');
+  box.innerHTML=liste.length?liste.map(n=>`<label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer;padding:3px 0"><input type="checkbox" class="prod-sauce-cb" value="${String(n).replace(/"/g,'&quot;')}" ${sel[n]?'checked':''}> ${n}</label>`).join('')
+    :'<div style="font-size:12px;color:var(--text-muted)">Aucune sauce définie — bouton « 🥫 Sauces de la carte » en haut de la page.</div>';
+  prodSaucesModeChange();
+}
+function prodSaucesModeChange(){
+  const m=(document.querySelector('input[name="prod-sauces-mode"]:checked')||{}).value||'toutes';
+  document.getElementById('prod-sauces').style.display = m==='choix' ? 'block' : 'none';
 }
 function renderOptionsProduit(selfId, p){
   const ref=_optCarte(currentCarte);
@@ -4036,7 +4061,10 @@ function sauvegarderProduit(){
   // Garde-fou : un supplément coché doit exister dans le référentiel ENREGISTRÉ (sinon il disparaîtrait)
   const manquants=options_ids.filter(id=>!supplements['sup_'+id]);
   if(manquants.length){ showNotif('Supplément introuvable dans le référentiel — enregistre d\'abord « 🍟 Suppléments & accompagnements »','error'); return; }
-  const rec={nom,categorie:cat,tva,actif,canaux,description,photo,allergenes,tailles,supplements,options_ids,accomp_ids};
+  const sauces_mode=(document.querySelector('input[name="prod-sauces-mode"]:checked')||{}).value||'toutes';
+  const sauces_liste=sauces_mode==='choix'?[...document.querySelectorAll('.prod-sauce-cb:checked')].map(cb=>cb.value):[];
+  if(sauces_mode==='choix' && !sauces_liste.length){ showNotif('Coche au moins une sauce, ou choisis « Pas de choix de sauce »','error'); return; }
+  const rec={nom,categorie:cat,tva,actif,canaux,description,photo,allergenes,tailles,supplements,options_ids,accomp_ids,sauces_mode,sauces_liste};
   // Valeurs refusées par Firebase (NaN, Infinity) → message clair au lieu d'une exception silencieuse
   const badNum=JSON.stringify(rec,(k,v)=>(typeof v==='number'&&!isFinite(v))?'__BAD__':v).indexOf('__BAD__')>=0;
   if(badNum){ showNotif('Un prix ou un coût de la grille n\'est pas un nombre valide — corrige-le avant d\'enregistrer','error'); return; }

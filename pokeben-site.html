@@ -1434,6 +1434,7 @@ function _buildMenuPoke(){
     arr.push({id:id, cat:(pr.categorie||'Autres'), nom:(pr.nom||''), prix:prix, desc:(pr.description||''),
               variantes:variantes,
               supplements:(pr.supplements||{}),
+              sauces_mode:(pr.sauces_mode||'toutes'), sauces_liste:(pr.sauces_liste||[]),
               suggestions:(pr.suggestions||[]),
               photo:(pr.photo||''),
               _ordre:(artCfg[id]&&artCfg[id].ordre!=null)?artCfg[id].ordre:999});
@@ -2146,7 +2147,7 @@ function renderCart(){
       if(bits.length) detail='<div class="cart-item-sups">'+bits.join(' \u00b7 ')+'</div>';
     }
     var _pmm=MENU.find(function(m){return m.id===l.prodId;});
-    var editable = (l.type==='formule') || (_pmm && (_pbVariantes(_pmm).length>1 || Object.keys(_pmm.supplements||{}).length || (_pbEstBowl(_pmm)&&_pbListeSauces().length)));
+    var editable = (l.type==='formule') || (_pmm && (_pbVariantes(_pmm).length>1 || Object.keys(_pmm.supplements||{}).length || (_pbEstBowl(_pmm)&&_pbListeSauces(_pmm).length)));
     var editHtml = editable ? '<button class="cart-item-edit" onclick="pbModifierLigne(\''+l.lineId+'\')">Modifier</button>' : '';
     return '<div class="cart-item"><div class="cart-item-main"><div class="cart-item-name">'+l.nom+'</div>'+detail+editHtml+'</div><div class="cart-qty"><button class="qty-btn" onclick="removeFromCart(\''+l.lineId+'\')">−</button><span class="qty-n">'+l.qte+'</span><button class="qty-btn" onclick="addLineQty(\''+l.lineId+'\')">+</button></div><div class="cart-item-price">'+(l.prixUnit*l.qte).toFixed(2).replace('.',',')+'&nbsp;€</div></div>';
   }).join(''):'<div class="cart-empty">Ajoutez des pokébowls</div>';
@@ -2496,7 +2497,7 @@ function _pbRenderConf(){
 
   // 3 · Sauce — commune à la carte, la première incluse, les suivantes facturées
   var estBowl=_pbEstBowl(m);
-  var LS=_pbListeSauces();
+  var LS=_pbListeSauces(m);
   if(estBowl && LS.length && tailleOk && protOk){
     var extra=_pbPrixSauceExtra();
     html+='<div class="pb-step" data-step="sauce"><div class="pb-step-lbl">'+(n++)+' \u00b7 Votre sauce <span style="font-weight:600;letter-spacing:0;text-transform:none;color:var(--ink3)">(1 incluse'+(extra>0?', +'+_eur(extra)+' par sauce en plus':'')+')</span></div><div class="pb-opts'+(LS.length>3?' pb-opts-4':'')+'">'
@@ -2720,9 +2721,17 @@ function pbChoixSlot(si,pid){ _pbMenuSel[si]=pid; _pbRenderConf(); }
 function _pbEstBowl(m){ return /pok|bowl/i.test((m&&m.cat)||''); }
 // Liste des sauces : paramètre de carte en priorité, sinon les produits de catégorie « sauce »
 // déjà présents dans la carte (évite un écran vide tant que l'admin n'est pas renseigné).
-function _pbListeSauces(){
+function _pbListeSaucesCarte(){
   if(SAUCES_POKE.liste && SAUCES_POKE.liste.length) return SAUCES_POKE.liste;
   return MENU.filter(function(m){return /sauce/i.test(m.cat||'');}).map(function(m){return m.nom;});
+}
+// Sauces proposées pour UN produit (réglage « Sauces proposées » de sa fiche admin) ; sans argument = liste de la carte
+function _pbListeSauces(m){
+  var L=_pbListeSaucesCarte();
+  if(!m) return L;
+  if(m.sauces_mode==='aucune') return [];
+  if(m.sauces_mode==='choix'){ var ok={}; (m.sauces_liste||[]).forEach(function(n){ok[n]=true;}); return L.filter(function(n){return ok[n];}); }
+  return L;
 }
 function _pbPrixSauceExtra(){
   if(SAUCES_POKE.liste && SAUCES_POKE.liste.length) return SAUCES_POKE.prix_extra||0;
@@ -2730,7 +2739,8 @@ function _pbPrixSauceExtra(){
   return sc.length?_pbPrixMin(sc[0]):0;
 }
 function pbToggleSauce(i){
-  var sc=_pbListeSauces()[i]; if(!sc) return;
+  var m=MENU.find(function(x){return x.id===_pbModalId;});
+  var sc=_pbListeSauces(m)[i]; if(!sc) return;
   var k=_pbSauces.indexOf(sc);
   if(k>=0) _pbSauces.splice(k,1); else _pbSauces.push(sc);
   _pbRenderConf();
