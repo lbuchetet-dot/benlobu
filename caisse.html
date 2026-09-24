@@ -601,6 +601,7 @@ input,select,textarea{font-family:inherit;outline:none}
           <!-- Après bon imprimé : encaisser seul + bon cliquable -->
           <div id="footer-apres-bon" style="display:none;margin-bottom:6px">
             <button id="btn-encaisser-2" onclick="ouvrirPaiement()" style="width:100%;padding:13px;background:var(--green);color:#fff;border-radius:var(--radius);font-size:15px;font-weight:600;margin-bottom:6px">Encaisser</button>
+            <button id="btn-envoyer-ajout" onclick="envoyerBonCuisine({garder:true})" style="display:none;width:100%;padding:12px;background:#fff7e6;border:2px solid #e8a33c;border-radius:var(--radius);font-size:14px;font-weight:800;color:#9a6b00;margin-bottom:6px;cursor:pointer">📤 Envoyer l'ajout en cuisine</button>
             <button id="btn-reimprimer-bon" onclick="rimprimerBon()" style="width:100%;padding:8px 12px;background:var(--amber-light);border:none;border-radius:var(--radius);font-size:12px;font-weight:600;color:var(--amber);text-align:center;margin-bottom:6px">🖨 Bon envoyé à <span id="bon-envoye-heure"></span> — Appuyer pour réimprimer</button>
 
           </div>
@@ -2073,7 +2074,18 @@ function reserverNumero(cb){
   );
 }
 
-function envoyerBonCuisine(){
+// Ce qui n'est pas encore parti en cuisine : nouvelles lignes + quantités ajoutées sur une ligne déjà envoyée
+function _nonEnvoyes(){
+  const out=[];
+  panier.forEach(i=>{
+    const deja = i._dejaEnvoye ? (i._qteEnvoyee!=null ? i._qteEnvoyee : i.qte) : 0;
+    const d = (i.qte||0) - deja;
+    if(d>0) out.push({item:i, qte:d});
+  });
+  return out;
+}
+function envoyerBonCuisine(opts){
+  opts = opts||{};
   if(panier.length===0) return;
   const nom = nettoyerTexte(document.getElementById('input-nom').value.trim());
   const couverts = document.getElementById('input-couverts').value;
@@ -2093,9 +2105,9 @@ function envoyerBonCuisine(){
 
   // ── COMPLÉMENT : commande déjà ouverte (rouverte via "+") → on AJOUTE, on ne crée pas de nouvelle commande ──
   if(commandeEnCoursKey && commandeEnCours){
-    const nouveaux = panier.filter(i=>!i._dejaEnvoye);
+    const nouveaux = _nonEnvoyes();
     if(nouveaux.length===0){ showNotif('Aucun nouveau produit à envoyer','error'); return; }
-    const nouveauxArticles = nouveaux.map(mapArt);
+    const nouveauxArticles = nouveaux.map(n=>Object.assign(mapArt(n.item),{qte:n.qte}));
     const heuresPrec = (commandeEnCours.envois||[]).map(e=>e.heure).filter(Boolean);
     const fullArticles = panier.map(mapArt);
     const newTotal = getTotal();
@@ -2107,8 +2119,16 @@ function envoyerBonCuisine(){
     });
     commandeEnCours = {...commandeEnCours, articles:fullArticles, total:newTotal, envois:newEnvois, statut:'en_cours'};
     imprimerBonComplement(commandeEnCours, nouveauxArticles, heuresPrec, heure);
-    nouveaux.forEach(i=>{ i._dejaEnvoye = true; });
+    panier.forEach(i=>{ i._dejaEnvoye = true; i._qteEnvoyee = i.qte; });
     bonImprime = true;
+    document.getElementById('bon-envoye-heure').textContent = heure;
+    // Complément envoyé depuis une commande reprise pour encaisser : on la GARDE ouverte (le client paie juste après)
+    if(opts.garder){
+      renderPanier(); renderArticles(); renderServiceEnCours();
+      showNotif('Complément #'+String(commandeEnCours.num).padStart(3,'0')+' envoyé en cuisine à '+heure,'success');
+      if(typeof opts.ensuite==='function') opts.ensuite();
+      return;
+    }
     panier = [];
     document.getElementById('input-nom').value = '';
     document.getElementById('input-couverts').value = '';
@@ -2289,8 +2309,17 @@ function nouvelleCommande(){
   renderArticles();
 }
 
-function rimprimerBon(){
+async function rimprimerBon(){
   if(!commandeEnCours) return;
+  const nv = commandeEnCoursKey ? _nonEnvoyes() : [];
+  if(nv.length){
+    // AVANT : réimprimait la commande enregistrée, SANS l'ajout (jamais enregistré ni envoyé)
+    const n=nv.reduce((s,x)=>s+x.qte,0);
+    if(await uiConfirm(n+' article(s) ajouté(s) ne sont pas encore partis en cuisine.\n\nLes envoyer maintenant (bon « complément ») ?', {ok:'📤 Envoyer l\'ajout'})){
+      envoyerBonCuisine({garder:true});
+      return;
+    }
+  }
   imprimerBon();
   showNotif('Bon réimprimé','success');
 }
@@ -2500,7 +2529,7 @@ function rouvriCommandePayee(key, e){
     panier = (c.articles||[]).map(a=>({
       prodId:a.prodId, nom:a.nom, taille:a.taille,
       prixBase:a.prix, supplements:a.supplements||[],
-      prixTotal:a.prix, commentaire:a.commentaire||'', qte:a.qte, _dejaEnvoye:true, ..._fmExtra(a)
+      prixTotal:a.prix, commentaire:a.commentaire||'', qte:a.qte, _dejaEnvoye:true, _qteEnvoyee:a.qte, ..._fmExtra(a)
     }));
     document.getElementById('input-nom').value = c.nom_client||'';
     document.getElementById('input-couverts').value = c.couverts||'';
@@ -2527,10 +2556,12 @@ function rouvriCommande(key, e){
     commandeEnCoursKey = key;
     commandeEnCours = c;
     remiseEnCours = rehydraterRemise(c);   // ③
+    // _dejaEnvoye + _qteEnvoyee : ce qui est déjà parti en cuisine. Un ajout fait ensuite
+    // (nouvel article OU quantité augmentée) est détecté et proposé en « complément ».
     panier = (c.articles||[]).map(a=>({
       prodId:a.prodId, nom:a.nom, taille:a.taille,
       prixBase:a.prix, supplements:a.supplements||[],
-      prixTotal:a.prix, commentaire:a.commentaire||'', qte:a.qte, ..._fmExtra(a)
+      prixTotal:a.prix, commentaire:a.commentaire||'', qte:a.qte, _dejaEnvoye:true, _qteEnvoyee:a.qte, ..._fmExtra(a)
     }));
     document.getElementById('input-nom').value = c.nom_client||'';
     document.getElementById('input-couverts').value = c.couverts||'';
@@ -2559,7 +2590,7 @@ function rouvriCommandeAjouter(key, e){
     panier = (c.articles||[]).map(a=>({
       prodId:a.prodId, nom:a.nom, taille:a.taille,
       prixBase:a.prix, supplements:a.supplements||[],
-      prixTotal:a.prix, commentaire:a.commentaire||'', qte:a.qte, _dejaEnvoye:true, ..._fmExtra(a)
+      prixTotal:a.prix, commentaire:a.commentaire||'', qte:a.qte, _dejaEnvoye:true, _qteEnvoyee:a.qte, ..._fmExtra(a)
     }));
     document.getElementById('input-nom').value = c.nom_client||'';
     document.getElementById('input-couverts').value = c.couverts||'';
@@ -3135,6 +3166,40 @@ function ouvrirFidelite(){
   box.innerHTML = rows || '<div style="font-size:13px;color:var(--text-muted)">Aucune récompense configurée dans l\'admin (Fidélité → Récompenses).</div>';
   document.getElementById('modal-fidelite').classList.add('open');
 }
+// ── Offrir un article DÉJÀ au panier (client qui utilise sa récompense sur la tablette fidélité)
+// Une seule unité passe à 0 € : si la ligne est en quantité 2+, elle est scindée (1 offerte + le reste payant).
+// Le prix normal est conservé dans offert_fidelite.valeur pour le pilotage. « Annuler l'offert » rétablit le prix.
+async function offrirLignePanier(idx){
+  const it = panier[idx]; if(!it) return;
+  if(it.offert_fidelite){
+    // Annuler : prix d'origine rétabli
+    const o = it.offert_fidelite;
+    it.prixBase = o.prixBase!=null ? o.prixBase : o.valeur; it.prixTotal = o.valeur; it.supplements = o.supplements || it.supplements;
+    delete it.offert_fidelite;
+    renderPanier(); majPanierPmtRecap(); showNotif('Offert annulé — prix normal rétabli'); return;
+  }
+  if(it.type==='formule'){ showNotif('Un menu ne peut pas être offert en entier — offre le bowl ou le dessert à part','error'); return; }
+  // Unité déjà réglée dans un partage d'addition → on n'y touche pas
+  if(multiPaiementsValides.length && (window._articlesPayesIdx||[]).some(k=>String(k).startsWith(idx+':'))){ showNotif('Cet article est déjà (en partie) réglé — annule le partage pour l\'offrir','error'); return; }
+  // Récompense liée à ce produit dans l'admin (sinon « Offert fidélité » sans nombre de points)
+  const rw = (_fidRewards||[]).find(r=>r.prodId && r.prodId===it.prodId);
+  const lib = it.nom+(it.taille&&it.taille!=='—'?' '+it.taille:'');
+  if(!(await uiConfirm('Offrir 1 « '+lib+' » ('+fmtPrix(it.prixTotal)+') au titre de la fidélité ?\n\nLe client doit avoir utilisé sa récompense sur la tablette.', {ok:'🎁 Offrir'}))) return;
+  let cible = it;
+  if((it.qte||1) > 1){
+    // Scinder : 1 unité offerte, le reste inchangé. La part « déjà envoyée en cuisine » est répartie.
+    const env = it._dejaEnvoye ? (it._qteEnvoyee!=null?it._qteEnvoyee:it.qte) : 0;
+    cible = Object.assign({}, it, {qte:1, supplements:(it.supplements||[]).map(x=>Object.assign({},x))});
+    it.qte -= 1;
+    if(it._dejaEnvoye){ cible._dejaEnvoye = env>0; cible._qteEnvoyee = env>0?1:0; it._qteEnvoyee = Math.max(0, env-1); if(!it._qteEnvoyee) it._dejaEnvoye = it._qteEnvoyee>0; }
+    panier.splice(idx+1, 0, cible);
+  }
+  cible.offert_fidelite = { recompense: rw?rw.nom:'Offert fidélité', pts: rw?rw.pts:0, valeur: cible.prixTotal, prixBase: cible.prixBase, supplements: cible.supplements };
+  cible.prixBase = 0; cible.prixTotal = 0;
+  cible.supplements = (cible.supplements||[]).map(x=>Object.assign({},x,{prix:0}));
+  renderPanier(); majPanierPmtRecap();
+  showNotif('🎁 '+lib+' offert (0 €)','success');
+}
 function ajouterRecompenseFidelite(idx){
   const r=(_fidRewards||[]).slice().sort((a,b)=>a.pts-b.pts)[idx]; if(!r) return;
   const prod = r.prodId && carteData[r.prodId];
@@ -3182,7 +3247,7 @@ function renderPanier(){
         <div style="flex:1">
           <div class="panier-item-name">${item.nom}</div>
           <div class="panier-item-taille">${item.type==='formule' ? _artSousLignes(item).map(l=>'• '+l).join('<br>') : item.taille+(item.supplements?.length?' · '+supsStr:'')}</div>
-          ${item.offert_fidelite?`<div style="font-size:11px;font-weight:700;color:#9a6b00">🎁 Offert fidélité (${item.offert_fidelite.pts} pts)</div>`:''}
+          ${item.offert_fidelite?`<div style="font-size:11px;font-weight:700;color:#9a6b00">🎁 Offert fidélité${item.offert_fidelite.pts?' ('+item.offert_fidelite.pts+' pts)':''}${item.offert_fidelite.valeur?' · valeur '+fmtPrix(item.offert_fidelite.valeur):''}</div>`:''}
           ${item.commentaire?`<div class="panier-item-comment">⚠️ ${item.commentaire}</div>`:''}
         </div>
         <div style="text-align:right">
@@ -3195,6 +3260,7 @@ function renderPanier(){
         <span class="qty-val">${item.qte}</span>
         <button class="qty-btn" onclick="changerQte(${idx},+1)">+</button>
         <button class="btn-comment" onclick="ouvrirComment(${idx})">💬 Note</button>
+        <button class="btn-comment" onclick="offrirLignePanier(${idx})" style="${item.offert_fidelite?'background:#fff7e6;border-color:#e8a33c;color:#9a6b00;font-weight:700':''}">${item.offert_fidelite?'↩ Annuler l\'offert':'🎁 Offrir'}</button>
       </div>`;
     list.appendChild(div);
   });
@@ -3208,6 +3274,10 @@ function renderPanier(){
     // Si panier vide (après envoi bon) → Encaisser désactivé
     const btn2 = document.getElementById('btn-encaisser-2');
     if(btn2) btn2.disabled = panier.length === 0 && !commandeEnCoursKey;
+    // Ajout fait après l'envoi du bon → bouton bien visible pour l'envoyer en cuisine
+    const nv = commandeEnCoursKey ? _nonEnvoyes() : [];
+    const bA = document.getElementById('btn-envoyer-ajout');
+    if(bA){ const n=nv.reduce((s,x)=>s+x.qte,0); bA.style.display = n ? 'block' : 'none'; bA.textContent = '📤 Envoyer l\'ajout en cuisine ('+n+' article'+(n>1?'s':'')+')'; }
   } else {
     document.getElementById('footer-avant-bon').style.display = 'flex';
     document.getElementById('footer-apres-bon').style.display = 'none';
@@ -3446,7 +3516,16 @@ function majAffichageRemise(){
 // ══════════════════════════════════════════════════════════
 // PAIEMENT SIMPLE
 // ══════════════════════════════════════════════════════════
-function ouvrirPaiement(){
+async function ouvrirPaiement(){
+  if(commandeEnCoursKey && bonImprime && window._ajoutSansEnvoi!==commandeEnCoursKey){
+    const nv=_nonEnvoyes();
+    if(nv.length){
+      const n=nv.reduce((s,x)=>s+x.qte,0);
+      const ok = await uiConfirm(n+' article(s) ajouté(s) ne sont pas encore partis en cuisine.', {ok:'📤 Envoyer puis encaisser', cancel:'Encaisser sans envoyer'});
+      if(ok){ envoyerBonCuisine({garder:true, ensuite:()=>ouvrirPaiement()}); return; }
+      window._ajoutSansEnvoi = commandeEnCoursKey;   // ne plus redemander pour cette commande (boutons « Retour »)
+    }
+  }
   selectedPmt = null;
   fermerModal('modal-especes');
   fermerModal('modal-tickets');
