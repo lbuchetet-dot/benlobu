@@ -969,7 +969,8 @@ input,select,textarea{font-family:inherit;outline:none}
     <!-- Boutons sticky en bas -->
     <div style="position:sticky;bottom:0;background:var(--white);border-top:1px solid var(--border);padding:12px 0 4px 0">
       <button id="btn-valider-libre" style="width:100%;padding:13px;background:var(--green);color:#fff;border-radius:var(--radius);font-size:14px;font-weight:600;margin-bottom:8px;opacity:0.5;cursor:pointer" onclick="validerPaiementLibre()">Valider ce paiement →</button>
-      <button style="width:100%;padding:10px;background:none;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;color:var(--text-muted);cursor:pointer" onclick="annulerMultiPaiement()">Annuler</button>
+      <button onclick="ajouterArticlePendantPartage()" style="width:100%;padding:11px;background:#fff7e6;border:1.5px solid #e8a33c;border-radius:var(--radius);font-size:13px;font-weight:700;color:#9a6b00;cursor:pointer;margin-bottom:8px">➕ Ajouter un article <span style="font-weight:500;color:var(--text-muted)">· les règlements déjà encaissés sont conservés</span></button>
+      <button style="width:100%;padding:10px;background:none;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;color:var(--text-muted);cursor:pointer" onclick="annulerMultiPaiement()">Annuler le partage</button>
     </div>
   </div>
 </div>
@@ -2297,10 +2298,10 @@ function rimprimerBon(){
 // ④ Récupérer une commande annulée → duplication en NOUVELLE commande en cours.
 // L'annulée d'origine reste tracée telle quelle (aucune modif de son nœud).
 function recupererAnnulation(key){
-  db.ref('annulations/'+selectedEtabId+'/'+todayKey()+'/'+key).once('value', snap=>{
+  db.ref('annulations/'+selectedEtabId+'/'+todayKey()+'/'+key).once('value', async snap=>{
     const c = snap.val();
     if(!c){ showNotif('Annulation introuvable','error'); return; }
-    if(panier.length>0 && !confirm('Une commande est en cours de saisie. La remplacer par la commande récupérée ?')) return;
+    if(panier.length>0 && !(await uiConfirm('Une commande est en cours de saisie. La remplacer par la commande récupérée ?', {ok:'Remplacer'}))) return;
     // On repart d'une commande VIERGE (pas de clé Firebase) → l'envoi/encaissement créera une nouvelle commande + un nouveau n°
     commandeEnCours = null;
     commandeEnCoursKey = null;
@@ -3102,8 +3103,8 @@ function validerNomCouverts(){
 }
 
 // ① Deuxième porte d'entrée : bouton « Nouvelle commande » → ouvre la même modale, à blanc
-function demarrerNouvelleCommande(){
-  if(panier.length > 0 && !confirm('Une commande est en cours de saisie. La remplacer par une nouvelle commande vide ?')) return;
+async function demarrerNouvelleCommande(){
+  if(panier.length > 0 && !(await uiConfirm('Une commande est en cours de saisie. La remplacer par une nouvelle commande vide ?', {ok:'Nouvelle commande'}))) return;
   nouvelleCommande();          // reset complet de l'état (panier, commande, remise…)
   window._afterNomCouverts = null;
   articleEnAttente = null;
@@ -3156,6 +3157,7 @@ function ajouterArticleEnAttente(){
   articleEnAttente = null;
   renderPanier();
   renderArticles();
+  majPanierPmtRecap();
 }
 
 // ══════════════════════════════════════════════════════════
@@ -3215,14 +3217,21 @@ function renderPanier(){
 }
 
 function changerQte(idx, delta){
+  // Une unité déjà encaissée dans un partage ne peut plus être retirée
+  if(delta<0 && multiPaiementsValides.length){
+    const payes = window._articlesPayesIdx||[];
+    const q = panier[idx].qte;
+    if(payes.includes(idx+':'+(q-1))){ showNotif('Cet exemplaire est déjà réglé — annule le partage pour le retirer','error'); return; }
+  }
   panier[idx].qte += delta;
   if(panier[idx].qte <= 0) panier.splice(idx,1);
   renderPanier();
   renderArticles();
+  majPanierPmtRecap();
 }
 
-function viderPanier(){
-  if(panier.length && !confirm('Vider le panier ?')) return;
+async function viderPanier(){
+  if(panier.length && !(await uiConfirm('Vider le panier ?', {ok:'Vider', danger:true}))) return;
   panier = [];
   bonImprime = false;
   commandeEnCours = null;
@@ -3639,8 +3648,10 @@ let multiModeSelectionne = null;
 function ouvrirMultiPaiement(){
   fermerModal('modal-paiement');
   _selArticles = null; _selIdx = []; _selTotal = 0; _selPaid = 0;
-  window._articlesPayesIdx = [];
-  window._grpRepas = {};
+  // Des règlements existent (client 1 déjà passé, on est revenu ajouter un article) :
+  // on GARDE les unités déjà payées, sinon elles réapparaissent comme impayées et
+  // peuvent être encaissées deux fois. Remise à zéro seulement pour un partage neuf.
+  if(!multiPaiementsValides.length){ window._articlesPayesIdx = []; window._grpRepas = {}; }
   multiModeSelectionne = null;
   multiClientActuel = 1;
   multiPartDeclare = 0;
@@ -3996,14 +4007,21 @@ function _purgerAcomptes(key){
   ecrireFiable('commandes/'+selectedEtabId+'/'+todayKey()+'/'+k+'/acomptes', null);
 }
 
-function annulerMultiPaiement(){
+// Le client suivant veut ajouter un article au moment de payer : on ferme le partage SANS rien
+// perdre (règlements en mémoire + Firebase, unités payées), on ajoute au panier, puis « Encaisser »
+// rouvre le partage avec le nouveau solde.
+function ajouterArticlePendantPartage(){
+  fermerModal('modal-multi');
+  majPanierPmtRecap();
+  if(multiPaiementsValides.length) showNotif('Règlements conservés · ajoute l\'article puis touche « Encaisser »');
+}
+async function annulerMultiPaiement(){
   document.getElementById('modal-multi').classList.remove('open');
   // Des règlements réels ont déjà été encaissés : ne jamais les jeter en silence.
   if(multiPaiementsValides.length){
     const regle = multiPaiementsValides.reduce((s,p)=>s+(p.montant||0),0);
-    if(!confirm('⚠️ '+multiPaiementsValides.length+' règlement(s) déjà encaissé(s) pour '+fmtPrix(regle)+'.\n\n'
-      + 'OK = les ANNULER (l\'argent déjà encaissé ne sera plus tracé)\n'
-      + 'Annuler = les CONSERVER et revenir à la commande')){
+    if(!(await uiConfirm('⚠️ '+multiPaiementsValides.length+' règlement(s) déjà encaissé(s) pour '+fmtPrix(regle)+'.\n\n'
+      + 'Les annuler ? L\'argent déjà encaissé ne sera plus tracé.', {ok:'Annuler les règlements', cancel:'Les conserver', danger:true}))){
       majPanierPmtRecap();
       return;   // on garde tout, mémoire ET Firebase
     }
@@ -6145,12 +6163,12 @@ async function imprimerRapportCloture(cl){
 // ══════════════════════════════════════════════════════════
 // UTILS
 // ══════════════════════════════════════════════════════════
-function effacerDonneesTest(){
+async function effacerDonneesTest(){
   const pinAttendu = (etabInfo && etabInfo.pin != null) ? String(etabInfo.pin) : '';
-  const saisi = prompt('Effacer les données de test — saisis le PIN du camion pour confirmer :');
+  const saisi = await uiPrompt('Effacer les données de test — saisis le PIN du camion pour confirmer :');
   if(saisi==null) return;
   if(!pinAttendu || saisi !== pinAttendu){ showNotif('PIN incorrect','error'); return; }
-  if(!confirm('⚠️ Supprime DÉFINITIVEMENT (TOUS les camions) : commandes, commandes WEB (site), clôtures, ventes archivées, annulations, compteurs, achats.\n\nConserve : cartes, produits, planning, ingrédients, recettes, paramètres, fidélité, événements.\n\nContinuer ?')) return;
+  if(!(await uiConfirm('⚠️ Supprime DÉFINITIVEMENT (TOUS les camions) : commandes, commandes WEB (site), clôtures, ventes archivées, annulations, compteurs, achats.\n\nConserve : cartes, produits, planning, ingrédients, recettes, paramètres, fidélité, événements.\n\nContinuer ?', {ok:'Tout effacer', danger:true}))) return;
   const noms=['commandes','commandes_web','creneaux_web','clotures','ventes_archive','annulations','compteurs','achats'];
   Promise.all(noms.map(n=>db.ref(n).remove()))
     .then(()=>showNotif('Données de test effacées ✓','success'))
@@ -6400,7 +6418,7 @@ async function ouvrirTiroirManuel(){
   }
   const pinAttendu = (etabInfo && etabInfo.pin!=null) ? String(etabInfo.pin) : '';
   if(!pinAttendu){ showNotif('Aucun PIN configuré — contacte l\'admin','error'); return; }
-  const saisi = prompt('Ouverture du tiroir sans vente\n\nCode PIN employés :');
+  const saisi = await uiPrompt('Ouverture du tiroir sans vente\n\nCode PIN employés :');
   if(saisi==null) return;                                   // annulé
   if(String(saisi).trim() !== pinAttendu){ showNotif('Code PIN incorrect','error'); return; }
   const ok = await eposOuvrirTiroir();

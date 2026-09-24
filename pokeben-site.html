@@ -1040,7 +1040,7 @@ footer{background:var(--ink);color:#fff;padding:3.5rem 2.5rem 2rem;}
 </footer>
 <script>
 const JOURS_FR=['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi'];
-const JOURS=['Lundi','Mardi','Mercredi','Jeudi','Vendredi'];
+const JOURS=['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'];
 const todayName=JOURS_FR[new Date().getDay()];
 
 const fbConfig={apiKey:"AIzaSyDSAprSq4hr_A03-ctIVWiwOVfgHYStVTU",authDomain:"pokeben-caisse.firebaseapp.com",databaseURL:"https://pokeben-caisse-default-rtdb.europe-west1.firebasedatabase.app",projectId:"pokeben-caisse",storageBucket:"pokeben-caisse.firebasestorage.app",messagingSenderId:"881243394887",appId:"1:881243394887:web:bd6b2126b77574271db262"};
@@ -1129,7 +1129,7 @@ function getServiceType(horaires){
 // Logique Capt&Fish : si c'est aujourd'hui et avant cutoff -> 0 ; sinon (passé ou après cutoff) -> occurrence de la semaine suivante.
 function diffProchaineOccPb(jour, service){
   var today = new Date(); today.setHours(0,0,0,0);
-  var jourIdx = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi'].indexOf(jour);
+  var jourIdx = JOURS.indexOf(jour);
   if(jourIdx < 0) return -1;
   var dowMon = (today.getDay()+6)%7; // lundi=0 ... dimanche=6
   var diff = jourIdx - dowMon;       // occurrence de cette semaine (peut être négatif)
@@ -1146,7 +1146,7 @@ function prochaineDatePb(jour){
   var today = new Date(); today.setHours(0,0,0,0);
   var diff = diffProchaineOccPb(jour, 'midi'); // diff indépendant du service ici (juste le jour)
   // recalcul "jour" sans cutoff pour avoir la vraie date du prochain jour de semaine
-  var jourIdx = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi'].indexOf(jour);
+  var jourIdx = JOURS.indexOf(jour);
   var dowMon = (today.getDay()+6)%7;
   var d = jourIdx - dowMon; if(d < 0) d += 7;
   var dt = new Date(today); dt.setDate(today.getDate() + d);
@@ -1220,7 +1220,7 @@ function canCancelPb(order){
 const PLANNING_DEFAULT={};          // rempli au build avec le planning admin du jour
 const PB_CAMIONS=[];                // rempli au build : [{id,nom,rang}] des camions Poké
 let PLANNING=PLANNING_DEFAULT;
-var _pbEtabs={}, _pbPlans={}, _pbRepert={};
+var _pbEtabs={}, _pbPlans={}, _pbRepert={}, _pbOverrides={};
 const _JOURS_K_PB={lundi:'Lundi',mardi:'Mardi',mercredi:'Mercredi',jeudi:'Jeudi',vendredi:'Vendredi',samedi:'Samedi',dimanche:'Dimanche'};
 function _hFmt(h){ return String(h||'').replace(':','h'); }
 function _horairesPb(info,service){
@@ -1277,8 +1277,73 @@ function _rebuildPlanningPb(){
       });
     });
   });
+  // ── Événements exceptionnels : à la DATE exacte, ils remplacent le service du planning
+  //    hebdo (emplacement, adresse) et portent la carte de la soirée. « Fermé » et « forfait
+  //    B2B (déjà payé) » retirent le service du site. Fenêtre = les 7 prochains jours.
+  var today=new Date(); today.setHours(0,0,0,0);
+  _camionsPb().forEach(function(e,idx){
+    var etabId=e[0], cam='c'+(idx+1), ovs=_pbOverrides[etabId]||{};
+    Object.keys(ovs).forEach(function(k){
+      var rec=ovs[k]; if(!rec || !rec.date) return;
+      var d=new Date(rec.date+'T00:00:00'); if(isNaN(d.getTime())) return;
+      var diff=Math.round((d-today)/86400000); if(diff<0 || diff>6) return;
+      var jour=JOURS_FR[d.getDay()];
+      var svcs=(rec.service==='journee')?['midi','soir']:[rec.service||'midi'];
+      out[jour]=out[jour]||{}; out[jour][cam]=out[jour][cam]||[];
+      svcs.forEach(function(sv){
+        var lbl=sv==='midi'?'Midi':'Soir';
+        out[jour][cam]=out[jour][cam].filter(function(x){return x.service!==lbl;});
+        if(rec.ferme || rec.type==='ferme' || rec.type==='forfait' || !rec.nom) return;
+        var pv=_lirePrivePb(rec.nom); if(pv.masque) return;
+        out[jour][cam].push({service:lbl, lieu:pv.nom, prive:pv.prive, adresse:_adressePb(etabId,pv.nom), horaires:_horairesPb(null,sv),
+          event:{date:rec.date, message:rec.messageEvent||'', menu:Array.isArray(rec.menuEvent)?rec.menuEvent:[], prix:rec.prixEvent||{},
+                 offreLabel:rec.offreLabel||'', supp:Array.isArray(rec.supplementsOfferts)?rec.supplementsOfferts:[], sansLimite:!!rec.sansLimite}});
+      });
+      if(!out[jour][cam].length) delete out[jour][cam];
+      if(!Object.keys(out[jour]).length) delete out[jour];
+    });
+  });
   PLANNING=out;
   try{ renderToday(); renderPlanningGrid(); }catch(e){}
+  try{ var po=document.getElementById('page-order'); if(po&&po.classList.contains('active')){ renderOrderTable(); } }catch(e){}
+}
+// ── Mode événement : actif seulement sur la page Commander, quand l'emplacement choisi porte un événement
+function _evActif(){
+  if(!selectedSpot || !selectedSpot.event) return null;
+  var po=document.getElementById('page-order'); if(!po || !po.classList.contains('active')) return null;
+  return selectedSpot.event;
+}
+// Prix soirée d'un produit (une seule valeur pour toutes ses tailles) ; null = prix normal
+function _evPrix(id){ var ev=_evActif(); if(!ev) return null; var v=ev.prix[String(id)]; return (typeof v==='number' && v>=0) ? v : null; }
+function _evAutorise(id){ var ev=_evActif(); return !ev || !ev.menu.length || ev.menu.indexOf(String(id))>=0; }
+function _evSupPrix(sp){ var ev=_evActif(); if(!ev || !ev.supp.length) return (sp&&sp.prix)||0;
+  var n=String((sp&&sp.nom)||'').toLowerCase().trim();
+  // tolérant, comme Capt&Fish : exact, ou l'un contient l'autre (« frites » ↔ « frites maison »)
+  return ev.supp.some(function(e){ e=String(e||'').toLowerCase().trim(); return e && (e===n || e.indexOf(n)>=0 || n.indexOf(e)>=0); }) ? 0 : ((sp&&sp.prix)||0); }
+function _evBadge(m){ var p=_evPrix(m.id); if(p===null) return ''; var ev=_evActif();
+  return p===0 ? '<div class="poke-badge b-coral">'+(ev.offreLabel||'OFFERT')+'</div>' : '<div class="poke-badge b-honey">Prix soirée</div>'; }
+// Le panier a pu être composé avant le choix de l'emplacement : on le remet au tarif du spot choisi
+function _evRepricer(){
+  var retires=0;
+  cart=cart.filter(function(l){ if(l.type==='formule') return true; if(_evAutorise(l.prodId)) return true; retires++; return false; });
+  cart.forEach(function(l){
+    if(l.type==='formule') return;
+    var it=MENU.find(function(m){return m.id===l.prodId;}); if(!it) return;
+    var v=_pbVariantes(it).find(function(x){return x.nom===(l.variante||'');});
+    l.prixBase = v ? v.prix : _pbPrixMin(it);
+    (l.supplements||[]).forEach(function(sp){ if(sp.sauce) return; var k=Object.keys(it.supplements||{}).find(function(x){return it.supplements[x].nom===sp.nom;}); if(k) sp.prix=_evSupPrix(it.supplements[k]); });
+    l.prixUnit = l.prixBase + (l.supplements||[]).reduce(function(a,x){return a+(x.prix||0);},0);
+  });
+  if(retires) showToast(retires+' article(s) retiré(s) : pas à la carte de cet événement','ℹ️');
+}
+function _evBanniere(){
+  var sec=document.getElementById('creneaux-section'); if(!sec) return;
+  var b=document.getElementById('ev-banner');
+  var ev=_evActif();
+  if(!ev){ if(b) b.style.display='none'; return; }
+  if(!b){ b=document.createElement('div'); b.id='ev-banner'; b.style.cssText='margin:1rem 0 0;padding:0.9rem 1.1rem;background:var(--honey-bg,#fff7e6);border:1.5px solid var(--honey,#e8a33c);border-radius:var(--r-sm);font-size:0.9rem;line-height:1.4'; sec.parentNode.insertBefore(b,sec); }
+  b.style.display='block';
+  b.innerHTML='<strong>🎉 '+(selectedSpot.lieu||'Événement')+'</strong>'+(ev.message?'<br>'+ev.message:'')+(ev.menu.length?'<br><span style="color:var(--ink3);font-size:0.8rem">Carte spéciale : seuls les produits de la soirée sont proposés.</span>':'');
 }
 function _pbEcouterPlanning(){
   // On n'écoute le planning que des camions Poké, pas ceux de Capt&Fish
@@ -1286,6 +1351,9 @@ function _pbEcouterPlanning(){
     var id=e[0];
     db.ref('planning_emplacements/'+id).on('value',function(s2){ _pbPlans[id]=s2.val()||{}; _rebuildPlanningPb(); });
     db.ref('emplacements_repertoire/'+id).on('value',function(s3){ _pbRepert[id]=s3.val()||{}; _rebuildPlanningPb(); });
+    // Événements exceptionnels (admin → Planning → « Événement exceptionnel ») : même source que la caisse
+    db.ref('overrides/'+id).on('value',function(s4){ _pbOverrides[id]=s4.val()||{}; _rebuildPlanningPb(); },
+      function(err){ try{console.warn('overrides non lisibles (règles Firebase ?)',err&&err.code);}catch(_){} });
   });
   _rebuildPlanningPb();
 }
@@ -1770,9 +1838,9 @@ function _pbEtatCarte(){
 function pokeCardHTML(m){
   var badgeCol={Signature:'b-grn',Nouveau:'b-coral',Saison:'b-honey'};
   var top = m.photo
-    ? '<div class="poke-top has-photo" style="background-image:url(\''+m.photo+'\')">'+(m.badge?'<div class="poke-badge '+(badgeCol[m.badge]||'b-coral')+'">'+m.badge+'</div>':'')+'<div class="poke-name">'+m.nom+'</div></div>'
-    : '<div class="poke-top c-'+m.col+'">'+(m.badge?'<div class="poke-badge '+(badgeCol[m.badge]||'b-coral')+'">'+m.badge+'</div>':'')+'<div class="poke-name">'+m.nom+'</div></div>';
-  return '<div class="poke-card" onclick="openProdModal(\''+m.id+'\')">'+top+'<div class="poke-info"><div class="poke-desc">'+m.desc+'</div><div class="poke-foot"><div class="poke-price">'+_pbPrefixeDes(m)+m.prix.toFixed(2).replace('.',',')+' €</div><button class="poke-add" onclick="event.stopPropagation();addToCart(\''+m.id+'\')">+</button></div></div></div>';
+    ? '<div class="poke-top has-photo" style="background-image:url(\''+m.photo+'\')">'+(_evBadge(m)||(m.badge?'<div class="poke-badge '+(badgeCol[m.badge]||'b-coral')+'">'+m.badge+'</div>':''))+'<div class="poke-name">'+m.nom+'</div></div>'
+    : '<div class="poke-top c-'+m.col+'">'+(_evBadge(m)||(m.badge?'<div class="poke-badge '+(badgeCol[m.badge]||'b-coral')+'">'+m.badge+'</div>':''))+'<div class="poke-name">'+m.nom+'</div></div>';
+  return '<div class="poke-card" onclick="openProdModal(\''+m.id+'\')">'+top+'<div class="poke-info"><div class="poke-desc">'+m.desc+'</div><div class="poke-foot"><div class="poke-price">'+(_evPrix(m.id)===null?_pbPrefixeDes(m)+_pbPrixMin(m).toFixed(2).replace('.',',')+' €':'<s style="opacity:.5;font-weight:400;margin-right:4px">'+((m.variantes||[]).length?Math.min.apply(null,m.variantes.map(function(x){return x.prix;})):(m.prix||0)).toFixed(2).replace('.',',')+'</s>'+(_evPrix(m.id)===0?'🎁 '+(_evActif().offreLabel||'Offert'):_pbPrixMin(m).toFixed(2).replace('.',',')+' €'))+'</div><button class="poke-add" onclick="event.stopPropagation();addToCart(\''+m.id+'\')">+</button></div></div></div>';
 }
 function _firstProdCatPoke(){ for(var i=0;i<CATS.length;i++){ if(CATS[i]!=='__menus__') return CATS[i]; } return 'Pokés'; }
 function renderPokesHome(){var g=document.getElementById('pokes-home');if(!g)return;var etat=_pbEtatCarte();if(etat){g.innerHTML=etat;return;}var c=_firstProdCatPoke();g.innerHTML=MENU.filter(function(m){return m.cat===c;}).map(pokeCardHTML).join('');}
@@ -1859,7 +1927,8 @@ function orderFromEmp(emp){
   selectedSpot=Object.assign({},emp,{id:emp.jour+'_'+emp.cam+'_'+svcKey,creneaux:creneaux});
   go('order');
   setTimeout(function(){
-    renderOrderTable();
+    _evRepricer(); _evBanniere();
+    renderOrderTable(); renderCatsOrder();
     updateCreneaux();renderCart();updateSteps();
     var sec=document.getElementById('creneaux-section');
     if(sec)sec.scrollIntoView({behavior:'smooth',block:'center'});
@@ -1946,12 +2015,24 @@ function renderCatsOrder(){
   var etat=_pbEtatCarte();
   if(etat){ mc.innerHTML=etat; return; }
   if(activeCat==='__menus__'){ mc.innerHTML=FORMULES.map(formuleCardHTMLPoke).join(''); }
-  else { mc.innerHTML=MENU.filter(function(m){return m.cat===activeCat;}).map(pokeCardHTML).join(''); }
+  else {
+    // Carte de l'événement : produits de la soirée d'abord, le reste grisé « Indispo ce soir » (comme Capt&Fish)
+    var all=MENU.filter(function(m){return m.cat===activeCat;});
+    var dispo=all.filter(function(m){return _evAutorise(m.id);}), autres=all.filter(function(m){return !_evAutorise(m.id);});
+    var html=dispo.map(pokeCardHTML).join('');
+    if(autres.length){
+      if(!dispo.length) html+='<div style="grid-column:1/-1;padding:0.6rem 0;color:var(--ink3);font-size:0.85rem">Rien dans cette catégorie pour cet événement.</div>';
+      html+='<div style="grid-column:1/-1;padding:0.6rem 0.9rem;background:var(--cream2,#f5f1ea);border-radius:var(--r-sm);font-size:0.78rem;color:var(--ink3)">⛔ Le reste de la carte n\'est pas disponible pour cet événement.</div>'
+        +autres.map(function(m){ return '<div style="opacity:0.45;pointer-events:none">'+pokeCardHTML(m)+'</div>'; }).join('');
+    }
+    mc.innerHTML=html;
+  }
 }
 function setcatO(c){activeCat=c;renderCatsOrder();}
 function pickSpot(s){
   selectedSpot=s;
-  renderOrderTable();
+  _evRepricer(); _evBanniere();
+  renderOrderTable(); renderCatsOrder();
   updateCreneaux();renderCart();updateSteps();
   // Scroll vers les créneaux après un court délai (le temps que la section apparaisse)
   setTimeout(function(){
@@ -2005,11 +2086,11 @@ function _cartAdd(id,sups,qte,variante){
   qte=qte||1;
   // Variante par défaut : la moins chère (ajout direct depuis la carte)
   if(!variante){
-    var vs=(it.variantes||[]);
+    var vs=_pbVariantes(it);
     variante=vs.length?vs.reduce(function(a,b){return b.prix<a.prix?b:a;}):null;
   }
   var vNom=variante?variante.nom:'';
-  var prixBase=variante?variante.prix:(it.prix||0);
+  var prixBase=variante?variante.prix:_pbPrixMin(it);
   var sig=_supSig(sups);
   // Deux variantes différentes du même produit sont deux lignes distinctes
   var ex=cart.find(function(l){return l.prodId===id&&(l.variante||'')===vNom&&_supSig(l.supplements)===sig;});
@@ -2080,14 +2161,21 @@ function renderCart(){
     }
   }
   var btn=document.getElementById('btn-checkout'),hint=document.getElementById('cart-hint');
-  if(btn){
+  if(btn && !_envoiCmdEnCours){
+    btn.textContent='Valider la commande';
     btn.disabled=!(n>0&&selectedSpot&&heureVal);
     if(hint)hint.textContent=!selectedSpot?'Choisissez un emplacement':!heureVal?'Choisissez un créneau':!n?'Ajoutez au moins un article':'';
   }
   updatePill();
 }
 
+// Anti-doublon : un seul envoi à la fois (bouton verrouillé + même numéro tant que l'envoi n'a pas abouti),
+// et refus d'une commande identique à une commande envoyée avec succès il y a moins de 3 minutes.
+var _envoiCmdEnCours=false;
+function _btnCheckoutEtat(txt,disabled){ var b=document.getElementById('btn-checkout'); if(!b) return; b.disabled=!!disabled; if(txt) b.textContent=txt; }
+function _empreinteCmd(o){ return [o.creneau_id,o.heure,o.tel,o.total,(o.items||[]).map(function(i){return i.nom+'x'+(i.qte||i.qty);}).join('|')].join('#'); }
 function validerCommande(){
+  if(_envoiCmdEnCours){ showToast('Envoi en cours… un instant','⏳'); return; }
   var ok=true;
   var firstError=null; // premier élément en erreur pour le scroll
 
@@ -2138,7 +2226,7 @@ function validerCommande(){
     renderOrderPage();
     return;
   }
-  var num='PB-'+Date.now().toString(36).toUpperCase().slice(-6);
+  var num=null; // fixé plus bas, une fois l'empreinte de la commande connue (numéro réutilisé si renvoi)
   var items=cart.filter(function(l){return l.qte>0;}).map(function(l){
     if(l.type==='formule'){
       var compoLbl=(l.composition||[]).map(function(c){return c.nom;}).filter(Boolean).join(' · ');
@@ -2179,6 +2267,17 @@ function validerCommande(){
     showToast('Commandes closes pour ce créneau','⏰'); renderOrderPage(); return;
   }
 
+  // Empreinte de la commande → si la même a déjà été tentée il y a < 10 min, on REPREND son numéro :
+  // l'écriture se fait au même endroit et remplace la précédente, un doublon devient impossible
+  // (double tap, rechargement de la page, réseau coupé pendant l'envoi…).
+  var _empTmp=_empreinteCmd({creneau_id:_isoLocalPb(prochaineDatePb(selectedSpot.jour))+'_'+getServiceType(selectedSpot.horaires),heure:heureVal,tel:telVal,total:cartTotal(),items:items});
+  try{
+    var _prev=JSON.parse(localStorage.getItem('pokeben_envoi')||'null');
+    if(_prev && _prev.emp===_empTmp && (Date.now()-_prev.ts)<600000) num=_prev.num;
+  }catch(e){}
+  if(!num) num='PB-'+Date.now().toString(36).toUpperCase().slice(-6);
+  try{ localStorage.setItem('pokeben_envoi',JSON.stringify({num:num,emp:_empTmp,ts:Date.now()})); }catch(e){}
+
   _lastOrder={
     num:num, status:'pending',
     prenom:prenomVal, nom:nomVal, tel:telVal, email:emailVal, note:noteVal,
@@ -2194,15 +2293,22 @@ function validerCommande(){
     _clientTs: Date.now(),  // timestamp côté client pour détection d'anomalie
     _origin: 'web'          // source pour filtrage admin
   };
+  // Même commande déjà envoyée il y a moins de 3 min (double tap, retour arrière, réseau lent) → on ne renvoie pas
+  var _deja=_mesCmd().find(function(o){ return o.savedAt && (Date.now()-o.savedAt)<600000 && o.status!=='cancelled' && _empreinteCmd(o)===_empTmp; });
+  if(_deja){ showToast('Cette commande a déjà été envoyée ('+_deja.num+')','✅'); cart=[];selectedSpot=null;updatePill(); go('mes-commandes'); return; }
+  _envoiCmdEnCours=true;
+  _btnCheckoutEtat('⏳ Envoi en cours…',true);
+  var _lent=setTimeout(function(){ if(_envoiCmdEnCours) showToast('Connexion lente… ne quittez pas la page, la commande part dès que possible','⏳'); },6000);
   function _envoiCmd(){ return db.ref('commandes_web/pokeben/'+num).set(_lastOrder); }
   var _authEnsure = (_pubAuth.currentUser) ? Promise.resolve() : _pubAuth.signInAnonymously();
   _authEnsure.then(_envoiCmd).then(function(){
+    clearTimeout(_lent); _envoiCmdEnCours=false; _btnCheckoutEtat('Valider la commande',false);
     try{var arr=JSON.parse(localStorage.getItem('pokeben_commandes')||'[]');arr.unshift(Object.assign({},_lastOrder,{savedAt:Date.now()}));localStorage.setItem('pokeben_commandes',JSON.stringify(arr.slice(0,30)));}catch(e){}
     cart=[];selectedSpot=null;updatePill();
     go('confirm');
     var c=document.getElementById('confirm-wrap');if(!c)return;
     c.innerHTML='<div class="confirm-card"><div style="font-size:2.5rem;margin-bottom:1rem">🎉</div><h2>Commande confirmée !</h2><p style="color:var(--ink2);margin-bottom:0.5rem">Merci <strong>'+_lastOrder.prenom+'</strong>, votre poké vous attend.</p><div class="confirm-num">'+_lastOrder.num+'</div><div class="confirm-details"><div class="confirm-row"><span>📅 Date</span><span>'+_labelDateCmd(_lastOrder)+'</span></div><div class="confirm-row"><span>🕐 Retrait</span><span>'+_lastOrder.heure+'</span></div><div class="confirm-row"><span>📍 Lieu</span><span>'+_lastOrder.emplacement+'</span></div><div class="confirm-row"><span>🚐 Camion</span><span>'+_lastOrder.camion+'</span></div><div class="confirm-row"><span>🥗 Articles</span><span>'+_lastOrder.items.map(function(i){return i.nom+' ×'+i.qty;}).join(', ')+'</span></div><div class="confirm-row"><span>💶 Total</span><span style="color:var(--grn);font-family:Playfair Display,serif;font-weight:800;font-size:1.1rem">'+_lastOrder.total.toFixed(2).replace('.',',')+'\u202f€</span></div><div class="confirm-row"><span>💳 Paiement</span><span>Sur place au retrait</span></div></div>'+(_lastOrder.email?'<p style="font-size:0.78rem;color:var(--ink3);margin-bottom:1.5rem">\ud83d\udce7 Un email de confirmation sera envoy\u00e9 \u00e0 '+_lastOrder.email+' d\u00e8s validation par l\u2019\u00e9quipe.</p>':'<p style="font-size:0.78rem;color:var(--ink3);margin-bottom:1.5rem">Suivez votre commande depuis \u00ab Mes commandes \u00bb sur cet appareil.</p>')+'<div class="confirm-actions"><button class="btn-light" onclick="go(\'mes-commandes\')">Suivre ma commande</button><button class="btn-main" onclick="go(\'home\')">Retour à l\u2019accueil</button></div></div>';
-  }).catch(function(e){var code=(e&&(e.code||e.message))||'erreur inconnue';try{console.error('Commande Firebase echouee:',e);}catch(_){}showToast('Echec envoi : '+code,'⚠');});
+  }).catch(function(e){clearTimeout(_lent); _envoiCmdEnCours=false; _btnCheckoutEtat('Valider la commande',false); var code=(e&&(e.code||e.message))||'erreur inconnue';try{console.error('Commande Firebase echouee:',e);}catch(_){}showToast('Echec envoi : '+code,'⚠');});
 }
 
 function _mesCmd(){try{return JSON.parse(localStorage.getItem('pokeben_commandes')||'[]');}catch(e){return[];}}
@@ -2303,7 +2409,7 @@ var _prodQty=1,_pbSups={},_pbModalId=null,_pbTaille=null,_pbProt=null,_pbSauces=
 var _pbMenu=null;      // null = pas encore répondu, false = seul, sinon id de formule
 var _pbMenuSel={};     // index d'emplacement -> prodId choisi
 
-function _pbVariantes(m){ return (m&&m.variantes)?m.variantes:[]; }
+function _pbVariantes(m){ var vs=(m&&m.variantes)?m.variantes:[]; var ep=m?_evPrix(m.id):null; return ep===null ? vs : vs.map(function(v){ return Object.assign({},v,{prix:ep}); }); }
 // Axes distincts, dans l'ordre où l'admin les a saisis
 function _pbAxe(m,champ){
   var out=[];
@@ -2313,7 +2419,7 @@ function _pbAxe(m,champ){
 function _pbVar(m,t,p){
   return _pbVariantes(m).find(function(v){ return (v.taille||'')===(t||'') && (v.proteine||'')===(p||''); });
 }
-function _pbPrixMin(m){ var v=_pbVariantes(m); return v.length?Math.min.apply(null,v.map(function(x){return x.prix;})):(m.prix||0); }
+function _pbPrixMin(m){ var ep=_evPrix(m.id); if(ep!==null) return ep; var v=_pbVariantes(m); return v.length?Math.min.apply(null,v.map(function(x){return x.prix;})):(m.prix||0); }
 function _pbPrefixeDes(m){ return (_pbVariantes(m).length>1) ? 'd\u00e8s ' : ''; }
 function _eur(n){ return n.toFixed(2).replace('.',',')+'\u202f\u20ac'; }
 // Écart de prix par rapport à la combinaison la moins chère : le client lit
@@ -2397,6 +2503,7 @@ function _pbRenderConf(){
 
   // 4 · Seul ou en menu ? — la question McDo, posée pendant la composition, prix en face
   var f=_pbFormulePour(m);
+  var _evR=_evActif(); if(_evR && _evR.menu.length && f){ f=null; _pbMenu=false; }
   var menuOk=true;
   if(f && tailleOk && protOk){
     var sc=_pbSurcoutMenu(f);
@@ -2431,7 +2538,7 @@ function _pbRenderConf(){
         var sp=m.supplements[k];
         return '<div class="prod-sup-row'+(_pbSups[k]?' selected':'')+'" data-sid="'+k+'" onclick="pbToggleSup(\''+k+'\')">'
           +'<span class="prod-sup-name"><span class="prod-sup-check">\u2713</span>'+sp.nom+'</span>'
-          +'<span class="prod-sup-price">+'+_eur(sp.prix||0)+'</span></div>';
+          +'<span class="prod-sup-price">'+(_evSupPrix(sp)===0&&(sp.prix||0)>0?'<s style="color:var(--ink3)">+'+_eur(sp.prix||0)+'</s> offert':'+'+_eur(_evSupPrix(sp)))+'</span></div>';
       }).join('')+'</div>';
   }
 
@@ -2623,7 +2730,7 @@ function _pbPrixSauces(){ return Math.max(0,_pbSauces.length-1)*_pbPrixSauceExtr
 function _pbUnitPrice(){
   var m=MENU.find(function(x){return x.id===_pbModalId;})||{};
   var v=_pbVarCourante();
-  var p=v?v.prix:(m.prix||0);
+  var p=v?v.prix:_pbPrixMin(m);
   Object.keys(_pbSups).forEach(function(k){p+=(_pbSups[k].prix||0);});
   p+=_pbPrixSauces();
   return p;
@@ -2638,7 +2745,7 @@ function pbToggleSup(sid){
   var m=MENU.find(function(x){return x.id===_pbModalId;})||{};
   var sp=(m.supplements||{})[sid];
   if(!sp)return;
-  if(_pbSups[sid])delete _pbSups[sid];else _pbSups[sid]={nom:sp.nom,prix:sp.prix||0};
+  if(_pbSups[sid])delete _pbSups[sid];else _pbSups[sid]={nom:sp.nom,prix:_evSupPrix(sp)};
   var row=document.querySelector('#prod-modal-body .prod-sup-row[data-sid="'+sid+'"]');
   if(row)row.classList.toggle('selected',!!_pbSups[sid]);
   _pbMajTotal();

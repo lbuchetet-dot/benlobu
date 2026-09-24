@@ -3155,7 +3155,10 @@ function _prixEffectif(item){
     const sp = spots.find(s=>s.id===selectedSpot);
     if(sp && sp.prixEvent && sp.prixEvent[item.id]!=null){
       const pe = Number(sp.prixEvent[item.id]);
-      if(!isNaN(pe) && pe>0) return pe;
+      // 0 = offert (bouton 🎁 de l'admin) → le prix soirée s'applique dès 0, pas seulement > 0.
+      // AVANT : « pe>0 », donc un produit mis à 0 gardait son prix normal au panier alors
+      // que la carte affichait OFFERT.
+      if(!isNaN(pe) && pe>=0) return pe;
     }
   }catch(e){}
   return base;

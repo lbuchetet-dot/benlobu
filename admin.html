@@ -3162,16 +3162,20 @@ function renderOvMenuPicker(selectedIds){
   selectedIds = selectedIds || [];
   const box = document.getElementById('ov-menu-event'); if(!box) return;
   box.innerHTML = 'Chargement…';
-  db.ref('cartes/burger/produits').once('value', function(snap){
+  // Carte du CAMION sélectionné (poke → cartes/poke, burger → cartes/burger) — avant, toujours la carte burger,
+  // donc impossible de composer une soirée Pok&Ben.
+  const carteEv = (etabsData[selectedPlanningEtab] && etabsData[selectedPlanningEtab].carte) || 'burger';
+  db.ref('cartes/'+carteEv+'/produits').once('value', function(snap){
     const data = snap.val() || {};
     const cats = {};
     Object.keys(data).forEach(function(id){
       const pr = data[id]; if(!pr || pr.actif===false) return;
+      if(pr.canaux && pr.canaux.site===false) return; // réservé caisse → jamais sur le site
       const c = pr.categorie || 'Autres';
-      // prix normal = prix de la 1re taille (les burgers n'en ont qu'une)
-      var t = pr.tailles ? Object.keys(pr.tailles)[0] : null;
-      var pn = (t && pr.tailles[t] && typeof pr.tailles[t].prix==='number') ? pr.tailles[t].prix : null;
-      (cats[c] = cats[c] || []).push({id:id, nom:(pr.nom||id), prixNormal:pn});
+      // prix normal affiché = le plus bas des tailles (un poké a S/M/L, un burger une seule taille)
+      var prixs = Object.values(pr.tailles||{}).map(function(t){ return (t && typeof t.prix==='number') ? t.prix : null; }).filter(function(x){ return x!=null; });
+      var pn = prixs.length ? Math.min.apply(null, prixs) : null;
+      (cats[c] = cats[c] || []).push({id:id, nom:(pr.nom||id), prixNormal:pn, multiTailles:prixs.length>1});
     });
     const sel = {}; selectedIds.forEach(function(x){ sel[x]=true; });
     const prix = _ovPrixSel || {};
@@ -3187,7 +3191,7 @@ function renderOvMenuPicker(selectedIds){
         + cats[cat].map(function(x){
             var isOn = !!sel[x.id];
             var pv = (prix[x.id]!=null) ? prix[x.id] : '';
-            var ph = (x.prixNormal!=null) ? x.prixNormal.toFixed(2).replace('.',',') : 'prix';
+            var ph = (x.prixNormal!=null) ? ((x.multiTailles?'dès ':'')+x.prixNormal.toFixed(2).replace('.',',')) : 'prix';
             return '<div style="display:flex;align-items:center;gap:8px;font-size:13px;padding:3px 0">'
               + '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;flex:1">'
               +   '<input type="checkbox" class="ovme-cb" data-cat="'+safe+'" value="'+x.id+'"'+(isOn?' checked':'')+' onchange="ovTogglePrixField(this)" style="width:auto">'
