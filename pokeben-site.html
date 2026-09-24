@@ -1756,12 +1756,15 @@ var SEO_ROUTES={
   apropos:     {path:'/a-propos',      title:'Pok&Ben — Deux food trucks, une équipe, du poké frais depuis 2022', desc:'L\'histoire de Pok&Ben : des poké bowls frais et de saison, deux camions en tournée autour de Valence, une équipe qui aime ce qu\'elle fait.'},
   contact:     {path:'/contact',       title:'Contactez Pok&Ben — 04 82 32 95 36', desc:'Une question, une commande par téléphone, un projet d\'événement ? Appelez-nous ou écrivez-nous.'},
   'mes-commandes':{path:'/ma-commande',title:'Ma commande · Pok&Ben', desc:'Suivez votre commande Pok&Ben.', noindex:true},
-  confirm:     {path:'/commander',     title:'Commande confirmée · Pok&Ben', desc:'', noindex:true}
+  // URL propre à la confirmation : avant elle partageait « /commander » avec la page de commande,
+  // et sa balise noindex pouvait être vue par Google sur l'URL indexable de la commande.
+  confirm:     {path:'/commande-confirmee', title:'Commande confirmée · Pok&Ben', desc:'', noindex:true}
 };
 var SEO_ORIGIN='https://pokeben.fr';
 function _routeFromPath(){
   var p=location.pathname.replace(/\/+$/,'')||'/';
   if(/pokeben-site\.html$/.test(p)) p=location.hash.replace(/^#\/?/,'/')||'/';   // pré-prod : #/la-carte
+  if(p==='/commande-confirmee') return 'mes-commandes';   // rechargement de la confirmation → suivi de commande
   for(var k in SEO_ROUTES){ if(SEO_ROUTES[k].path===p && k!=='confirm') return k; }
   return null;
 }
