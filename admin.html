@@ -6579,9 +6579,38 @@ function renderModes(){
   });
 }
 
-function toggleMode(k,v){ parametresData.modes_paiement=parametresData.modes_paiement||{}; parametresData.modes_paiement[k]=v; }
-function supprimerMode(k){ if(parametresData.modes_paiement) delete parametresData.modes_paiement[k]; renderModes(); }
-function ajouterMode(){ const n=prompt('Nom du mode de paiement :'); if(n?.trim()){ parametresData.modes_paiement=parametresData.modes_paiement||{}; parametresData.modes_paiement[n.trim().replace(/\s+/g,'_')]=true; renderModes(); } }
+// AVANT : ajout / activation / suppression ne modifiaient que la mémoire de la page — AUCUNE écriture
+// en base, et aucun bouton « Enregistrer » pour cette carte. Au rechargement, tout revenait comme avant.
+// MAINTENANT : chaque action est écrite immédiatement dans parametres/modes_paiement, avec confirmation.
+function _sauverModes(msgOk){
+  const modes=Object.assign({}, parametresData.modes_paiement||modesState);
+  return db.ref('parametres/modes_paiement').set(modes)
+    .then(()=>db.ref('parametres/modes_paiement').once('value'))
+    .then(sn=>{ parametresData.modes_paiement=sn.val()||{}; renderModes(); showNotif(msgOk||'Modes de paiement enregistrés — visibles sur les caisses','success'); })
+    .catch(e=>{ console.error('modes_paiement',e); showNotif(/permission/i.test((e&&e.code)||'')?'Refusé par Firebase (règles) : parametres/modes_paiement':'Échec enregistrement : '+((e&&e.message)||e),'error');
+      db.ref('parametres/modes_paiement').once('value').then(sn=>{ if(sn.exists()){ parametresData.modes_paiement=sn.val(); renderModes(); } }); });
+}
+function toggleMode(k,v){
+  parametresData.modes_paiement=Object.assign({}, parametresData.modes_paiement||modesState); parametresData.modes_paiement[k]=v;
+  _sauverModes(k.replace(/_/g,' ')+(v?' activé':' désactivé')+' sur les caisses');
+}
+function supprimerMode(k){
+  if(['CB','Especes'].includes(k)){ showNotif('CB et Espèces ne peuvent pas être supprimés (désactive-les si besoin)','error'); return; }
+  if(!confirm('Supprimer le mode « '+k.replace(/_/g,' ')+' » ? Les encaissements passés gardent leur mode.')) return;
+  parametresData.modes_paiement=Object.assign({}, parametresData.modes_paiement||modesState); delete parametresData.modes_paiement[k];
+  _sauverModes('« '+k.replace(/_/g,' ')+' » supprimé');
+}
+function ajouterMode(){
+  const n=prompt('Nom du mode de paiement (ex. Carte titre resto) :');
+  if(!n||!n.trim()) return;
+  // Clé Firebase sûre : pas de . # $ / [ ], espaces → _
+  const k=n.trim().replace(/[.#$\/\[\]]/g,'').replace(/\s+/g,'_').slice(0,40);
+  if(!k){ showNotif('Nom invalide','error'); return; }
+  const cur=parametresData.modes_paiement||modesState;
+  if(Object.keys(cur).some(x=>x.toLowerCase()===k.toLowerCase())){ showNotif('Ce mode existe déjà','error'); return; }
+  parametresData.modes_paiement=Object.assign({}, cur); parametresData.modes_paiement[k]=true;
+  _sauverModes('« '+n.trim()+' » ajouté — il apparaît sur les caisses à la prochaine ouverture de l\'encaissement');
+}
 
 function sauvegarderEntreprise(){
   const data={raison_sociale:v('p-raison'),siret:v('p-siret'),adresse:v('p-adresse'),tva_intracom:v('p-tva-intra'),tel:v('p-tel'),email:v('p-email'),web:v('p-web'),msg_ticket:v('p-msg')};

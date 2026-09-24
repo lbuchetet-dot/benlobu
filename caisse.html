@@ -1293,6 +1293,8 @@ let pinSaisie = '';
 const _etabMemorise = localStorage.getItem('pokben_etab_id');
 if(_etabMemorise) selectedEtabId = _etabMemorise;
 let modesPaiementDispos = [];
+// Libellé d'un mode de paiement : correspondance EXACTE pour les 4 modes historiques, sinon « _ » → espace
+function _libMode(m){ m=String(m||''); return ({CB:'Carte bancaire',Especes:'Espèces',Tickets_resto:'Tickets resto',Cheques:'Chèques'})[m] || m.replace(/_/g,' '); }
 
 // ── Commandes web Capt&Fish (site public) ──
 const CAPTN_WEB_ETAB = 'captfish';      // nœud commandes_web/captfish
@@ -1963,7 +1965,7 @@ function renderPilotage(){
 
     // Répartition paiements
     const parPmt={};
-    const normaliser = m=>m.replace('Especes','Espèces').replace('Tickets_resto','Tickets resto').replace('Cheques','Chèques').replace('CB','Carte bancaire');
+    const normaliser = _libMode;
     Object.values(allDates).forEach(dayCmds=>{
       Object.values(dayCmds||{}).filter(c=>c.statut==='payee').forEach(c=>{
         (c.paiements||[]).forEach(p=>{
@@ -3557,7 +3559,7 @@ async function ouvrirPaiement(){
     const btn = document.createElement('button');
     btn.className = 'pmt-btn';
     btn.id = 'pmt-btn-'+m;
-    btn.innerHTML = `<span class="pmt-icon">${icons[m]||'💰'}</span>${labels[m]||m.replace(/_/g,' ')}`;
+    btn.innerHTML = `<span class="pmt-icon">${icons[m]||(/resto|titre|swile|pluxee|edenred|up_?dej/i.test(m)?'🎫':'💰')}</span>${labels[m]||m.replace(/_/g,' ')}`;
     btn.onclick = () => selectPmt(m, btn);
     grid.appendChild(btn);
   });
@@ -5006,7 +5008,7 @@ function confirmerFinDeService(){
     const pm = cvt>0?ca/cvt:0;
     // Agréger paiements
     const parPmt={};
-    const normaliser=m=>m.replace('Especes','Espèces').replace('Tickets_resto','Tickets resto').replace('Cheques','Chèques').replace('CB','Carte bancaire');
+    const normaliser=_libMode;
     payees.forEach(([,c])=>(c.paiements||[]).forEach(p=>{const m=normaliser(p.mode||'');parPmt[m]=(parPmt[m]||0)+p.montant;}));
     // Remises commerciales et offerts fidélité (pilotage admin : rapport comptable + suivi remises)
     const remises = Math.round(payees.reduce((s,[,c])=>s+((c.remise&&c.remise.montant)||0),0)*100)/100;
@@ -5054,7 +5056,7 @@ function ouvrirCloture(){
     const nbCvt = cmds.reduce((s,c)=>s+(c.couverts||0),0);
     const pm = nbCvt>0 ? Math.round(ca/nbCvt*100)/100 : 0;
     const parPmt = {};
-    const normaliserMode = m => m.replace('Especes','Espèces').replace('Tickets_resto','Tickets resto').replace('Cheques','Chèques').replace('CB','Carte bancaire');
+    const normaliserMode = _libMode;
     cmds.forEach(c=>{ (c.paiements||[]).forEach(p=>{ const mode = normaliserMode(p.mode||''); parPmt[mode]=(parPmt[mode]||0)+(p.montant||0); }); });
     const controleActif = controleCaisseRequis();
     let html = `
