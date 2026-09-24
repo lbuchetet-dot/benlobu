@@ -164,7 +164,7 @@ tr:hover td{background:var(--bg)}
 .gt-cell .gt-cout{max-width:78px;color:var(--text-muted);font-size:12px}
 .gt-cell.gt-off input{background:var(--bg);opacity:.5}
 .gt-empty{padding:22px 16px;text-align:center;color:var(--text-muted);font-size:13px}
-.modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:24px;padding-top:16px;border-top:1px solid var(--border)}
+.modal-actions{display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-end;margin-top:24px;padding-top:16px;border-top:1px solid var(--border)}
 
 /* ETAB CARDS */
 .etab-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
@@ -1797,6 +1797,7 @@ tr:hover td{background:var(--bg)}
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="fermerModal('modal-options')">Annuler</button>
       <button class="btn btn-primary" onclick="enregistrerOptionsCarte()">Enregistrer</button>
+      <div id="mo-etat" style="flex-basis:100%;order:-1;text-align:left;display:none;margin-top:10px;padding:10px 12px;border-radius:8px;font-size:13px;line-height:1.45"></div>
     </div>
   </div>
 </div>
@@ -3720,6 +3721,8 @@ function renderOptionsProduit(selfId, p){
     :'<div style="font-size:12px;color:var(--text-muted)">Aucun accompagnement défini pour cette carte.</div>';
 }
 function ouvrirModalOptions(){
+  _moEtat('');
+  const _b=document.querySelector('#modal-options .btn-primary'); if(_b){ _b.disabled=false; _b.textContent='Enregistrer'; }
   document.getElementById('mo-carte-nom').textContent=(currentCarte==='burger'?'Burger':'Poké');
   const ref=_optCarte(currentCarte);
   document.getElementById('mo-sups-list').innerHTML='';
@@ -3791,7 +3794,8 @@ function moAjouterAcc(prodId='',prix='',id=''){
   const div=document.createElement('div');
   div.className='mo-acc-row'; div.dataset.id=rid;
   div.style.cssText='display:grid;grid-template-columns:1.4fr 1fr 1fr auto;gap:10px;align-items:center;margin-bottom:8px';
-  const opts=Object.entries(produitsData).sort((a,b)=>(a[1].nom||'').localeCompare(b[1].nom||'')).map(([pid,p])=>`<option value="${pid}" ${pid===prodId?'selected':''}>${p.nom||'Sans nom'}${p.actif===false?' (inactif)':''}</option>`).join('');
+  let opts=Object.entries(produitsData).sort((a,b)=>(a[1].nom||'').localeCompare(b[1].nom||'')).map(([pid,p])=>`<option value="${pid}" ${pid===prodId?'selected':''}>${p.nom||'Sans nom'}${p.actif===false?' (inactif)':''}</option>`).join('');
+  if(prodId && !produitsData[prodId]) opts='<option value="__absent__'+prodId+'" selected>⚠ produit introuvable sur cette carte ('+prodId+')</option>'+opts;
   div.innerHTML='<select class="form-select mo-prod" onchange="moMajPrixSeul(this)"><option value="">— produit —</option>'+opts+'</select>'
     +'<span class="mo-seul" style="font-size:13px;color:var(--text-muted)"></span>'
     +'<input type="number" step="0.10" min="0" class="form-input mo-prix" value="'+prix+'" placeholder="prix, ex. 2,00">'
@@ -3803,7 +3807,9 @@ function moMajPrixSeul(sel){
   const p=produitsData[sel.value]; const sp=sel.parentNode.querySelector('.mo-seul');
   sp.textContent=p?_prixCatalogue(p).toFixed(2).replace('.',',')+' €':'';
 }
+function _moEtat(msg,type){ const e=document.getElementById('mo-etat'); if(!e) return; if(!msg){ e.style.display='none'; return; } e.style.display='block'; e.textContent=msg; e.style.background=type==='error'?'#fdecea':(type==='success'?'#e8f5e9':'#fff7e6'); e.style.color=type==='error'?'#c0392b':(type==='success'?'#2e7d32':'#9a6b00'); }
 function enregistrerOptionsCarte(){
+  _moEtat('');
   const supplements={}, accompagnements={};
   const noms=[];
   // AVANT : une ligne sans prix était IGNORÉE en silence (« 1.00 » affiché en gris n'est qu'un exemple,
@@ -3824,11 +3830,11 @@ function enregistrerOptionsCarte(){
     elS.style.borderColor=''; elP.style.borderColor='';
     const prodId=elS.value; const prix=_num(elP);
     if(!prodId && elP.value==='') return;
-    if(!prodId){ elS.style.borderColor='#c0392b'; incompletes.push('un accompagnement sans produit'); return; }
+    if(!prodId || prodId.startsWith('__absent__')){ elS.style.borderColor='#c0392b'; incompletes.push('un accompagnement sans produit (choisis-le dans la liste, ou supprime la ligne avec ✕)'); return; }
     if(isNaN(prix)||prix<0){ elP.style.borderColor='#c0392b'; incompletes.push('un accompagnement sans prix « avec »'); return; }
     accompagnements[r.dataset.id]={prodId,prix};
   });
-  if(incompletes.length){ showNotif('Rien n\'a été enregistré : '+incompletes.join(', ')+' — complète les cases en rouge (0 si gratuit)','error'); return; }
+  if(incompletes.length){ const m='Rien n\'a été enregistré : '+incompletes.join(', ')+' — complète les cases en rouge (0 si gratuit)'; _moEtat(m,'error'); showNotif(m,'error'); return; }
   // Garde-fou : un supplément qui porte le nom d'un produit du catalogue doit être un accompagnement
   const catalogue=Object.values(produitsData).map(p=>(p.nom||'').trim().toLowerCase());
   const doublon=noms.find(n=>catalogue.includes(n.toLowerCase()));
@@ -3843,10 +3849,12 @@ function enregistrerOptionsCarte(){
   const fin=()=>{ if(btn){ btn.disabled=false; btn.textContent='Enregistrer'; } };
   const badKey=Object.keys(supplements).concat(Object.keys(accompagnements)).find(k=>/[.#$\/\[\]]/.test(k));
   if(badKey){ fin(); showNotif('Identifiant invalide ('+badKey+') — supprime cette ligne et ressaisis-la','error'); return; }
+  _moEtat('Écriture du référentiel…');
   let _wr;
   try{ _wr=db.ref('parametres/options_carte/'+carte).set(ref); }
-  catch(e){ fin(); console.error('enregistrerOptionsCarte (sync)',e); showNotif('Enregistrement impossible : '+((e&&e.message)||e),'error'); return; }
-  _wr.then(()=>db.ref('parametres/options_carte/'+carte).once('value'))
+  catch(e){ fin(); console.error('enregistrerOptionsCarte (sync)',e); _moEtat('Enregistrement impossible : '+((e&&e.message)||e),'error'); showNotif('Enregistrement impossible','error'); return; }
+  const _lent=setTimeout(()=>{ _moEtat('Firebase ne répond pas (10 s) — connexion ? Le bouton est réactivé, tu peux réessayer.','error'); fin(); },10000);
+  _wr.then(()=>{ clearTimeout(_lent); _moEtat('Référentiel écrit, relecture…'); return db.ref('parametres/options_carte/'+carte).once('value'); })
     .then(sn=>{
       const lu=sn.val()||{};
       const nLu=Object.keys(lu.supplements||{}).length, nAtt=Object.keys(supplements).length;
@@ -3865,9 +3873,10 @@ function enregistrerOptionsCarte(){
       });
       return Object.keys(up).length ? db.ref().update(up).catch(e=>{ throw {code:(e&&e.code)||'fiches', message:'référentiel OK mais fiches produits non mises à jour ('+((e&&e.message)||e)+')'}; }) : null;
     })
-    .then(()=>{ fin(); fermerModal('modal-options'); showNotif('Référentiel enregistré — fiches produits mises à jour','success'); chargerProduits(carte); })
+    .then(()=>{ fin(); _moEtat(''); fermerModal('modal-options'); showNotif('Référentiel enregistré — fiches produits mises à jour','success'); chargerProduits(carte); })
     .catch(e=>{ fin(); const c=(e&&e.code)||''; console.error('enregistrerOptionsCarte',e);
-      showNotif(/permission/i.test(c)?'Refusé par Firebase (règles) : parametres/options_carte n\'est pas autorisé en écriture':'Échec enregistrement : '+((e&&e.message)||c||e),'error'); });
+      const m=/permission/i.test(c)?'Refusé par Firebase (règles) : parametres/options_carte n\'est pas autorisé en écriture':'Échec enregistrement : '+((e&&e.message)||c||e);
+      _moEtat(m,'error'); showNotif(m,'error'); });
 }
 
 /* ---------- Modal « Sauces de la carte » ---------- */
