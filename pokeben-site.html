@@ -1089,15 +1089,17 @@ setTimeout(function(){
 var CUTOFF_PB = { midi:'09:30', soir:'17:00' };   // heure limite de commande (surchargée par l'admin)
 var CRENEAUX_PB = {
   midi:['11h30','11h45','12h00','12h15','12h30','12h45','13h00','13h15','13h30'],
-  soir:['19h00','19h15','19h30','19h45','20h00','20h15','20h30']
+  soir:['18h30','18h45','19h00','19h15','19h30','19h45','20h00','20h15','20h30']
 };
-function _crxPourHoraires(horaires){ return (String(horaires||'').indexOf('11h')>=0) ? CRENEAUX_PB.midi : CRENEAUX_PB.soir; }
+function _crxPourHoraires(horaires){ return getServiceType(horaires)==='midi' ? CRENEAUX_PB.midi : CRENEAUX_PB.soir; }
 // Paramétrage centralisé depuis l'admin (Commandes Pok&Ben \u2192 \u2699\ufe0f Param\u00e8tres)
 _pbWhenAuth(function(){
 db.ref('site_config/pokeben/commande_config').on('value', function(sn){
   var c = sn.val(); if(!c) return;
   if(c.cutoff_midi) CUTOFF_PB.midi = c.cutoff_midi;
   if(c.cutoff_soir) CUTOFF_PB.soir = c.cutoff_soir;
+  ['midi_debut','midi_fin','soir_debut','soir_fin'].forEach(function(k){ if(c[k]) HORAIRES_PB[k]=c[k]; });
+  try{ _rebuildPlanningPb(); }catch(e){}
   if(Array.isArray(c.creneaux_midi) && c.creneaux_midi.length) CRENEAUX_PB.midi = c.creneaux_midi;
   if(Array.isArray(c.creneaux_soir) && c.creneaux_soir.length) CRENEAUX_PB.soir = c.creneaux_soir;
   try{ renderToday(); renderPlanningGrid(); }catch(e){}
@@ -1122,8 +1124,11 @@ function afterCutoffPb(service){
   var key = service.toLowerCase().indexOf('midi')>=0 ? 'midi' : 'soir';
   return hhmmNowPb() >= CUTOFF_PB[key];
 }
+// Midi / soir d'après l'heure de DÉBUT (avant 16h = midi) — l'ancien test « contient 11h » cassait
+// dès qu'un service ne commençait pas à 11h (12h00, ou un soir finissant à 23h10…)
 function getServiceType(horaires){
-  return (horaires||'').toLowerCase().indexOf('11h')>=0 ? 'midi' : 'soir';
+  var m=String(horaires||'').match(/(\d{1,2})\s*h/i);
+  return (m && parseInt(m[1],10)<16) ? 'midi' : 'soir';
 }
 // Nb de jours d'ici la PROCHAINE occurrence commandable d'un jour+service.
 // Logique Capt&Fish : si c'est aujourd'hui et avant cutoff -> 0 ; sinon (passé ou après cutoff) -> occurrence de la semaine suivante.
@@ -1223,9 +1228,11 @@ let PLANNING=PLANNING_DEFAULT;
 var _pbEtabs={}, _pbPlans={}, _pbRepert={}, _pbOverrides={};
 const _JOURS_K_PB={lundi:'Lundi',mardi:'Mardi',mercredi:'Mercredi',jeudi:'Jeudi',vendredi:'Vendredi',samedi:'Samedi',dimanche:'Dimanche'};
 function _hFmt(h){ return String(h||'').replace(':','h'); }
+// Horaires clients Pok&Ben (admin → Commandes Pok&Ben → Paramètres) : défaut de tout emplacement
+var HORAIRES_PB={midi_debut:'11:30', midi_fin:'13:30', soir_debut:'18:30', soir_fin:'20:30'};
 function _horairesPb(info,service){
   if(info && info.h_debut && info.h_fin) return _hFmt(info.h_debut)+' – '+_hFmt(info.h_fin);
-  return service==='midi' ? '11h30 – 14h30' : '19h00 – 22h00';
+  return service==='midi' ? _hFmt(HORAIRES_PB.midi_debut)+' – '+_hFmt(HORAIRES_PB.midi_fin) : _hFmt(HORAIRES_PB.soir_debut)+' – '+_hFmt(HORAIRES_PB.soir_fin);
 }
 // Libellé stable « Camion 1 / Camion 2 » (celui du numéro de téléphone), quel que soit
 // le nom interne de l'établissement dans l'admin (« Camion 1 Poké »…).
@@ -2367,7 +2374,7 @@ function orderFromModal(){
     id:_modalSpot.jour+'_'+_modalSpot.cam+'_'+svcKey,
     cam:_modalSpot.cam,
     jour:_modalSpot.jour
-  },s0,{creneaux:s0.horaires.indexOf('11h')>=0?['11h30','11h45','12h00','12h15','12h30','12h45','13h00','13h15','13h30']:['19h00','19h15','19h30','19h45','20h00','20h15','20h30']});
+  },s0,{creneaux:_crxPourHoraires(s0.horaires).slice()});
   closeSpotModal();
   go('order');
   setTimeout(function(){

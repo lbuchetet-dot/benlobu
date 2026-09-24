@@ -412,8 +412,8 @@ tr:hover td{background:var(--bg)}
               <div class="form-field"><label class="form-label">Date</label><input type="date" class="form-input" id="ov-date"></div>
               <div class="form-field"><label class="form-label">Service</label>
                 <select class="form-select" id="ov-service">
-                  <option value="midi">Midi (10h30–15h00)</option>
-                  <option value="soir">Soir (17h00–22h00)</option>
+                  <option value="midi">Midi</option>
+                  <option value="soir">Soir</option>
                   <option value="journee">Journée entière</option>
                 </select>
               </div>
@@ -632,6 +632,20 @@ tr:hover td{background:var(--bg)}
             </div>
           </div>
           <div class="card">
+            <div class="card-title">🕑 Horaires de service affichés aux clients</div>
+            <p style="font-size:12px;color:var(--text-muted);margin:4px 0 16px">Source unique des horaires Pok&amp;Ben : planning, événements et site pokeben.fr. Un emplacement peut garder des horaires particuliers (fenêtre du planning).</p>
+            <div class="form-grid">
+              <div class="form-field"><label class="form-label">Midi — début</label><input type="time" class="form-input" id="cpb-cfg-midi-debut" value="11:30"></div>
+              <div class="form-field"><label class="form-label">Midi — fin</label><input type="time" class="form-input" id="cpb-cfg-midi-fin" value="13:30"></div>
+              <div class="form-field"><label class="form-label">Soir — début</label><input type="time" class="form-input" id="cpb-cfg-soir-debut" value="18:30"></div>
+              <div class="form-field"><label class="form-label">Soir — fin</label><input type="time" class="form-input" id="cpb-cfg-soir-fin" value="20:30"></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:6px">
+              <button class="btn btn-secondary btn-sm" onclick="appliquerHorairesPlanningPb()">↻ Appliquer ces horaires à tout le planning des camions Poké</button>
+              <span style="font-size:11px;color:var(--text-muted)">remplace les horaires enregistrés emplacement par emplacement (ex. anciens 19h00–22h00)</span>
+            </div>
+          </div>
+          <div class="card">
             <div class="card-title">🕐 Créneaux de retrait</div>
             <p style="font-size:12px;color:var(--text-muted);margin:4px 0 16px">Un créneau par ligne ou séparés par des virgules, au format <strong>12h30</strong>. Valable pour tous les emplacements des deux camions.</p>
             <div class="form-grid">
@@ -641,7 +655,7 @@ tr:hover td{background:var(--bg)}
               </div>
               <div class="form-field">
                 <label class="form-label">🌙 Créneaux du soir</label>
-                <textarea class="form-input" id="cpb-cfg-crx-soir" rows="4" style="resize:vertical;font-family:ui-monospace,monospace;font-size:13px;line-height:1.7">19h00, 19h15, 19h30, 19h45, 20h00, 20h15, 20h30</textarea>
+                <textarea class="form-input" id="cpb-cfg-crx-soir" rows="4" style="resize:vertical;font-family:ui-monospace,monospace;font-size:13px;line-height:1.7">18h30, 18h45, 19h00, 19h15, 19h30, 19h45, 20h00, 20h15, 20h30</textarea>
               </div>
             </div>
             <div style="display:flex;align-items:center;gap:14px;margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
@@ -1116,7 +1130,7 @@ tr:hover td{background:var(--bg)}
         </div>
 
         <div class="card">
-          <div class="card-title">Horaires de service</div>
+          <div class="card-title">Détection du service en caisse <small style="font-weight:500;color:var(--text-muted)">(technique : quand l'iPad bascule midi/soir — les horaires affichés aux clients Pok&amp;Ben se règlent dans Commandes Pok&amp;Ben → Paramètres)</small></div>
           <div class="form-grid">
             <div class="form-field"><label class="form-label">Début service midi</label><input type="time" class="form-input" id="p-midi-debut" value="10:30"></div>
             <div class="form-field"><label class="form-label">Fin service midi</label><input type="time" class="form-input" id="p-midi-fin" value="15:00"></div>
@@ -2910,7 +2924,7 @@ function ouvrirModalPlanning(etabId,jour,service,info){
   document.getElementById('pl-lieu').value=info?.nom||'';
   document.getElementById('pl-cap').value=info?.capacite||'';
   // Horaires : ceux déjà enregistrés, sinon les habituels du service
-  const _def = (service==='midi') ? ['11:30','14:30'] : ['19:00','22:00'];
+  const _def = _horairesDefaut(etabId, service);
   document.getElementById('pl-h1').value = info?.h_debut || _def[0];
   document.getElementById('pl-h2').value = info?.h_fin   || _def[1];
   document.getElementById('modal-planning-title').textContent=`${jour.charAt(0).toUpperCase()+jour.slice(1)} — ${service}`;
@@ -3762,8 +3776,8 @@ function moAjouterSup(nom='',prix='',cout='',id=''){
   div.className='mo-sup-row'; div.dataset.id=rid;
   div.style.cssText='display:grid;grid-template-columns:1.4fr 1fr 1fr auto;gap:10px;align-items:center;margin-bottom:8px';
   div.innerHTML='<input type="text" class="form-input mo-nom" value="'+String(nom).replace(/"/g,'&quot;')+'" placeholder="Cheddar en plus">'
-    +'<input type="number" step="0.10" class="form-input mo-prix" value="'+prix+'" placeholder="1.00">'
-    +'<input type="number" step="0.10" class="form-input mo-cout" value="'+cout+'" placeholder="0.30">'
+    +'<input type="number" step="0.10" min="0" class="form-input mo-prix" value="'+prix+'" placeholder="prix, ex. 1,00">'
+    +'<input type="number" step="0.10" min="0" class="form-input mo-cout" value="'+cout+'" placeholder="coût, ex. 0,30">'
     +'<button class="btn btn-danger btn-sm" style="margin-bottom:0" onclick="this.parentNode.remove()">✕</button>';
   document.getElementById('mo-sups-list').appendChild(div);
 }
@@ -3775,7 +3789,7 @@ function moAjouterAcc(prodId='',prix='',id=''){
   const opts=Object.entries(produitsData).sort((a,b)=>(a[1].nom||'').localeCompare(b[1].nom||'')).map(([pid,p])=>`<option value="${pid}" ${pid===prodId?'selected':''}>${p.nom||'Sans nom'}${p.actif===false?' (inactif)':''}</option>`).join('');
   div.innerHTML='<select class="form-select mo-prod" onchange="moMajPrixSeul(this)"><option value="">— produit —</option>'+opts+'</select>'
     +'<span class="mo-seul" style="font-size:13px;color:var(--text-muted)"></span>'
-    +'<input type="number" step="0.10" class="form-input mo-prix" value="'+prix+'" placeholder="2.00">'
+    +'<input type="number" step="0.10" min="0" class="form-input mo-prix" value="'+prix+'" placeholder="prix, ex. 2,00">'
     +'<button class="btn btn-danger btn-sm" style="margin-bottom:0" onclick="this.parentNode.remove()">✕</button>';
   document.getElementById('mo-acc-list').appendChild(div);
   moMajPrixSeul(div.querySelector('.mo-prod'));
@@ -3787,16 +3801,29 @@ function moMajPrixSeul(sel){
 function enregistrerOptionsCarte(){
   const supplements={}, accompagnements={};
   const noms=[];
+  // AVANT : une ligne sans prix était IGNORÉE en silence (« 1.00 » affiché en gris n'est qu'un exemple,
+  // pas une valeur) → le supplément disparaissait à l'enregistrement sans aucun message.
+  const incompletes=[];
+  const _num=el=>{ const v=String(el.value).trim().replace(',','.'); return v===''?NaN:parseFloat(v); };
   document.querySelectorAll('#mo-sups-list .mo-sup-row').forEach(r=>{
-    const nom=r.querySelector('.mo-nom').value.trim(); const prix=parseFloat(r.querySelector('.mo-prix').value);
-    if(!nom||isNaN(prix)) return;
-    supplements[r.dataset.id]={nom,prix,cout_revient:parseFloat(r.querySelector('.mo-cout').value)||0}; noms.push(nom);
+    const elN=r.querySelector('.mo-nom'), elP=r.querySelector('.mo-prix');
+    elN.style.borderColor=''; elP.style.borderColor='';
+    const nom=elN.value.trim(); const prix=_num(elP);
+    if(!nom && elP.value==='') return;                                     // ligne vide : ignorée
+    if(!nom){ elN.style.borderColor='#c0392b'; incompletes.push('un supplément sans nom'); return; }
+    if(isNaN(prix)||prix<0){ elP.style.borderColor='#c0392b'; incompletes.push('« '+nom+' » sans prix'); return; }
+    supplements[r.dataset.id]={nom,prix,cout_revient:_num(r.querySelector('.mo-cout'))||0}; noms.push(nom);
   });
   document.querySelectorAll('#mo-acc-list .mo-acc-row').forEach(r=>{
-    const prodId=r.querySelector('.mo-prod').value; const prix=parseFloat(r.querySelector('.mo-prix').value);
-    if(!prodId||isNaN(prix)) return;
+    const elS=r.querySelector('.mo-prod'), elP=r.querySelector('.mo-prix');
+    elS.style.borderColor=''; elP.style.borderColor='';
+    const prodId=elS.value; const prix=_num(elP);
+    if(!prodId && elP.value==='') return;
+    if(!prodId){ elS.style.borderColor='#c0392b'; incompletes.push('un accompagnement sans produit'); return; }
+    if(isNaN(prix)||prix<0){ elP.style.borderColor='#c0392b'; incompletes.push('un accompagnement sans prix « avec »'); return; }
     accompagnements[r.dataset.id]={prodId,prix};
   });
+  if(incompletes.length){ showNotif('Rien n\'a été enregistré : '+incompletes.join(', ')+' — complète les cases en rouge (0 si gratuit)','error'); return; }
   // Garde-fou : un supplément qui porte le nom d'un produit du catalogue doit être un accompagnement
   const catalogue=Object.values(produitsData).map(p=>(p.nom||'').trim().toLowerCase());
   const doublon=noms.find(n=>catalogue.includes(n.toLowerCase()));
@@ -6545,6 +6572,37 @@ function _crxParse(txt){
   return String(txt||'').split(/[,\n;]+/).map(function(x){return x.trim();})
     .filter(function(x){ return /^\d{1,2}h\d{2}$/.test(x); });
 }
+// Horaires clients Pok&Ben (site_config/pokeben/commande_config) — défaut du planning pour les camions Poké
+let HORAIRES_PB = {midi_debut:'11:30', midi_fin:'13:30', soir_debut:'18:30', soir_fin:'20:30'};
+db.ref('site_config/pokeben/commande_config').on('value', function(sn){
+  const c=sn.val()||{};
+  ['midi_debut','midi_fin','soir_debut','soir_fin'].forEach(k=>{ if(c[k]) HORAIRES_PB[k]=c[k]; });
+});
+function _horairesDefaut(etabId, service){
+  const e=etabsData[etabId]||{};
+  if((e.carte||'poke')==='poke') return service==='midi' ? [HORAIRES_PB.midi_debut, HORAIRES_PB.midi_fin] : [HORAIRES_PB.soir_debut, HORAIRES_PB.soir_fin];
+  return (service==='midi') ? ['11:30','14:30'] : ['19:00','22:00'];
+}
+async function appliquerHorairesPlanningPb(){
+  const md=document.getElementById('cpb-cfg-midi-debut').value, mf=document.getElementById('cpb-cfg-midi-fin').value;
+  const sd=document.getElementById('cpb-cfg-soir-debut').value, sf=document.getElementById('cpb-cfg-soir-fin').value;
+  if(!md||!mf||!sd||!sf||md>=mf||sd>=sf){ showNotif('Horaires invalides','error'); return; }
+  const ids=Object.entries(etabsData||{}).filter(([,e])=>e && (e.carte||'poke')==='poke').map(([id])=>id);
+  if(!ids.length){ showNotif('Aucun camion Poké trouvé','error'); return; }
+  if(!confirm('Remplacer les horaires de TOUS les emplacements du planning des camions Poké par :\n\nMidi '+md+' – '+mf+'\nSoir '+sd+' – '+sf+' ?')) return;
+  const up={}; let n=0;
+  for(const id of ids){
+    const sn=await db.ref('planning_emplacements/'+id).once('value'); const pl=sn.val()||{};
+    Object.keys(pl).forEach(j=>['midi','soir'].forEach(sv=>{
+      if(pl[j] && pl[j][sv] && pl[j][sv].nom){
+        up['planning_emplacements/'+id+'/'+j+'/'+sv+'/h_debut']= sv==='midi'?md:sd;
+        up['planning_emplacements/'+id+'/'+j+'/'+sv+'/h_fin']  = sv==='midi'?mf:sf; n++;
+      }
+    }));
+  }
+  db.ref().update(up).then(()=>showNotif('✓ '+n+' emplacement(s) mis à jour — visible immédiatement sur pokeben.fr','success'))
+    .catch(e=>showNotif('Échec : '+((e&&e.code)||e),'error'));
+}
 function chargerCmdConfig(node){
   db.ref('site_config/'+node+'/commande_config').once('value', function(sn){
     var c = sn.val()||{};
@@ -6557,6 +6615,8 @@ function chargerCmdConfig(node){
       set('cct-cfg-soir-debut', c.soir_debut); set('cct-cfg-soir-fin', c.soir_fin);
       set('cct-cfg-pas', c.pas); set('cct-cfg-capacite', c.capacite);
     } else {
+      set('cpb-cfg-midi-debut', c.midi_debut); set('cpb-cfg-midi-fin', c.midi_fin);
+      set('cpb-cfg-soir-debut', c.soir_debut); set('cpb-cfg-soir-fin', c.soir_fin);
       if(Array.isArray(c.creneaux_midi) && c.creneaux_midi.length) set('cpb-cfg-crx-midi', c.creneaux_midi.join(', '));
       if(Array.isArray(c.creneaux_soir) && c.creneaux_soir.length) set('cpb-cfg-crx-soir', c.creneaux_soir.join(', '));
     }
@@ -6579,6 +6639,11 @@ function sauverCmdConfig(node){
     cfg.capacite   = Math.max(1, parseInt(val('cct-cfg-capacite'))||6);
     if(cfg.midi_debut>=cfg.midi_fin || cfg.soir_debut>=cfg.soir_fin){ showNotif('Plage invalide : le début doit précéder la fin','error'); return; }
   } else {
+    cfg.midi_debut = val('cpb-cfg-midi-debut')||'11:30';
+    cfg.midi_fin   = val('cpb-cfg-midi-fin')||'13:30';
+    cfg.soir_debut = val('cpb-cfg-soir-debut')||'18:30';
+    cfg.soir_fin   = val('cpb-cfg-soir-fin')||'20:30';
+    if(cfg.midi_debut>=cfg.midi_fin || cfg.soir_debut>=cfg.soir_fin || cfg.midi_fin>cfg.soir_debut){ showNotif('Horaires invalides : le début doit précéder la fin, et le midi finir avant le soir','error'); return; }
     var cm=_crxParse(val('cpb-cfg-crx-midi')), cs=_crxParse(val('cpb-cfg-crx-soir'));
     if(!cm.length || !cs.length){ showNotif('Créneaux invalides — format attendu : 12h30','error'); return; }
     cfg.creneaux_midi = cm; cfg.creneaux_soir = cs;
