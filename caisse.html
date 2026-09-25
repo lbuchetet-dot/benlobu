@@ -558,7 +558,6 @@ input,select,textarea{font-family:inherit;outline:none}
         <div id="panier-header">
           <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">
             <h2 style="margin:0">Commande</h2>
-            <button onclick="ouvrirFidelite()" title="Offrir une récompense fidélité" style="padding:6px 10px;background:#fff7e6;border:1.5px solid #e8a33c;border-radius:var(--radius);font-size:12px;font-weight:700;color:#9a6b00;cursor:pointer">🎁 Fidélité</button>
             <button id="btn-nouvelle-cmd" onclick="demarrerNouvelleCommande()" style="padding:6px 12px;background:var(--green-light);border:1.5px solid var(--green);border-radius:var(--radius);font-size:12px;font-weight:600;color:var(--green-dark);cursor:pointer">＋ Nouvelle commande</button>
           </div>
           <!-- Saisie centralisée : ces champs sont en LECTURE SEULE, l'édition passe par la modale (un clic l'ouvre) -->
@@ -601,7 +600,6 @@ input,select,textarea{font-family:inherit;outline:none}
           <!-- Après bon imprimé : encaisser seul + bon cliquable -->
           <div id="footer-apres-bon" style="display:none;margin-bottom:6px">
             <button id="btn-encaisser-2" onclick="ouvrirPaiement()" style="width:100%;padding:13px;background:var(--green);color:#fff;border-radius:var(--radius);font-size:15px;font-weight:600;margin-bottom:6px">Encaisser</button>
-            <button id="btn-envoyer-ajout" onclick="envoyerBonCuisine({garder:true})" style="display:none;width:100%;padding:12px;background:#fff7e6;border:2px solid #e8a33c;border-radius:var(--radius);font-size:14px;font-weight:800;color:#9a6b00;margin-bottom:6px;cursor:pointer">📤 Envoyer l'ajout en cuisine</button>
             <button id="btn-reimprimer-bon" onclick="rimprimerBon()" style="width:100%;padding:8px 12px;background:var(--amber-light);border:none;border-radius:var(--radius);font-size:12px;font-weight:600;color:var(--amber);text-align:center;margin-bottom:6px">🖨 Bon envoyé à <span id="bon-envoye-heure"></span> — Appuyer pour réimprimer</button>
 
           </div>
@@ -768,15 +766,10 @@ input,select,textarea{font-family:inherit;outline:none}
     <div class="sheet-title" id="mt-title"></div>
     <div class="sheet-sub">Choisir la taille</div>
     <div class="taille-grid" id="mt-tailles"></div>
-    <div id="mt-sauces-section" style="display:none">
-      <div class="sups-title">Sauce <span id="mt-sauces-hint" style="font-weight:500;color:var(--text-muted)"></span></div>
-      <div class="sups-grid" id="mt-sauces"></div>
-    </div>
     <div id="mt-sups-section" style="display:none">
       <div class="sups-title">Suppléments</div>
       <div class="sups-grid" id="mt-sups"></div>
     </div>
-    <div id="mt-menu-section" style="display:none"></div>
     <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Commentaire / Allergie</div>
     <textarea class="comment-field" id="mt-comment" placeholder="Ex: sans avocat — allergie noix…"></textarea>
     <div class="sheet-actions">
@@ -970,8 +963,7 @@ input,select,textarea{font-family:inherit;outline:none}
     <!-- Boutons sticky en bas -->
     <div style="position:sticky;bottom:0;background:var(--white);border-top:1px solid var(--border);padding:12px 0 4px 0">
       <button id="btn-valider-libre" style="width:100%;padding:13px;background:var(--green);color:#fff;border-radius:var(--radius);font-size:14px;font-weight:600;margin-bottom:8px;opacity:0.5;cursor:pointer" onclick="validerPaiementLibre()">Valider ce paiement →</button>
-      <button onclick="ajouterArticlePendantPartage()" style="width:100%;padding:11px;background:#fff7e6;border:1.5px solid #e8a33c;border-radius:var(--radius);font-size:13px;font-weight:700;color:#9a6b00;cursor:pointer;margin-bottom:8px">➕ Ajouter un article <span style="font-weight:500;color:var(--text-muted)">· les règlements déjà encaissés sont conservés</span></button>
-      <button style="width:100%;padding:10px;background:none;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;color:var(--text-muted);cursor:pointer" onclick="annulerMultiPaiement()">Annuler le partage</button>
+      <button style="width:100%;padding:10px;background:none;border:1px solid var(--border);border-radius:var(--radius);font-size:13px;color:var(--text-muted);cursor:pointer" onclick="annulerMultiPaiement()">Annuler</button>
     </div>
   </div>
 </div>
@@ -1129,19 +1121,6 @@ input,select,textarea{font-family:inherit;outline:none}
   </div>
 </div>
 
-<!-- MODAL FIDÉLITÉ — offrir une récompense (points débités à l'encaissement) -->
-<div class="modal-overlay" id="modal-fidelite">
-  <div class="sheet" style="max-width:440px">
-    <div class="sheet-handle"></div>
-    <div class="sheet-title">🎁 Récompense fidélité</div>
-    <div class="sheet-sub">Le client a utilisé sa récompense sur la tablette (points déjà déduits) : choisis-la ici, l'article s'ajoute à 0 €</div>
-    <div id="fid-result" style="min-height:40px"></div>
-    <div class="sheet-actions" style="margin-top:12px">
-      <button class="btn-sheet-cancel" onclick="fermerModal('modal-fidelite')" style="flex:1">Fermer</button>
-    </div>
-  </div>
-</div>
-
 <!-- ══════════════════════════════════════════════════════════
      MODAL BRIEFING DU MATIN (événement)
 ═══════════════════════════════════════════════════════════ -->
@@ -1293,8 +1272,6 @@ let pinSaisie = '';
 const _etabMemorise = localStorage.getItem('pokben_etab_id');
 if(_etabMemorise) selectedEtabId = _etabMemorise;
 let modesPaiementDispos = [];
-// Libellé d'un mode de paiement : correspondance EXACTE pour les 4 modes historiques, sinon « _ » → espace
-function _libMode(m){ m=String(m||''); return ({CB:'Carte bancaire',Especes:'Espèces',Tickets_resto:'Tickets resto',Cheques:'Chèques'})[m] || m.replace(/_/g,' '); }
 
 // ── Commandes web Capt&Fish (site public) ──
 const CAPTN_WEB_ETAB = 'captfish';      // nœud commandes_web/captfish
@@ -1453,6 +1430,8 @@ function afficherModeMemorise(etabId){
 }
 
 function oublierCamion(){
+  const nomActuel = (etabsData[selectedEtabId]||{}).nom || 'ce camion';
+  if(!confirm('Cette tablette est réglée sur « '+nomActuel+' ».\n\nChaque camion ne voit QUE ses propres commandes web : si tu te connectes sur l\'autre camion, tu verras ses commandes, pas les tiennes, et les bons seront imprimés ici.\n\nChanger de camion quand même ?')) return;
   localStorage.removeItem('pokben_etab_id');
   selectedEtabId = null;
   document.getElementById('pin-mode-memorise').style.display = 'none';
@@ -1570,31 +1549,6 @@ function lancerCaisse(etabId, e, directCaisse){
     renderArticles();
   });
 
-  // Formules de la carte (mêmes données que l'admin et le site) + cache hors-ligne
-  const _fmCached = cacheGet('formules_'+etabId);
-  if(_fmCached) formulesData = _fmCached;
-  db.ref('cartes/'+(e.carte||'poke')+'/formules').on('value', snap => {
-    formulesData = snap.val() || {};
-    cacheSet('formules_'+etabId, formulesData);
-  });
-
-  // Sauces de la carte (réglage admin partagé avec le site) — temps réel + cache hors-ligne
-  const _scCached = cacheGet('sauces_'+etabId);
-  if(_scCached){ parametresData.sauces = Object.assign({}, parametresData.sauces||{}, _scCached); }
-  db.ref('parametres/sauces').on('value', snap => {
-    parametresData.sauces = snap.val() || {};
-    cacheSet('sauces_'+etabId, parametresData.sauces);
-  });
-  // Récompenses fidélité de la marque (réglage admin partagé avec la tablette fidélité)
-  const _brandFid = (e.carte==='burger') ? 'captn' : 'poke';
-  const _rwCached = cacheGet('rewards_'+_brandFid);
-  if(Array.isArray(_rwCached)) _fidRewards = _rwCached;
-  db.ref('site_config/fidelite/'+_brandFid+'/rewards').on('value', snap => {
-    const v = snap.val();
-    _fidRewards = Array.isArray(v) ? v.filter(r=>r && r.actif!==false && Number(r.pts)>0) : [];
-    cacheSet('rewards_'+_brandFid, _fidRewards);
-  });
-
   // Écouter l'état de l'établissement en temps réel
   db.ref('etablissements/'+etabId).on('value', snap => {
     const data = snap.val() || {};
@@ -1666,11 +1620,7 @@ function lancerCaisse(etabId, e, directCaisse){
     const cmds = snap.val() || {};
     couverts_en_cours = Object.values(cmds).filter(c=>c.statut==='en_cours').reduce((s,c)=>s+(c.couverts||0),0);
     updateCouverts();
-    // Le midi est-il encore « vivant » ? (commandes midi ouvertes ou encaissées) → sert à detectService() entre 2 services
-    _majEtatMidi({actif: Object.values(cmds).some(c=>c && c.service==='midi' && (c.statut==='en_cours' || c.statut==='payee'))});
   });
-  // Fin de service midi déjà faite aujourd'hui ?
-  db.ref('clotures/'+etabId+'/'+today+'/midi').on('value', snap => { _majEtatMidi({clos: !!snap.val()}); });
 
   // Compteur commandes du jour — basé sur le n° MAX déjà attribué (robuste aux suppressions)
   db.ref('commandes/'+etabId+'/'+today).once('value', snap => {
@@ -1965,7 +1915,7 @@ function renderPilotage(){
 
     // Répartition paiements
     const parPmt={};
-    const normaliser = _libMode;
+    const normaliser = m=>m.replace('Especes','Espèces').replace('Tickets_resto','Tickets resto').replace('Cheques','Chèques').replace('CB','Carte bancaire');
     Object.values(allDates).forEach(dayCmds=>{
       Object.values(dayCmds||{}).filter(c=>c.statut==='payee').forEach(c=>{
         (c.paiements||[]).forEach(p=>{
@@ -1989,7 +1939,7 @@ function renderPilotage(){
     Object.values(allDates).forEach(dayCmds=>{
       Object.values(dayCmds||{}).filter(c=>c.statut==='payee').forEach(c=>{
         (c.articles||[]).forEach(a=>{
-          const k=_cleTop(a);
+          const k=a.nom+' '+a.taille;
           if(!parProd[k]) parProd[k]={qte:0,ca:0};
           parProd[k].qte+=a.qte; parProd[k].ca+=a.prix*a.qte;
         });
@@ -2076,18 +2026,7 @@ function reserverNumero(cb){
   );
 }
 
-// Ce qui n'est pas encore parti en cuisine : nouvelles lignes + quantités ajoutées sur une ligne déjà envoyée
-function _nonEnvoyes(){
-  const out=[];
-  panier.forEach(i=>{
-    const deja = i._dejaEnvoye ? (i._qteEnvoyee!=null ? i._qteEnvoyee : i.qte) : 0;
-    const d = (i.qte||0) - deja;
-    if(d>0) out.push({item:i, qte:d});
-  });
-  return out;
-}
-function envoyerBonCuisine(opts){
-  opts = opts||{};
+function envoyerBonCuisine(){
   if(panier.length===0) return;
   const nom = nettoyerTexte(document.getElementById('input-nom').value.trim());
   const couverts = document.getElementById('input-couverts').value;
@@ -2102,14 +2041,14 @@ function envoyerBonCuisine(opts){
   const mapArt = i=>({
     prodId:i.prodId, nom:i.nom, taille:i.taille,
     prix:i.prixTotal, supplements:i.supplements||[],
-    commentaire:i.commentaire||'', qte:i.qte, ..._fmExtra(i)
+    commentaire:i.commentaire||'', qte:i.qte
   });
 
   // ── COMPLÉMENT : commande déjà ouverte (rouverte via "+") → on AJOUTE, on ne crée pas de nouvelle commande ──
   if(commandeEnCoursKey && commandeEnCours){
-    const nouveaux = _nonEnvoyes();
+    const nouveaux = panier.filter(i=>!i._dejaEnvoye);
     if(nouveaux.length===0){ showNotif('Aucun nouveau produit à envoyer','error'); return; }
-    const nouveauxArticles = nouveaux.map(n=>Object.assign(mapArt(n.item),{qte:n.qte}));
+    const nouveauxArticles = nouveaux.map(mapArt);
     const heuresPrec = (commandeEnCours.envois||[]).map(e=>e.heure).filter(Boolean);
     const fullArticles = panier.map(mapArt);
     const newTotal = getTotal();
@@ -2121,16 +2060,8 @@ function envoyerBonCuisine(opts){
     });
     commandeEnCours = {...commandeEnCours, articles:fullArticles, total:newTotal, envois:newEnvois, statut:'en_cours'};
     imprimerBonComplement(commandeEnCours, nouveauxArticles, heuresPrec, heure);
-    panier.forEach(i=>{ i._dejaEnvoye = true; i._qteEnvoyee = i.qte; });
+    nouveaux.forEach(i=>{ i._dejaEnvoye = true; });
     bonImprime = true;
-    document.getElementById('bon-envoye-heure').textContent = heure;
-    // Complément envoyé depuis une commande reprise pour encaisser : on la GARDE ouverte (le client paie juste après)
-    if(opts.garder){
-      renderPanier(); renderArticles(); renderServiceEnCours();
-      showNotif('Complément #'+String(commandeEnCours.num).padStart(3,'0')+' envoyé en cuisine à '+heure,'success');
-      if(typeof opts.ensuite==='function') opts.ensuite();
-      return;
-    }
     panier = [];
     document.getElementById('input-nom').value = '';
     document.getElementById('input-couverts').value = '';
@@ -2311,17 +2242,8 @@ function nouvelleCommande(){
   renderArticles();
 }
 
-async function rimprimerBon(){
+function rimprimerBon(){
   if(!commandeEnCours) return;
-  const nv = commandeEnCoursKey ? _nonEnvoyes() : [];
-  if(nv.length){
-    // AVANT : réimprimait la commande enregistrée, SANS l'ajout (jamais enregistré ni envoyé)
-    const n=nv.reduce((s,x)=>s+x.qte,0);
-    if(await uiConfirm(n+' article(s) ajouté(s) ne sont pas encore partis en cuisine.\n\nLes envoyer maintenant (bon « complément ») ?', {ok:'📤 Envoyer l\'ajout'})){
-      envoyerBonCuisine({garder:true});
-      return;
-    }
-  }
   imprimerBon();
   showNotif('Bon réimprimé','success');
 }
@@ -2329,10 +2251,10 @@ async function rimprimerBon(){
 // ④ Récupérer une commande annulée → duplication en NOUVELLE commande en cours.
 // L'annulée d'origine reste tracée telle quelle (aucune modif de son nœud).
 function recupererAnnulation(key){
-  db.ref('annulations/'+selectedEtabId+'/'+todayKey()+'/'+key).once('value', async snap=>{
+  db.ref('annulations/'+selectedEtabId+'/'+todayKey()+'/'+key).once('value', snap=>{
     const c = snap.val();
     if(!c){ showNotif('Annulation introuvable','error'); return; }
-    if(panier.length>0 && !(await uiConfirm('Une commande est en cours de saisie. La remplacer par la commande récupérée ?', {ok:'Remplacer'}))) return;
+    if(panier.length>0 && !confirm('Une commande est en cours de saisie. La remplacer par la commande récupérée ?')) return;
     // On repart d'une commande VIERGE (pas de clé Firebase) → l'envoi/encaissement créera une nouvelle commande + un nouveau n°
     commandeEnCours = null;
     commandeEnCoursKey = null;
@@ -2342,7 +2264,7 @@ function recupererAnnulation(key){
     panier = (c.articles||[]).map(a=>({
       prodId:a.prodId, nom:a.nom, taille:a.taille,
       prixBase:a.prix, supplements:a.supplements||[],
-      prixTotal:a.prix, commentaire:a.commentaire||'', qte:a.qte, ..._fmExtra(a)
+      prixTotal:a.prix, commentaire:a.commentaire||'', qte:a.qte
     }));
     document.getElementById('input-nom').value = c.nom_client||'';
     document.getElementById('input-couverts').value = c.couverts||'';
@@ -2501,7 +2423,7 @@ function corrigerPaiement(key, e){
     panier = (c.articles||[]).map(a=>({
       prodId:a.prodId, nom:a.nom, taille:a.taille,
       prixBase:a.prix, supplements:a.supplements||[],
-      prixTotal:a.prix, commentaire:a.commentaire||'', qte:a.qte, ..._fmExtra(a)
+      prixTotal:a.prix, commentaire:a.commentaire||'', qte:a.qte
     }));
     document.getElementById('input-nom').value = c.nom_client||'';
     document.getElementById('input-couverts').value = c.couverts||'';
@@ -2531,7 +2453,7 @@ function rouvriCommandePayee(key, e){
     panier = (c.articles||[]).map(a=>({
       prodId:a.prodId, nom:a.nom, taille:a.taille,
       prixBase:a.prix, supplements:a.supplements||[],
-      prixTotal:a.prix, commentaire:a.commentaire||'', qte:a.qte, _dejaEnvoye:true, _qteEnvoyee:a.qte, ..._fmExtra(a)
+      prixTotal:a.prix, commentaire:a.commentaire||'', qte:a.qte, _dejaEnvoye:true
     }));
     document.getElementById('input-nom').value = c.nom_client||'';
     document.getElementById('input-couverts').value = c.couverts||'';
@@ -2558,12 +2480,10 @@ function rouvriCommande(key, e){
     commandeEnCoursKey = key;
     commandeEnCours = c;
     remiseEnCours = rehydraterRemise(c);   // ③
-    // _dejaEnvoye + _qteEnvoyee : ce qui est déjà parti en cuisine. Un ajout fait ensuite
-    // (nouvel article OU quantité augmentée) est détecté et proposé en « complément ».
     panier = (c.articles||[]).map(a=>({
       prodId:a.prodId, nom:a.nom, taille:a.taille,
       prixBase:a.prix, supplements:a.supplements||[],
-      prixTotal:a.prix, commentaire:a.commentaire||'', qte:a.qte, _dejaEnvoye:true, _qteEnvoyee:a.qte, ..._fmExtra(a)
+      prixTotal:a.prix, commentaire:a.commentaire||'', qte:a.qte
     }));
     document.getElementById('input-nom').value = c.nom_client||'';
     document.getElementById('input-couverts').value = c.couverts||'';
@@ -2592,7 +2512,7 @@ function rouvriCommandeAjouter(key, e){
     panier = (c.articles||[]).map(a=>({
       prodId:a.prodId, nom:a.nom, taille:a.taille,
       prixBase:a.prix, supplements:a.supplements||[],
-      prixTotal:a.prix, commentaire:a.commentaire||'', qte:a.qte, _dejaEnvoye:true, _qteEnvoyee:a.qte, ..._fmExtra(a)
+      prixTotal:a.prix, commentaire:a.commentaire||'', qte:a.qte, _dejaEnvoye:true
     }));
     document.getElementById('input-nom').value = c.nom_client||'';
     document.getElementById('input-couverts').value = c.couverts||'';
@@ -2650,7 +2570,7 @@ function renderServiceDuJour(){
       // Top 3 (toutes commandes du jour)
       const parProduit={};
       cmds.forEach(c=>(c.articles||[]).forEach(a=>{
-        const k=_cleTop(a);
+        const k=a.nom+' '+a.taille;
         parProduit[k]=(parProduit[k]||0)+a.qte;
       }));
       const top3=Object.entries(parProduit).sort((a,b)=>b[1]-a[1]).slice(0,3);
@@ -2756,7 +2676,7 @@ function renderArticles(){
 
   // Construire liste des catégories ordonnées
   let cats = [...new Set(Object.values(carteData)
-    .filter(p=>p.actif!==false && _visibleCaisse(p) && !CATS_EXCLUES.includes((p.categorie||'').toLowerCase()))
+    .filter(p=>p.actif!==false && !CATS_EXCLUES.includes((p.categorie||'').toLowerCase()))
     .map(p=>p.categorie))];
   // Trier selon l'ordre admin
   cats.sort((a,b)=>{
@@ -2777,15 +2697,15 @@ function renderArticles(){
     grid.className = 'articles-grid';
     // Articles de cette catégorie, triés
     let articles = Object.entries(carteData)
-      .filter(([,p])=>p.categorie===cat && p.actif!==false && _visibleCaisse(p));
+      .filter(([,p])=>p.categorie===cat && p.actif!==false);
     articles.sort(([ida],[idb])=>{
       const oa = artConfig[ida]?.ordre ?? 99;
       const ob = artConfig[idb]?.ordre ?? 99;
       return oa - ob;
     });
     articles.forEach(([id,p])=>{
-      const tailles = _taillesTriees(p);
-      const premierPrixNormal = tailles.length ? _prixMinProd(p) : 0;
+      const tailles = Object.entries(p.tailles || {});
+      const premierPrixNormal = tailles.length ? tailles[0][1].prix : 0;
       const premierPrix = _prixEventProd(id, premierPrixNormal);
       const _soiree = premierPrix !== premierPrixNormal;
       const qteTotal = panierQteProduit(id);
@@ -2806,176 +2726,20 @@ function renderArticles(){
 }
 
 function panierQteProduit(prodId){
-  return panier.filter(i=>i.prodId===prodId || (i.type==='formule' && (i.composition||[]).some(c=>String(c.prodId)===String(prodId)))).reduce((s,i)=>s+i.qte,0);
-}
-
-// ══════════════════════════════════════════════════════════
-// FORMULES — même source (cartes/{carte}/formules) et même calcul que le site :
-// prix menu = prix formule + écart du bowl (taille/protéine) + suppléments
-// ══════════════════════════════════════════════════════════
-let formulesData = {};
-let _mtMenu = false;      // false = seul, sinon id de formule
-let _mtMenuSel = {};      // index d'emplacement -> prodId choisi
-const _C_TAILLES = ['s','m','l','xl','petit','moyen','grand','unique'];
-function _cRangTaille(nomVar, val){
-  const t = String((val&&val.taille)||String(nomVar||'').trim().split(/\s+/)[0]||'').toLowerCase();
-  const i = _C_TAILLES.indexOf(t); return i<0?99:i;
-}
-// Tailles dans l'ordre S → M → L puis prix croissant (Firebase les rend par ordre alphabétique)
-function _taillesTriees(prod){
-  return Object.entries((prod&&prod.tailles)||{}).sort((a,b)=>{
-    const d=_cRangTaille(a[0],a[1])-_cRangTaille(b[0],b[1]);
-    return d!==0?d:(Number(a[1].prix)||0)-(Number(b[1].prix)||0);
-  });
-}
-function _prixMinProd(prod){
-  const px=Object.values((prod&&prod.tailles)||{}).map(v=>Number(v.prix)).filter(x=>!isNaN(x));
-  return px.length?Math.min.apply(null,px):0;
-}
-function _fmListe(){
-  return Object.entries(formulesData||{}).filter(([,f])=>f && f.actif!==false && (f.slots||[]).length)
-    .map(([id,f])=>({id, nom:f.nom||'Menu', prix:Number(f.prix)||0, slots:f.slots||[]}));
-}
-function _fmProduitsSlot(sl){
-  if(sl.categorieAuto) return Object.entries(carteData).filter(([,p])=>p && p.actif!==false && _visibleCaisse(p) && (p.categorie||'Autres')===sl.categorieAuto).map(([id])=>id);
-  return (sl.produits||[]).filter(id=>carteData[id] && carteData[id].actif!==false && _visibleCaisse(carteData[id]));
-}
-// Réglage admin « Visible sur » : un produit peut être réservé au site client (canaux.caisse=false)
-function _visibleCaisse(p){ return !(p && p.canaux && p.canaux.caisse===false); }
-// La formule dont le PREMIER emplacement au choix contient ce produit
-function _fmPour(prodId){
-  return _fmListe().find(f=>{
-    const premier=(f.slots||[]).find(sl=>sl.mode!=='fixe');
-    return premier && _fmProduitsSlot(premier).indexOf(prodId)>=0;
-  })||null;
-}
-// Emplacements restant à remplir : tout sauf le bowl, les imposés et la sauce
-function _fmSlotsAChoisir(f){
-  const out=[]; let premierVu=false;
-  (f.slots||[]).forEach((sl,si)=>{
-    if(sl.mode==='fixe') return;
-    if(!premierVu){ premierVu=true; return; }
-    const ids=_fmProduitsSlot(sl);
-    if(!ids.length) return;   // aucun produit actif : l'emplacement ne bloque pas le menu
-    if(/sauce/i.test(sl.label||'') || (ids.length && ids.every(id=>/sauce/i.test((carteData[id]||{}).categorie||'')))) return;
-    out.push({si,sl});
-  });
-  return out;
-}
-function _fmExtra(x){
-  const o = (x && x.offert_fidelite) ? {offert_fidelite:x.offert_fidelite} : {};
-  return (x && x.type==='formule') ? Object.assign(o,{type:'formule', formuleId:x.formuleId||x.prodId||'', composition:x.composition||[]}) : o;
-}
-// Sous-lignes d'un article pour les bons : une ligne par élément du menu
-function _artSousLignes(a){
-  if(a && a.type==='formule' && Array.isArray(a.composition) && a.composition.length)
-    return a.composition.map(c=>c.nom).filter(Boolean);
-  const sub=((a&&a.taille)||'')+(((a&&a.supplements)||[]).length?' + '+a.supplements.map(s=>s.nom).join(', '):'');
-  const out = sub.trim()?[sub]:[];
-  if(a && a.offert_fidelite) out.push('🎁 Offert fidélité');
-  return out;
-}
-// Clé « top produits » : un menu compte pour son bowl
-function _cleTop(a){
-  if(a && a.type==='formule' && Array.isArray(a.composition) && a.composition[0]) return String(a.composition[0].nom||a.nom).replace(/\s*\(.*\)\s*$/,'');
-  return a.nom+' '+(a.taille||'');
-}
-function _mtPrixSeul(){
-  if(!articleEnCours || !tailleSelectionnee) return null;
-  const {prodId, prod} = articleEnCours;
-  const t=prod.tailles[tailleSelectionnee]; if(!t) return null;
-  return _prixEventProd(prodId, t.prix) + _saucesEnSupplements().concat(Object.values(supsSelectionnes)).reduce((s,x)=>s+(Number(x.prix)||0),0);
-}
-function _mtPrixMenu(f){
-  if(!articleEnCours || !tailleSelectionnee) return null;
-  const {prod} = articleEnCours;
-  const t=prod.tailles[tailleSelectionnee]; if(!t) return null;
-  const ecart=Math.max(0,(Number(t.prix)||0)-_prixMinProd(prod));
-  return Math.round((f.prix + ecart + _saucesEnSupplements().concat(Object.values(supsSelectionnes)).reduce((s,x)=>s+(Number(x.prix)||0),0))*100)/100;
-}
-function mtChoixMenu(v){ _mtMenu=v; if(v===false) _mtMenuSel={}; renderMenuSection(); }
-function mtChoixSlot(si,pid){ _mtMenuSel[si]=pid; renderMenuSection(); }
-function renderMenuSection(){
-  const sec=document.getElementById('mt-menu-section'); if(!sec) return;
-  const f = articleEnCours ? _fmPour(articleEnCours.prodId) : null;
-  const ok=document.getElementById('mt-ok');
-  if(!f){ sec.style.display='none'; sec.innerHTML=''; _mtMenu=false; if(ok) ok.textContent='Ajouter au panier'; return; }
-  sec.style.display='block';
-  const pSeul=_mtPrixSeul(), pMenu=_mtPrixMenu(f);
-  const bs='flex:1;padding:14px 10px;border-radius:var(--radius);text-align:center;font-size:15px;font-weight:700;';
-  const on='border:2px solid var(--green);background:var(--green-light);color:var(--green-dark);';
-  const off='border:2px solid var(--border);background:var(--white);color:var(--text);';
-  let h='<div class="sups-title">Seul ou en menu ?</div><div style="display:flex;gap:10px;margin-bottom:14px">'
-    +'<button style="'+bs+(_mtMenu===false?on:off)+'" onclick="mtChoixMenu(false)">Seul<div style="font-size:12px;font-weight:500;opacity:.8;margin-top:2px">'+(pSeul!=null?fmtPrix(pSeul):'—')+'</div></button>'
-    +'<button style="'+bs+(_mtMenu===f.id?on:off)+'" onclick="mtChoixMenu(\''+f.id+'\')">🧮 '+f.nom+'<div style="font-size:12px;font-weight:500;opacity:.8;margin-top:2px">'+(pMenu!=null?fmtPrix(pMenu):'dès '+fmtPrix(f.prix))+'</div></button></div>';
-  if(_mtMenu===f.id){
-    _fmSlotsAChoisir(f).forEach(({si,sl})=>{
-      h+='<div class="sups-title">'+(sl.label||'Au choix')+' <span style="font-weight:500;text-transform:none;color:var(--coral,#c0392b)">'+(_mtMenuSel[si]?'':'— à choisir')+'</span></div><div class="sups-grid" style="margin-bottom:12px">';
-      _fmProduitsSlot(sl).forEach(pid=>{
-        const pr=carteData[pid]||{};
-        h+='<button class="sup-btn'+(_mtMenuSel[si]===pid?' selected':'')+'" onclick="mtChoixSlot('+si+',\''+pid+'\')"><span class="sup-btn-nom">'+(pr.nom||'?')+'</span><span class="sup-btn-prix">inclus</span></button>';
-      });
-      h+='</div>';
-    });
-  }
-  sec.innerHTML=h;
-  if(ok) ok.textContent = (_mtMenu===f.id) ? ('Ajouter le menu'+(pMenu!=null?' · '+fmtPrix(pMenu):'')) : ('Ajouter au panier'+(pSeul!=null?' · '+fmtPrix(pSeul):''));
+  return panier.filter(i=>i.prodId===prodId).reduce((s,i)=>s+i.qte,0);
 }
 
 // ══════════════════════════════════════════════════════════
 // MODAL TAILLE
 // ══════════════════════════════════════════════════════════
-// ── Sauces (source : parametres/sauces/{carte}, 1re incluse, suivantes à prix_extra — même règle que le site)
-let saucesSelectionnees = [];
-function _saucesCarte(prod){
-  const sc = (parametresData.sauces||{})[etabInfo.carte||'poke'] || {};
-  let liste = Array.isArray(sc.liste)?sc.liste.filter(Boolean):[];
-  // Réglage « Sauces proposées » de la fiche produit (admin) : toutes / seulement celles cochées / aucune
-  if(prod && prod.sauces_mode==='aucune') liste=[];
-  else if(prod && prod.sauces_mode==='choix'){ const ok={}; (prod.sauces_liste||[]).forEach(n=>ok[n]=true); liste=liste.filter(n=>ok[n]); }
-  return { liste, prix_extra: Number(sc.prix_extra)||0 };
-}
-function _estBowl(prod){ return /pok|bowl/i.test((prod&&prod.categorie)||''); }
-function renderSauces(prod){
-  const sec = document.getElementById('mt-sauces-section');
-  const sc = _saucesCarte(prod);
-  if(!_estBowl(prod) || !sc.liste.length){ sec.style.display='none'; saucesSelectionnees=[]; return; }
-  sec.style.display = 'block';
-  document.getElementById('mt-sauces-hint').textContent = '· 1re incluse' + (sc.prix_extra>0 ? ', suivantes +'+fmtPrix(sc.prix_extra) : '');
-  const grid = document.getElementById('mt-sauces');
-  grid.innerHTML = '';
-  sc.liste.forEach(nom => {
-    const rang = saucesSelectionnees.indexOf(nom);
-    const on = rang>=0;
-    const btn = document.createElement('button');
-    btn.className = 'sup-btn' + (on?' selected':'');
-    const lbl = on ? (rang===0 ? 'incluse' : '+'+fmtPrix(sc.prix_extra)) : (saucesSelectionnees.length ? '+'+fmtPrix(sc.prix_extra) : 'incluse');
-    btn.innerHTML = `<span class="sup-btn-nom">${nom}</span><span class="sup-btn-prix">${lbl}</span>`;
-    btn.onclick = () => {
-      const k = saucesSelectionnees.indexOf(nom);
-      if(k>=0) saucesSelectionnees.splice(k,1); else saucesSelectionnees.push(nom);
-      renderSauces(prod);
-      renderMenuSection();
-    };
-    grid.appendChild(btn);
-  });
-}
-// Sauces choisies → format « supplément » identique au site ({nom:'Sauce X', prix, sauce:true})
-function _saucesEnSupplements(){
-  const extra = _saucesCarte().prix_extra;
-  return saucesSelectionnees.map((sc,i)=>({ nom:'Sauce '+sc, prix:(i===0?0:extra), sauce:true }));
-}
 function ouvrirTaille(prodId, prod){
   articleEnCours = {prodId, prod};
   tailleSelectionnee = null;
   supsSelectionnes = {};
-  saucesSelectionnees = [];
-  renderSauces(prod);
   document.getElementById('mt-title').textContent = prod.nom;
   document.getElementById('mt-comment').value = '';
-  _mtMenu = false; _mtMenuSel = {};
   // Tailles
-  const tailles = _taillesTriees(prod);
+  const tailles = Object.entries(prod.tailles || {});
   const grid = document.getElementById('mt-tailles');
   grid.innerHTML = '';
   if(tailles.length === 1){
@@ -2995,7 +2759,6 @@ function ouvrirTaille(prodId, prod){
       btn.classList.add('selected');
       tailleSelectionnee = nom;
       renderSups(prod);
-      renderMenuSection();
     };
     grid.appendChild(btn);
   });
@@ -3008,7 +2771,6 @@ function ouvrirTaille(prodId, prod){
   } else {
     supsSection.style.display = 'none';
   }
-  renderMenuSection();
   document.getElementById('modal-taille').classList.add('open');
 }
 
@@ -3024,7 +2786,6 @@ function renderSups(prod){
       if(supsSelectionnes[id]) delete supsSelectionnes[id];
       else supsSelectionnes[id] = s;
       btn.classList.toggle('selected');
-      renderMenuSection();
     };
     grid.appendChild(btn);
   });
@@ -3041,61 +2802,31 @@ function confirmerArticle(){
   if(!tailleSelectionnee){ showNotif('Choisis une taille','error'); return; }
   const {prodId, prod} = articleEnCours;
   const taille = prod.tailles[tailleSelectionnee];
-  const sups = _saucesEnSupplements().concat(Object.values(supsSelectionnes));
+  const sups = Object.values(supsSelectionnes);
   const prixBase = _prixEventProd(prodId, taille.prix);
   const prixTotal = prixBase + sups.reduce((s,sup)=>s+sup.prix,0);
   const comment = document.getElementById('mt-comment').value.trim();
-  const fMenu = _mtMenu ? _fmListe().find(x=>x.id===_mtMenu) : null;
-  if(fMenu){
-    const manque = _fmSlotsAChoisir(fMenu).find(x=>!_mtMenuSel[x.si]);
-    if(manque){ showNotif('Menu : choisis « '+(manque.sl.label||'un produit')+' »','error'); return; }
-    const multi = Object.keys(prod.tailles||{}).length>1;
-    const supsTot = sups.reduce((s,x)=>s+(Number(x.prix)||0),0);
-    const supsLbl = sups.map(x=>x.nom).join(', ');
-    const ecart = Math.max(0,(Number(taille.prix)||0)-_prixMinProd(prod));
-    const composition = []; let premierVu=false;
-    (fMenu.slots||[]).forEach((sl,si)=>{
-      if(sl.mode==='fixe'){ const pid=_fmProduitsSlot(sl)[0]; if(pid) composition.push({label:sl.label||'',prodId:String(pid),nom:(carteData[pid]||{}).nom||'',taille:'',ecart:0}); return; }
-      if(!premierVu){
-        premierVu=true;
-        composition.push({label:sl.label||'',prodId:String(prodId),nom:prod.nom+(multi?' '+tailleSelectionnee:'')+(supsLbl?' ('+supsLbl+')':''),
-          taille:tailleSelectionnee,proteine:(taille.proteine||''),supplements:sups,ecart:Math.round((ecart+supsTot)*100)/100});
-        return;
-      }
-      if(/sauce/i.test(sl.label||'')) return;
-      const choix=_mtMenuSel[si]; if(!choix) return;
-      composition.push({label:sl.label||'',prodId:String(choix),nom:(carteData[choix]||{}).nom||'',taille:'',ecart:0});
-    });
-    const prixMenu = Math.round((fMenu.prix+ecart+supsTot)*100)/100;
-    articleEnAttente = { prodId:fMenu.id, type:'formule', formuleId:fMenu.id, nom:fMenu.nom,
-      taille:composition.map(c=>c.nom).filter(Boolean).join(' · '), prixBase:fMenu.prix, supplements:[],
-      composition, prixTotal:prixMenu, commentaire:comment, qte:1 };
-  } else {
   // Stocker l'article en attente
   articleEnAttente = { prodId, nom:prod.nom, taille:tailleSelectionnee, prixBase, supplements:sups, prixTotal, commentaire:comment, qte:1 };
-  }
   fermerModal('modal-taille');
   // Premier article → imposer nom + couverts
   if(panier.length === 0){
-    _preparerCommandeVierge();
+    // Si un bon avait été envoyé (commande précédente terminée) → on repart sur une commande VIERGE
+    if(bonImprime || commandeEnCoursKey){
+      bonImprime = false;
+      commandeEnCours = null;
+      commandeEnCoursKey = null;
+      remiseEnCours = null;   // ③ nouvelle commande vierge → pas de remise héritée
+      multiPaiementsValides = [];
+      document.getElementById('input-nom').value = '';
+      document.getElementById('input-couverts').value = '';
+      document.getElementById('input-retrait').value = '';
+      document.getElementById('footer-avant-bon').style.display = 'flex';
+      document.getElementById('footer-apres-bon').style.display = 'none';
+    }
     ouvrirModalNomCouverts();
   } else {
     ajouterArticleEnAttente();
-  }
-}
-// Si un bon avait été envoyé (commande précédente terminée) → on repart sur une commande VIERGE
-function _preparerCommandeVierge(){
-  if(bonImprime || commandeEnCoursKey){
-    bonImprime = false;
-    commandeEnCours = null;
-    commandeEnCoursKey = null;
-    remiseEnCours = null;   // ③ nouvelle commande vierge → pas de remise héritée
-    multiPaiementsValides = [];
-    document.getElementById('input-nom').value = '';
-    document.getElementById('input-couverts').value = '';
-    document.getElementById('input-retrait').value = '';
-    document.getElementById('footer-avant-bon').style.display = 'flex';
-    document.getElementById('footer-apres-bon').style.display = 'none';
   }
 }
 
@@ -3140,95 +2871,20 @@ function validerNomCouverts(){
 }
 
 // ① Deuxième porte d'entrée : bouton « Nouvelle commande » → ouvre la même modale, à blanc
-async function demarrerNouvelleCommande(){
-  if(panier.length > 0 && !(await uiConfirm('Une commande est en cours de saisie. La remplacer par une nouvelle commande vide ?', {ok:'Nouvelle commande'}))) return;
+function demarrerNouvelleCommande(){
+  if(panier.length > 0 && !confirm('Une commande est en cours de saisie. La remplacer par une nouvelle commande vide ?')) return;
   nouvelleCommande();          // reset complet de l'état (panier, commande, remise…)
   window._afterNomCouverts = null;
   articleEnAttente = null;
   ouvrirModalNomCouverts();
 }
 
-// ══════════════════════════════════════════════════════════
-// FIDÉLITÉ EN CAISSE — récompense offerte contre des points
-// Source des récompenses : site_config/fidelite/{marque}/rewards (admin) ; comptes : clients_fidelite/{tel}
-// La ligne est ajoutée à 0 € et taguée offert_fidelite ; les points sont débités à l'ENCAISSEMENT (transaction).
-// ══════════════════════════════════════════════════════════
-let _fidRewards = [];
-// La fidélité reste sur la tablette : le client y valide ses passages et y utilise ses récompenses
-// (points débités là-bas). La caisse ne fait que passer l'article correspondant à 0 €, tagué pour le pilotage.
-function ouvrirFidelite(){
-  const box = document.getElementById('fid-result');
-  const rows = (_fidRewards||[]).slice().sort((a,b)=>a.pts-b.pts).map((r,idx)=>{
-    const prod = r.prodId && carteData[r.prodId];
-    const sous = prod ? ('→ '+prod.nom) : '→ ligne « '+r.nom+' » (aucun article lié dans l\'admin)';
-    return `<button onclick="ajouterRecompenseFidelite(${idx})" style="width:100%;display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 14px;margin-bottom:8px;border:1.5px solid #e8a33c;border-radius:var(--radius);background:#fff7e6;text-align:left;cursor:pointer">
-      <span><span style="font-size:18px">${r.emoji||'🎁'}</span> <b>${r.nom}</b><div style="font-size:11px;color:var(--text-muted)">${sous}</div></span>
-      <span style="font-weight:800;color:#9a6b00;white-space:nowrap">${r.pts} pts</span></button>`;
-  }).join('');
-  box.innerHTML = rows || '<div style="font-size:13px;color:var(--text-muted)">Aucune récompense configurée dans l\'admin (Fidélité → Récompenses).</div>';
-  document.getElementById('modal-fidelite').classList.add('open');
-}
-// ── Offrir un article DÉJÀ au panier (client qui utilise sa récompense sur la tablette fidélité)
-// Une seule unité passe à 0 € : si la ligne est en quantité 2+, elle est scindée (1 offerte + le reste payant).
-// Le prix normal est conservé dans offert_fidelite.valeur pour le pilotage. « Annuler l'offert » rétablit le prix.
-async function offrirLignePanier(idx){
-  const it = panier[idx]; if(!it) return;
-  if(it.offert_fidelite){
-    // Annuler : prix d'origine rétabli
-    const o = it.offert_fidelite;
-    it.prixBase = o.prixBase!=null ? o.prixBase : o.valeur; it.prixTotal = o.valeur; it.supplements = o.supplements || it.supplements;
-    delete it.offert_fidelite;
-    renderPanier(); majPanierPmtRecap(); showNotif('Offert annulé — prix normal rétabli'); return;
-  }
-  if(it.type==='formule'){ showNotif('Un menu ne peut pas être offert en entier — offre le bowl ou le dessert à part','error'); return; }
-  // Unité déjà réglée dans un partage d'addition → on n'y touche pas
-  if(multiPaiementsValides.length && (window._articlesPayesIdx||[]).some(k=>String(k).startsWith(idx+':'))){ showNotif('Cet article est déjà (en partie) réglé — annule le partage pour l\'offrir','error'); return; }
-  // Récompense liée à ce produit dans l'admin (sinon « Offert fidélité » sans nombre de points)
-  const rw = (_fidRewards||[]).find(r=>r.prodId && r.prodId===it.prodId);
-  const lib = it.nom+(it.taille&&it.taille!=='—'?' '+it.taille:'');
-  if(!(await uiConfirm('Offrir 1 « '+lib+' » ('+fmtPrix(it.prixTotal)+') au titre de la fidélité ?\n\nLe client doit avoir utilisé sa récompense sur la tablette.', {ok:'🎁 Offrir'}))) return;
-  let cible = it;
-  if((it.qte||1) > 1){
-    // Scinder : 1 unité offerte, le reste inchangé. La part « déjà envoyée en cuisine » est répartie.
-    const env = it._dejaEnvoye ? (it._qteEnvoyee!=null?it._qteEnvoyee:it.qte) : 0;
-    cible = Object.assign({}, it, {qte:1, supplements:(it.supplements||[]).map(x=>Object.assign({},x))});
-    it.qte -= 1;
-    if(it._dejaEnvoye){ cible._dejaEnvoye = env>0; cible._qteEnvoyee = env>0?1:0; it._qteEnvoyee = Math.max(0, env-1); if(!it._qteEnvoyee) it._dejaEnvoye = it._qteEnvoyee>0; }
-    panier.splice(idx+1, 0, cible);
-  }
-  cible.offert_fidelite = { recompense: rw?rw.nom:'Offert fidélité', pts: rw?rw.pts:0, valeur: cible.prixTotal, prixBase: cible.prixBase, supplements: cible.supplements };
-  cible.prixBase = 0; cible.prixTotal = 0;
-  cible.supplements = (cible.supplements||[]).map(x=>Object.assign({},x,{prix:0}));
-  renderPanier(); majPanierPmtRecap();
-  showNotif('🎁 '+lib+' offert (0 €)','success');
-}
-function ajouterRecompenseFidelite(idx){
-  const r=(_fidRewards||[]).slice().sort((a,b)=>a.pts-b.pts)[idx]; if(!r) return;
-  const prod = r.prodId && carteData[r.prodId];
-  let item;
-  if(prod){
-    // Variante la moins chère de l'article lié (sa valeur normale sert au pilotage)
-    const tl=Object.entries(prod.tailles||{}).sort((a,b)=>(Number(a[1].prix)||0)-(Number(b[1].prix)||0));
-    const [tNom,tVal]=tl[0]||['—',{prix:0}];
-    item = { prodId:r.prodId, nom:prod.nom, taille:tNom, prixBase:0, supplements:[], prixTotal:0, commentaire:'', qte:1,
-      offert_fidelite:{ recompense:r.nom, pts:r.pts, valeur:Number(tVal.prix)||0 } };
-  } else {
-    item = { prodId:'fid_'+r.pts, nom:r.nom, taille:'—', prixBase:0, supplements:[], prixTotal:0, commentaire:'', qte:1,
-      offert_fidelite:{ recompense:r.nom, pts:r.pts, valeur:0 } };
-  }
-  fermerModal('modal-fidelite');
-  articleEnAttente = item;
-  if(panier.length===0){ _preparerCommandeVierge(); ouvrirModalNomCouverts(); }
-  else { ajouterArticleEnAttente(); }
-  showNotif('🎁 '+r.nom+' offert (0 €)');
-}
 function ajouterArticleEnAttente(){
   if(!articleEnAttente) return;
   panier.push(articleEnAttente);
   articleEnAttente = null;
   renderPanier();
   renderArticles();
-  majPanierPmtRecap();
 }
 
 // ══════════════════════════════════════════════════════════
@@ -3248,8 +2904,7 @@ function renderPanier(){
       <div class="panier-item-top">
         <div style="flex:1">
           <div class="panier-item-name">${item.nom}</div>
-          <div class="panier-item-taille">${item.type==='formule' ? _artSousLignes(item).map(l=>'• '+l).join('<br>') : item.taille+(item.supplements?.length?' · '+supsStr:'')}</div>
-          ${item.offert_fidelite?`<div style="font-size:11px;font-weight:700;color:#9a6b00">🎁 Offert fidélité${item.offert_fidelite.pts?' ('+item.offert_fidelite.pts+' pts)':''}${item.offert_fidelite.valeur?' · valeur '+fmtPrix(item.offert_fidelite.valeur):''}</div>`:''}
+          <div class="panier-item-taille">${item.taille}${item.supplements?.length?' · '+supsStr:''}</div>
           ${item.commentaire?`<div class="panier-item-comment">⚠️ ${item.commentaire}</div>`:''}
         </div>
         <div style="text-align:right">
@@ -3262,7 +2917,6 @@ function renderPanier(){
         <span class="qty-val">${item.qte}</span>
         <button class="qty-btn" onclick="changerQte(${idx},+1)">+</button>
         <button class="btn-comment" onclick="ouvrirComment(${idx})">💬 Note</button>
-        <button class="btn-comment" onclick="offrirLignePanier(${idx})" style="${item.offert_fidelite?'background:#fff7e6;border-color:#e8a33c;color:#9a6b00;font-weight:700':''}">${item.offert_fidelite?'↩ Annuler l\'offert':'🎁 Offrir'}</button>
       </div>`;
     list.appendChild(div);
   });
@@ -3276,10 +2930,6 @@ function renderPanier(){
     // Si panier vide (après envoi bon) → Encaisser désactivé
     const btn2 = document.getElementById('btn-encaisser-2');
     if(btn2) btn2.disabled = panier.length === 0 && !commandeEnCoursKey;
-    // Ajout fait après l'envoi du bon → bouton bien visible pour l'envoyer en cuisine
-    const nv = commandeEnCoursKey ? _nonEnvoyes() : [];
-    const bA = document.getElementById('btn-envoyer-ajout');
-    if(bA){ const n=nv.reduce((s,x)=>s+x.qte,0); bA.style.display = n ? 'block' : 'none'; bA.textContent = '📤 Envoyer l\'ajout en cuisine ('+n+' article'+(n>1?'s':'')+')'; }
   } else {
     document.getElementById('footer-avant-bon').style.display = 'flex';
     document.getElementById('footer-apres-bon').style.display = 'none';
@@ -3293,21 +2943,14 @@ function renderPanier(){
 }
 
 function changerQte(idx, delta){
-  // Une unité déjà encaissée dans un partage ne peut plus être retirée
-  if(delta<0 && multiPaiementsValides.length){
-    const payes = window._articlesPayesIdx||[];
-    const q = panier[idx].qte;
-    if(payes.includes(idx+':'+(q-1))){ showNotif('Cet exemplaire est déjà réglé — annule le partage pour le retirer','error'); return; }
-  }
   panier[idx].qte += delta;
   if(panier[idx].qte <= 0) panier.splice(idx,1);
   renderPanier();
   renderArticles();
-  majPanierPmtRecap();
 }
 
-async function viderPanier(){
-  if(panier.length && !(await uiConfirm('Vider le panier ?', {ok:'Vider', danger:true}))) return;
+function viderPanier(){
+  if(panier.length && !confirm('Vider le panier ?')) return;
   panier = [];
   bonImprime = false;
   commandeEnCours = null;
@@ -3518,16 +3161,7 @@ function majAffichageRemise(){
 // ══════════════════════════════════════════════════════════
 // PAIEMENT SIMPLE
 // ══════════════════════════════════════════════════════════
-async function ouvrirPaiement(){
-  if(commandeEnCoursKey && bonImprime && window._ajoutSansEnvoi!==commandeEnCoursKey){
-    const nv=_nonEnvoyes();
-    if(nv.length){
-      const n=nv.reduce((s,x)=>s+x.qte,0);
-      const ok = await uiConfirm(n+' article(s) ajouté(s) ne sont pas encore partis en cuisine.', {ok:'📤 Envoyer puis encaisser', cancel:'Encaisser sans envoyer'});
-      if(ok){ envoyerBonCuisine({garder:true, ensuite:()=>ouvrirPaiement()}); return; }
-      window._ajoutSansEnvoi = commandeEnCoursKey;   // ne plus redemander pour cette commande (boutons « Retour »)
-    }
-  }
+function ouvrirPaiement(){
   selectedPmt = null;
   fermerModal('modal-especes');
   fermerModal('modal-tickets');
@@ -3559,7 +3193,7 @@ async function ouvrirPaiement(){
     const btn = document.createElement('button');
     btn.className = 'pmt-btn';
     btn.id = 'pmt-btn-'+m;
-    btn.innerHTML = `<span class="pmt-icon">${icons[m]||(/resto|titre|swile|pluxee|edenred|up_?dej/i.test(m)?'🎫':'💰')}</span>${labels[m]||m.replace(/_/g,' ')}`;
+    btn.innerHTML = `<span class="pmt-icon">${icons[m]||'💰'}</span>${labels[m]||m.replace(/_/g,' ')}`;
     btn.onclick = () => selectPmt(m, btn);
     grid.appendChild(btn);
   });
@@ -3733,10 +3367,8 @@ let multiModeSelectionne = null;
 function ouvrirMultiPaiement(){
   fermerModal('modal-paiement');
   _selArticles = null; _selIdx = []; _selTotal = 0; _selPaid = 0;
-  // Des règlements existent (client 1 déjà passé, on est revenu ajouter un article) :
-  // on GARDE les unités déjà payées, sinon elles réapparaissent comme impayées et
-  // peuvent être encaissées deux fois. Remise à zéro seulement pour un partage neuf.
-  if(!multiPaiementsValides.length){ window._articlesPayesIdx = []; window._grpRepas = {}; }
+  window._articlesPayesIdx = [];
+  window._grpRepas = {};
   multiModeSelectionne = null;
   multiClientActuel = 1;
   multiPartDeclare = 0;
@@ -4019,7 +3651,7 @@ function _assurerCommandeOuverte(apres){
     const articles = panier.map(i=>({
       prodId:i.prodId, nom:i.nom, taille:i.taille,
       prix:i.prixTotal, supplements:i.supplements||[],
-      commentaire:i.commentaire||'', qte:i.qte, ..._fmExtra(i)
+      commentaire:i.commentaire||'', qte:i.qte
     }));
     const cmd = {
       num, nom_client:nom, couverts, retrait_souhaite:retrait,
@@ -4092,21 +3724,14 @@ function _purgerAcomptes(key){
   ecrireFiable('commandes/'+selectedEtabId+'/'+todayKey()+'/'+k+'/acomptes', null);
 }
 
-// Le client suivant veut ajouter un article au moment de payer : on ferme le partage SANS rien
-// perdre (règlements en mémoire + Firebase, unités payées), on ajoute au panier, puis « Encaisser »
-// rouvre le partage avec le nouveau solde.
-function ajouterArticlePendantPartage(){
-  fermerModal('modal-multi');
-  majPanierPmtRecap();
-  if(multiPaiementsValides.length) showNotif('Règlements conservés · ajoute l\'article puis touche « Encaisser »');
-}
-async function annulerMultiPaiement(){
+function annulerMultiPaiement(){
   document.getElementById('modal-multi').classList.remove('open');
   // Des règlements réels ont déjà été encaissés : ne jamais les jeter en silence.
   if(multiPaiementsValides.length){
     const regle = multiPaiementsValides.reduce((s,p)=>s+(p.montant||0),0);
-    if(!(await uiConfirm('⚠️ '+multiPaiementsValides.length+' règlement(s) déjà encaissé(s) pour '+fmtPrix(regle)+'.\n\n'
-      + 'Les annuler ? L\'argent déjà encaissé ne sera plus tracé.', {ok:'Annuler les règlements', cancel:'Les conserver', danger:true}))){
+    if(!confirm('⚠️ '+multiPaiementsValides.length+' règlement(s) déjà encaissé(s) pour '+fmtPrix(regle)+'.\n\n'
+      + 'OK = les ANNULER (l\'argent déjà encaissé ne sera plus tracé)\n'
+      + 'Annuler = les CONSERVER et revenir à la commande')){
       majPanierPmtRecap();
       return;   // on garde tout, mémoire ET Firebase
     }
@@ -4356,7 +3981,7 @@ function finaliserCommande(paiements){
       articles: panier.length > 0 ? panier.map(i=>({
         prodId:i.prodId, nom:i.nom, taille:i.taille,
         prix:i.prixTotal, supplements:i.supplements||[],
-        commentaire:i.commentaire||'', qte:i.qte, ..._fmExtra(i)
+        commentaire:i.commentaire||'', qte:i.qte
       })) : (base.articles || []),
       paiements,
       date: todayKey(),
@@ -4364,10 +3989,6 @@ function finaliserCommande(paiements){
     };
     // La remise ne survit pas au ticket : si elle a été retirée, purger celle de la base.
     if(remiseRec) commande.remise = remiseRec; else delete commande.remise;
-    // Récompenses fidélité offertes : récap pour le pilotage (nb + valeur normale des articles)
-    { const of=(commande.articles||[]).filter(a=>a.offert_fidelite);
-      if(of.length) commande.offerts_fidelite={ nb:of.reduce((s,a)=>s+(a.qte||1),0), valeur:Math.round(of.reduce((s,a)=>s+(a.offert_fidelite.valeur||0)*(a.qte||1),0)*100)/100, pts:of.reduce((s,a)=>s+(a.offert_fidelite.pts||0)*(a.qte||1),0) };
-      else delete commande.offerts_fidelite; }
     // Les acomptes deviennent des `paiements` définitifs : on ne les recopie pas.
     delete commande.acomptes;
     delete commande.ouverte_par_partage;
@@ -4409,17 +4030,6 @@ function finaliserCommande(paiements){
   }
 }
 
-// État du service midi du jour (alimenté par les listeners Firebase à l'init)
-let _midiActifJour = false, _midiClosJour = false;
-function _majEtatMidi(e){
-  const avant = detectService(new Date());
-  if('actif' in e) _midiActifJour = e.actif;
-  if('clos' in e) _midiClosJour = e.clos;
-  // Si le service détecté vient de changer et que l'accueil est affiché → le rafraîchir
-  if(detectService(new Date()) !== avant){
-    try{ if(document.getElementById('screen-accueil').classList.contains('active')) afficherEcranAccueil(); }catch(_){}
-  }
-}
 function detectService(d){
   const h = d.getHours()*60 + d.getMinutes();
   const s = parametresData.services || {};
@@ -4428,14 +4038,6 @@ function detectService(d){
   const sdebut = heureToMin(s.soir_debut||'17:00');
   if(h>=mdebut && h<mfin) return 'midi';
   if(h>=sdebut) return 'soir';
-  // Entre la fin du midi et le début du soir (ex. 15h–17h) : avant, on retombait TOUJOURS sur
-  // « midi » → accueil, emplacement et commandes web à préparer restaient ceux du midi alors
-  // qu'on prépare le soir. Désormais : « midi » seulement s'il reste un midi à terminer
-  // (ventes midi non clôturées) ; sinon on bascule sur le soir.
-  // (Uniquement pour l'instant présent : un horodatage passé garde l'ancien comportement.)
-  if(h>=mfin && Math.abs(Date.now()-d.getTime()) < 120000){
-    if(_midiClosJour || !_midiActifJour) return 'soir';
-  }
   return 'midi';
 }
 
@@ -4467,7 +4069,7 @@ function ouvrirBonAvantPaiement(){
     articles: panier.map(i=>({
       prodId:i.prodId, nom:i.nom, taille:i.taille,
       prix:i.prixTotal, supplements:i.supplements||[],
-      commentaire:i.commentaire||'', qte:i.qte, ..._fmExtra(i)
+      commentaire:i.commentaire||'', qte:i.qte
     })),
     total: getTotal(),
     paiements: []
@@ -4491,7 +4093,7 @@ function ouvrirBonAvantPaiement(){
       <div class="bon-qty">×${a.qte}</div>
       <div class="bon-item-right">
         <div class="bon-item-name">${a.nom}</div>
-        <div class="bon-item-taille">${_artSousLignes(a).join('<br>')}</div>
+        <div class="bon-item-taille">${a.taille}${supsStr?' + '+supsStr:''}</div>
         ${a.commentaire?`<div class="bon-item-comment">⚠️ ${a.commentaire}</div>`:''}
       </div>`;
     items.appendChild(div);
@@ -4538,7 +4140,7 @@ function afficherBon(cmd){
       <div class="bon-qty">×${a.qte}</div>
       <div class="bon-item-right">
         <div class="bon-item-name">${a.nom}</div>
-        <div class="bon-item-taille">${_artSousLignes(a).join('<br>')}</div>
+        <div class="bon-item-taille">${a.taille}${supsStr?' + '+supsStr:''}</div>
         ${a.commentaire?`<div class="bon-item-comment">⚠️ ${a.commentaire}</div>`:''}
       </div>`;
     items.appendChild(div);
@@ -4628,7 +4230,7 @@ function imprimerBon(){
   const retrait = document.getElementById('input-retrait').value || commandeEnCours?.retrait_souhaite || '';
   const articles = commandeEnCours ? commandeEnCours.articles : panier.map(i=>({
     nom:i.nom, taille:i.taille, qte:i.qte,
-    supplements:i.supplements||[], commentaire:i.commentaire||'', ..._fmExtra(i)
+    supplements:i.supplements||[], commentaire:i.commentaire||''
   }));
   const num = commandeEnCours ? commandeEnCours.num : cmdCounter + 1;
   const total = commandeEnCours ? commandeEnCours.total : getTotal();
@@ -4650,7 +4252,7 @@ function imprimerBon(){
         <div style="font-size:24px;font-weight:bold;min-width:36px">×${a.qte}</div>
         <div>
           <div style="font-size:16px;font-weight:bold">${a.nom}</div>
-          <div style="font-size:13px;color:#555">${_artSousLignes(a).join('<br>')}</div>
+          <div style="font-size:13px;color:#555">${a.taille}${(a.supplements||[]).length?' + '+(a.supplements.map(s=>s.nom).join(', ')):''}</div>
           ${a.commentaire?`<div style="font-size:13px;color:#c00;font-weight:600">⚠️ ${a.commentaire}</div>`:''}
         </div>
       </div>`).join('')}
@@ -4673,7 +4275,7 @@ function bonHtmlPourImpression(c){
         <div style="font-size:24px;font-weight:bold;min-width:36px">×${a.qte}</div>
         <div>
           <div style="font-size:16px;font-weight:bold">${a.nom}</div>
-          <div style="font-size:13px;color:#555">${_artSousLignes(a).join('<br>')}</div>
+          <div style="font-size:13px;color:#555">${a.taille||''}${(a.supplements||[]).length?' + '+(a.supplements.map(s=>s.nom).join(', ')):''}</div>
           ${a.commentaire?`<div style="font-size:13px;color:#c00;font-weight:600">⚠️ ${a.commentaire}</div>`:''}
         </div>
       </div>`).join('')}
@@ -4716,7 +4318,7 @@ function imprimerBonComplement(cmd, nouveauxArticles, heuresPrec, heure){
         <div style="font-size:24px;font-weight:bold;min-width:36px">×${a.qte}</div>
         <div>
           <div style="font-size:16px;font-weight:bold">${a.nom}</div>
-          <div style="font-size:13px;color:#555">${_artSousLignes(a).join('<br>')}</div>
+          <div style="font-size:13px;color:#555">${a.taille}${(a.supplements||[]).length?' + '+(a.supplements.map(s=>s.nom).join(', ')):''}</div>
           ${a.commentaire?`<div style="font-size:13px;color:#c00;font-weight:600">⚠️ ${a.commentaire}</div>`:''}
         </div>
       </div>`).join('')}`;
@@ -5008,12 +4610,8 @@ function confirmerFinDeService(){
     const pm = cvt>0?ca/cvt:0;
     // Agréger paiements
     const parPmt={};
-    const normaliser=_libMode;
+    const normaliser=m=>m.replace('Especes','Espèces').replace('Tickets_resto','Tickets resto').replace('Cheques','Chèques').replace('CB','Carte bancaire');
     payees.forEach(([,c])=>(c.paiements||[]).forEach(p=>{const m=normaliser(p.mode||'');parPmt[m]=(parPmt[m]||0)+p.montant;}));
-    // Remises commerciales et offerts fidélité (pilotage admin : rapport comptable + suivi remises)
-    const remises = Math.round(payees.reduce((s,[,c])=>s+((c.remise&&c.remise.montant)||0),0)*100)/100;
-    const offFid = payees.reduce((a,[,c])=>{ const o=c.offerts_fidelite; if(o){ a.nb+=o.nb||0; a.valeur+=o.valeur||0; a.pts+=o.pts||0; } return a; },{nb:0,valeur:0,pts:0});
-    offFid.valeur = Math.round(offFid.valeur*100)/100;
     // Sauvegarder snapshot service (avec emplacement réel du jour)
     lireEmplacementJour(service, empl=>{
       db.ref('clotures/'+selectedEtabId+'/'+today+'/'+service).set({
@@ -5023,7 +4621,6 @@ function confirmerFinDeService(){
         evenement: empl.evenement||false, type_event: empl.type_event||null,
         ca, nb_commandes:nb, nb_couverts:cvt, panier_moyen:Math.round(pm*100)/100,
         detail_paiements:parPmt, non_soldees:enCours.length,
-        remises, offerts_fidelite:offFid,
         type:'fin_service'
       });
     });
@@ -5056,7 +4653,7 @@ function ouvrirCloture(){
     const nbCvt = cmds.reduce((s,c)=>s+(c.couverts||0),0);
     const pm = nbCvt>0 ? Math.round(ca/nbCvt*100)/100 : 0;
     const parPmt = {};
-    const normaliserMode = _libMode;
+    const normaliserMode = m => m.replace('Especes','Espèces').replace('Tickets_resto','Tickets resto').replace('Cheques','Chèques').replace('CB','Carte bancaire');
     cmds.forEach(c=>{ (c.paiements||[]).forEach(p=>{ const mode = normaliserMode(p.mode||''); parPmt[mode]=(parPmt[mode]||0)+(p.montant||0); }); });
     const controleActif = controleCaisseRequis();
     let html = `
@@ -5546,8 +5143,86 @@ function _webPreparerJour(){
   const svc = detectService(new Date());
   return Object.entries(_webOrders)
     .map(([id,o])=>({...o,id}))
-    .filter(o => o && o.status==='confirmed' && !o.service_cmd_key && _webJourIso(o)===todayIso && _webServiceOf(o)===svc)
+    // « printed » sans service_cmd_key = tiroir imprimé depuis l'admin (PC) : la commande
+    // n'est jamais passée par la caisse, elle reste donc À PRÉPARER ici.
+    .filter(o => o && (o.status==='confirmed' || (o.status==='printed' && !o.service_cmd_key)) && !o.service_cmd_key && _webJourIso(o)===todayIso && _webServiceOf(o)===svc)
     .sort((a,b)=> (_webHeure(a)).localeCompare(_webHeure(b)));
+}
+// Commandes de CE camion déjà envoyées en service pour le service en cours
+// (réimpression du bon, ou retour en préparation si elles ont été envoyées depuis le mauvais camion)
+function _webEnServiceJour(){
+  const todayIso = _isoLocalCaisse(new Date());
+  const svc = detectService(new Date());
+  return Object.entries(_webOrders)
+    .map(([id,o])=>({...o,id}))
+    .filter(o => o && o.service_cmd_key && o.status!=='cancelled' && _webJourIso(o)===todayIso && _webServiceOf(o)===svc)
+    .sort((a,b)=> (_webHeure(a)).localeCompare(_webHeure(b)));
+}
+// Identifiants des camions Poké (pour retrouver une commande envoyée en service depuis l'autre camion)
+function _etabIdsMemeMarque(){
+  const moi = etabsData[selectedEtabId];
+  return Object.keys(etabsData).filter(id => {
+    const e = etabsData[id]; if(!e) return false;
+    return _estCaptn(moi) ? _estCaptn(e) : _estPokeCamion(e);
+  });
+}
+// Reconstitue un bon de préparation à partir de la commande web (sans dépendre de commandes/…)
+function _webVersBon(o){
+  const articles = (o.items||[]).map(it=>({
+    prodId: it.id||'', nom: it.nomBase||it.nom||'', taille:(it.taille||''),
+    prix: it.prix||0, prixBase: it.prixBase!=null?it.prixBase:(it.prix||0),
+    supplements: it.supplements||[], type: it.type||null, composition: it.composition||null,
+    commentaire:'', qte: it.qty||1
+  }));
+  const now = new Date();
+  return {
+    num: o.web_num_service || o.num || '', nom_client: ((o.fname||o.prenom||'')+' '+(o.lname||o.nom||'')).trim() || (o.num||'Client web'),
+    couverts: (o.items||[]).reduce((s,it)=>s+(it.qty||1),0)||1,
+    retrait_souhaite: _webHeure(o) || now.toTimeString().substring(0,5),
+    heure: now.toTimeString().substring(0,5), service: o.service||detectService(now),
+    emplacement: o.emplacement||etabInfo.emplacement_actuel||'—', statut:'en_cours',
+    total: _webTotal(o), articles, envois:[{heure: now.toTimeString().substring(0,5), articles}],
+    paiements:[], origine:'web', web_num:o.num||'', web_id:String(o.id), tel:o.phone||o.tel||'', note:o.note||'',
+    date: todayKey(), timestamp: now.getTime(), bon_imprime:true
+  };
+}
+// Réimprime le bon d'une commande web : depuis la commande en service si elle est sur CE camion,
+// sinon reconstitué depuis la commande web (cas « envoyée depuis le mauvais camion »).
+function reimprimerBonWeb(id){
+  const o = _webOrders[id]; if(!o){ showNotif('Commande introuvable','error'); return; }
+  const key = o.service_cmd_key || ('web_'+String(id));
+  db.ref('commandes/'+selectedEtabId+'/'+todayKey()+'/'+key).once('value', snap=>{
+    const c = snap.val() || _webVersBon(Object.assign({id:id}, o));
+    const printed = _imprimerLotBons([c]);
+    showNotif(printed ? ('Bon '+(o.num||'')+' réimprimé') : 'Imprimante indisponible', printed?'success':'error');
+  });
+}
+// Remet une commande envoyée en service (souvent depuis le mauvais camion) dans « À préparer » :
+// supprime la commande de service non encaissée où qu'elle soit (ce camion ou l'autre), puis
+// rouvre la commande web. Une commande déjà encaissée n'est jamais touchée.
+function remettreAPreparerWeb(id){
+  const o = _webOrders[id]; if(!o) return;
+  if(!confirm('Remettre '+(o.num||'')+' dans « À préparer » ?\n\nSi elle a été envoyée en service depuis l\'autre camion, elle en sera retirée et reviendra ici pour être imprimée.')) return;
+  const key = o.service_cmd_key || ('web_'+String(id));
+  const jour = _webJourIso(o) || todayKey();
+  const etabs = _etabIdsMemeMarque();
+  Promise.all(etabs.map(eid => db.ref('commandes/'+eid+'/'+jour+'/'+key).once('value').then(sn=>({eid, c:sn.val()}))))
+    .then(res => {
+      const trouvees = res.filter(r=>r.c);
+      if(trouvees.some(r=>r.c.statut==='payee')){ showNotif('Déjà encaissée : impossible de la remettre à préparer','error'); return; }
+      const _u = {};
+      trouvees.forEach(r=>{ _u['commandes/'+r.eid+'/'+jour+'/'+key] = null; });
+      const node = _webEtabNode||CAPTN_WEB_ETAB;
+      _u['commandes_web/'+node+'/'+id+'/status'] = 'confirmed';
+      _u['commandes_web/'+node+'/'+id+'/service_cmd_key'] = null;
+      _u['commandes_web/'+node+'/'+id+'/envoye_service_le'] = null;
+      if(node==='captfish') _u['creneaux_web/'+node+'/'+id+'/status'] = 'confirmed';
+      return db.ref().update(_u).then(()=>{
+        showNotif((o.num||'')+' remise à préparer'+(trouvees.length?' (retirée du service '+trouvees.map(r=>(etabsData[r.eid]||{}).nom||r.eid).join(', ')+')':''),'success');
+        renderWebPreparerSheet(); renderWebOrdersAccueil(); renderServiceEnCours();
+      });
+    })
+    .catch(()=>showNotif('Erreur réseau — réessayez','error'));
 }
 // Confirmées non envoyées qui ne correspondent PAS au service courant (diagnostic)
 function _webConfirmedAutres(){
@@ -5618,52 +5293,6 @@ function acquitterWebAnnul(id){
     .catch(()=>showNotif('Erreur réseau','error'));
 }
 
-// ── DIALOGUES INTÉGRÉS (remplacent confirm()/prompt() natifs) ──
-// Sur iPad en mode app « écran d'accueil » (standalone), iOS peut bloquer silencieusement
-// confirm()/prompt() — ils renvoient false/null SANS s'afficher (typiquement après un
-// aller-retour vers une autre app, ex. TM Print Assistant). Résultat : le bouton « ne fait rien ».
-// Ces dialogues sont en HTML pur → toujours affichés, et dimensionnés pour le tactile.
-function _uiDialog(msg, opts){
-  opts = opts || {};
-  return new Promise(function(resolve){
-    const ov = document.createElement('div');
-    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:100500;display:flex;align-items:center;justify-content:center;padding:20px';
-    const box = document.createElement('div');
-    box.style.cssText = 'background:#fff;border-radius:18px;max-width:440px;width:100%;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.4);font-family:inherit';
-    const txt = document.createElement('div');
-    txt.style.cssText = 'font-size:15px;line-height:1.45;color:#1c1c1a;white-space:pre-wrap;margin-bottom:16px';
-    txt.textContent = msg;
-    box.appendChild(txt);
-    let input = null;
-    if(opts.prompt){
-      input = document.createElement('textarea');
-      input.rows = 3;
-      input.value = opts.def || '';
-      input.style.cssText = 'width:100%;box-sizing:border-box;padding:12px;border:1px solid #ccc;border-radius:10px;font-size:16px;font-family:inherit;margin-bottom:16px;resize:none';
-      box.appendChild(input);
-    }
-    const row = document.createElement('div');
-    row.style.cssText = 'display:flex;gap:10px';
-    const bNo = document.createElement('button');
-    bNo.type = 'button';
-    bNo.textContent = opts.cancel || 'Annuler';
-    bNo.style.cssText = 'flex:1;padding:15px;background:#eee;color:#333;border:none;border-radius:12px;font-weight:700;font-size:15px;cursor:pointer';
-    const bOk = document.createElement('button');
-    bOk.type = 'button';
-    bOk.textContent = opts.ok || 'Confirmer';
-    bOk.style.cssText = 'flex:1.4;padding:15px;background:'+(opts.danger?'#c0392b':'#0F6E56')+';color:#fff;border:none;border-radius:12px;font-weight:800;font-size:15px;cursor:pointer';
-    row.appendChild(bNo); row.appendChild(bOk);
-    box.appendChild(row); ov.appendChild(box);
-    let fini = false;
-    function fin(v){ if(fini) return; fini = true; ov.remove(); resolve(v); }
-    bNo.addEventListener('click', function(){ fin(opts.prompt ? null : false); });
-    bOk.addEventListener('click', function(){ fin(opts.prompt ? input.value : true); });
-    document.body.appendChild(ov);
-  });
-}
-function uiConfirm(msg, opts){ return _uiDialog(msg, opts); }
-function uiPrompt(msg, def){ return _uiDialog(msg, {prompt:true, def:def, ok:'✕ Refuser la commande', danger:true}); }
-
 // ----- Sheet À VALIDER -----
 function ouvrirWebValider(){
   renderWebValiderSheet();
@@ -5714,13 +5343,13 @@ function renderWebValiderSheet(){
   )).join('');
 }
 // Validation groupée : confirme toutes les commandes en attente d'un coup (caisse fermée)
-async function validerToutWebCaptn(){
+function validerToutWebCaptn(){
   const list = _webPending();
   if(!list.length){ showNotif('Aucune commande à valider','info'); return; }
   const node = (_webEtabNode||CAPTN_WEB_ETAB);
   const nbMail = list.filter(o=>o.email).length;
-  if(!(await uiConfirm('Valider et confirmer les '+list.length+' commande(s) en attente ?'
-    + (nbMail? '\n\n✉️ '+nbMail+' email(s) de confirmation seront envoyés.' : ''), {ok:'✓ Tout valider'}))) return;
+  if(!confirm('Valider et confirmer les '+list.length+' commande(s) en attente ?'
+    + (nbMail? '\n\n✉️ '+nbMail+' email(s) de confirmation seront envoyés.' : ''))) return;
   const _u = {};
   list.forEach(o=>{
     _u['commandes_web/'+node+'/'+o.id+'/status'] = 'confirmed';
@@ -5736,11 +5365,11 @@ async function validerToutWebCaptn(){
     .then(()=>{ showNotif('✅ '+list.length+' commande(s) confirmée(s)','success'); renderWebValiderSheet(); renderWebOrdersAccueil(); })
     .catch(()=>showNotif('Erreur réseau — réessayez','error'));
 }
-async function validerWebCaptn(id){
+function validerWebCaptn(id){
   const o = _webOrders[id]; if(!o) return;
   const dest = o.email ? ('\n\n✉️ Un email de confirmation sera envoyé à : '+o.email) : '\n\n⚠️ Aucune adresse email — pas d\'email envoyé.';
-  if(!(await uiConfirm('Confirmer la commande '+(o.num||'')+' de '+((o.fname||'')+' '+(o.lname||'')).trim()+' ?'
-    + dest + '\n\nElle passera en préparation.', {ok:'✓ Valider & confirmer'}))) return;
+  if(!confirm('Confirmer la commande '+(o.num||'')+' de '+((o.fname||'')+' '+(o.lname||'')).trim()+' ?'
+    + dest + '\n\nElle passera en préparation.')) return;
   const _node = (_webEtabNode||CAPTN_WEB_ETAB);
   const _u = {};
   _u['commandes_web/'+_node+'/'+id+'/status'] = 'confirmed';
@@ -5757,9 +5386,9 @@ async function validerWebCaptn(id){
     })
     .catch(()=>showNotif('Erreur réseau — réessayez','error'));
 }
-async function refuserWebCaptn(id){
+function refuserWebCaptn(id){
   const o = _webOrders[id]; if(!o) return;
-  const motif = await uiPrompt('Refuser la commande '+(o.num||'')+' ?\n\nMotif communiqué au client (optionnel) :', 'Nous ne pouvons malheureusement pas honorer cette commande.');
+  const motif = prompt('Refuser la commande '+(o.num||'')+' ?\n\nMotif communiqué au client (optionnel) :', 'Nous ne pouvons malheureusement pas honorer cette commande.');
   if(motif === null) return;
   const _node = (_webEtabNode||CAPTN_WEB_ETAB);
   const _u = {};
@@ -5777,10 +5406,10 @@ async function refuserWebCaptn(id){
     .catch(()=>showNotif('Erreur réseau','error'));
 }
 // Réversibilité : remettre une commande confirmée en attente
-async function remettreEnAttenteWebCaptn(id){
+function remettreEnAttenteWebCaptn(id){
   const o = _webOrders[id]; if(!o) return;
-  if(!(await uiConfirm('Remettre la commande '+(o.num||'')+' en attente de validation ?'
-    + (o.email_statut==='envoye' ? '\n\n⚠️ L\'email est déjà parti au client.' : '')))) return;
+  if(!confirm('Remettre la commande '+(o.num||'')+' en attente de validation ?'
+    + (o.email_statut==='envoye' ? '\n\n⚠️ L\'email est déjà parti au client.' : ''))) return;
   const _node = (_webEtabNode||CAPTN_WEB_ETAB);
   const _u = {};
   _u['commandes_web/'+_node+'/'+id+'/status'] = 'pending';
@@ -5790,16 +5419,20 @@ async function remettreEnAttenteWebCaptn(id){
   // (le script Apps Script lit email_type pour choisir le template).
   _u['commandes_web/'+_node+'/'+id+'/email_type'] = null;
   _u['commandes_web/'+_node+'/'+id+'/motif_refus'] = null;
+  // Sans ça, une commande déjà envoyée en service puis remise en attente ne réapparaîtrait
+  // plus jamais dans « À préparer » (le filtre exclut toute commande liée à un service).
+  _u['commandes_web/'+_node+'/'+id+'/service_cmd_key'] = null;
+  _u['commandes_web/'+_node+'/'+id+'/envoye_service_le'] = null;
   if(_node==='captfish') _u['creneaux_web/'+_node+'/'+id+'/status'] = 'pending'; // sync suivi client (site)
   db.ref().update(_u)
     .then(()=>{ showNotif('Remise en attente','success'); renderWebPreparerSheet(); renderWebOrdersAccueil(); })
     .catch(()=>showNotif('Erreur réseau','error'));
 }
 // Re-déclencher l'envoi de l'email (échec ou renvoi)
-async function renvoyerEmailWebCaptn(id){
+function renvoyerEmailWebCaptn(id){
   const o = _webOrders[id]; if(!o) return;
   if(!o.email){ showNotif('Pas d\'email sur cette commande','error'); return; }
-  if(!(await uiConfirm('Renvoyer l\'email de confirmation à '+o.email+' ?'))) return;
+  if(!confirm('Renvoyer l\'email de confirmation à '+o.email+' ?')) return;
   db.ref('commandes_web/'+(_webEtabNode||CAPTN_WEB_ETAB)+'/'+id).update({ email_statut:'en_attente' })
     .then(()=>{ showNotif('Email remis en file d\'envoi','success'); renderWebPreparerSheet(); })
     .catch(()=>showNotif('Erreur réseau','error'));
@@ -5829,8 +5462,21 @@ function renderWebPreparerSheet(){
   const subEl = document.getElementById('web-prep-sub');
   if(subEl) subEl.textContent = _webJourLbl(_isoLocalCaisse(new Date()))+' · '+_webServiceLbl(svc)+' — commandes confirmées.';
   const list = _webPreparerJour();
+  const enService = _webEnServiceJour();
+  const blocService = !enService.length ? '' :
+    `<div style="margin-top:18px;padding-top:12px;border-top:1px dashed #ccc">
+       <div style="font-weight:800;font-size:13px;color:#555;margin-bottom:8px">Déjà envoyées en service (${enService.length}) — réimprimer un bon ou remettre à préparer</div>
+       ${enService.map(o => _webCarte(o,
+         `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+            <div><span style="font-size:11px;font-weight:700;color:#1f8a55;background:#e6f4ec;border-radius:6px;padding:2px 7px">En service</span></div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <button onclick="reimprimerBonWeb('${o.id}')" style="padding:8px 12px;background:#fff;border:1px solid #c79a3a;color:#9a6a00;border-radius:8px;font-weight:800;font-size:12px;cursor:pointer">🖨 Réimprimer le bon</button>
+              <button onclick="remettreAPreparerWeb('${o.id}')" style="padding:8px 10px;background:#eef;color:#445;border-radius:8px;font-weight:700;font-size:12px" title="Retire la commande du service (même si elle a été envoyée depuis l'autre camion) et la remet ici">↩︎ Remettre à préparer</button>
+            </div>
+          </div>`)).join('')}
+     </div>`;
   if(!list.length){
-    el.innerHTML = '<p style="color:#888;font-size:14px;padding:18px 0;text-align:center">Aucune commande confirmée pour ce service.</p>';
+    el.innerHTML = '<p style="color:#888;font-size:14px;padding:18px 0;text-align:center">Aucune commande confirmée pour ce service.</p>' + blocService;
     return;
   }
   el.innerHTML = `<button onclick="imprimerEtEnvoyerService()" style="width:100%;margin-bottom:12px;padding:14px;background:#1f8a55;color:#fff;border:none;border-radius:12px;font-weight:800;font-size:15px;cursor:pointer">🖨 Imprimer tous les bons & envoyer en service (${list.length})</button>`
@@ -5844,7 +5490,7 @@ function renderWebPreparerSheet(){
          <button onclick="remettreEnAttenteWebCaptn('${o.id}')" style="padding:8px 10px;background:#eef;color:#445;border-radius:8px;font-weight:700;font-size:12px">↩︎ En attente</button>
        </div>
      </div>`
-  )).join('');
+  )).join('') + blocService;
 }
 
 // ── PHASE 2 : envoyer une commande web validée dans le « Service en cours » ──
@@ -5955,25 +5601,17 @@ function fermerPopupReattrib(){
   try{ renderWebOrdersAccueil(); renderWebDuJour(); }catch(e){}
 }
 
-// Article de service à partir d'une ligne de commande web (même forme que la saisie caisse)
-function _webArticle(it){
-  const base = { prodId: it.id||'', prix: it.prix||0, prixBase: it.prixBase!=null?it.prixBase:(it.prix||0),
-    commentaire:'', qte: it.qty||it.qte||1, _dejaEnvoye:true };
-  if(it.type==='formule'){
-    const compo = Array.isArray(it.composition) ? it.composition : [];
-    const nomMenu = String(it.nomBase||it.nom||'Menu').split(' — ')[0];
-    return Object.assign(base, { nom:nomMenu, taille:compo.map(c=>c.nom).filter(Boolean).join(' · '),
-      supplements:[], type:'formule', formuleId:it.id||'', composition:compo });
-  }
-  const t = [it.taille||''].filter(Boolean).join(' ');
-  return Object.assign(base, { nom: it.nomBase||it.nom||'', taille: t, supplements: it.supplements||[] });
-}
 function envoyerWebEnService(id){
   const o = _webOrders[id]; if(!o){ showNotif('Commande introuvable','error'); return; }
   if(o.service_cmd_key){ showNotif('Déjà envoyée en service','info'); return; }
   const now = new Date();
   const hRetrait = _webHeure(o) || now.toTimeString().substring(0,5);
-  const articles = (o.items||[]).map(_webArticle);
+  const articles = (o.items||[]).map(it=>({
+    prodId: it.id||'', nom: it.nomBase||it.nom||'', taille:'',
+    prix: it.prix||0, prixBase: it.prixBase!=null?it.prixBase:(it.prix||0),
+    supplements: it.supplements||[], type: it.type||null, composition: it.composition||null,
+    commentaire:'', qte: it.qty||1, _dejaEnvoye:true
+  }));
   const couverts = (o.items||[]).reduce((s,it)=>s+(it.qty||1),0) || 1;
   const nomClient = ((o.fname||o.prenom||'')+' '+(o.lname||o.nom||'')).trim() || (o.num||'Client web');
   reserverNumero(num=>{
@@ -6038,7 +5676,7 @@ function imprimerEtEnvoyerService(){
       list.forEach((o, idx)=>{
         const num = startNum + idx;
         const hRetrait = _webHeure(o) || now.toTimeString().substring(0,5);
-        const articles = (o.items||[]).map(_webArticle);
+        const articles = (o.items||[]).map(it=>({prodId:it.id||'', nom:it.nomBase||it.nom||'', taille:(it.taille||''), prix:it.prix||0, prixBase:(it.prixBase!=null?it.prixBase:(it.prix||0)), supplements:it.supplements||[], type:it.type||null, composition:it.composition||null, commentaire:'', qte:it.qty||1, _dejaEnvoye:true}));
         const couverts = (o.items||[]).reduce((s,it)=>s+(it.qty||1),0)||1;
         const nomClient = ((o.fname||o.prenom||'')+' '+(o.lname||o.nom||'')).trim() || (o.num||'Client web');
         const cmdKey = 'web_'+String(o.id);
@@ -6100,11 +5738,11 @@ function reimprimerBonService(key, ev){
 }
 
 // ── PHASE 4 : réattribution inter-camion depuis l'iPad (camions Poké) ──
-async function reattribuerWebCamion(id){
+function reattribuerWebCamion(id){
   if(_webEtabNode!=='pokeben'){ showNotif('Réattribution réservée aux camions Poké','info'); return; }
   const o = _webOrders[id]; if(!o) return;
   const cible = (o.camion==='Camion 1') ? 'Camion 2' : 'Camion 1';
-  if(!(await uiConfirm('Réattribuer '+(o.num||'')+' vers '+cible+' ?\n\nElle quittera cet iPad et apparaîtra sur '+cible+'.'))) return;
+  if(!confirm('Réattribuer '+(o.num||'')+' vers '+cible+' ?\n\nElle quittera cet iPad et apparaîtra sur '+cible+'.')) return;
   db.ref('commandes_web/pokeben/'+id).update({
     camion: cible,
     reattribuee_le: firebase.database.ServerValue.TIMESTAMP,
@@ -6248,12 +5886,12 @@ async function imprimerRapportCloture(cl){
 // ══════════════════════════════════════════════════════════
 // UTILS
 // ══════════════════════════════════════════════════════════
-async function effacerDonneesTest(){
+function effacerDonneesTest(){
   const pinAttendu = (etabInfo && etabInfo.pin != null) ? String(etabInfo.pin) : '';
-  const saisi = await uiPrompt('Effacer les données de test — saisis le PIN du camion pour confirmer :');
+  const saisi = prompt('Effacer les données de test — saisis le PIN du camion pour confirmer :');
   if(saisi==null) return;
   if(!pinAttendu || saisi !== pinAttendu){ showNotif('PIN incorrect','error'); return; }
-  if(!(await uiConfirm('⚠️ Supprime DÉFINITIVEMENT (TOUS les camions) : commandes, commandes WEB (site), clôtures, ventes archivées, annulations, compteurs, achats.\n\nConserve : cartes, produits, planning, ingrédients, recettes, paramètres, fidélité, événements.\n\nContinuer ?', {ok:'Tout effacer', danger:true}))) return;
+  if(!confirm('⚠️ Supprime DÉFINITIVEMENT (TOUS les camions) : commandes, commandes WEB (site), clôtures, ventes archivées, annulations, compteurs, achats.\n\nConserve : cartes, produits, planning, ingrédients, recettes, paramètres, fidélité, événements.\n\nContinuer ?')) return;
   const noms=['commandes','commandes_web','creneaux_web','clotures','ventes_archive','annulations','compteurs','achats'];
   Promise.all(noms.map(n=>db.ref(n).remove()))
     .then(()=>showNotif('Données de test effacées ✓','success'))
@@ -6455,8 +6093,8 @@ function eposLignesBon(d){
   L.push({sep:true});
   (d.articles||[]).forEach(a=>{
     L.push({v:'x'+a.qte+'  '+a.nom, align:'left', bold:true, dh:true});
-    const _fm = a.type==='formule';
-    _artSousLignes(a).forEach(sub=>L.push({v:(_fm?'    - ':'    ')+sub, align:'left', bold:_fm}));
+    const sub = (a.taille||'') + ((a.supplements||[]).length ? ' + '+a.supplements.map(s=>s.nom).join(', ') : '');
+    if(sub.trim()) L.push({v:'    '+sub, align:'left'});
     if(a.commentaire) L.push({v:'    !! '+a.commentaire, align:'left', bold:true});
   });
   L.push({sep:true});
@@ -6503,7 +6141,7 @@ async function ouvrirTiroirManuel(){
   }
   const pinAttendu = (etabInfo && etabInfo.pin!=null) ? String(etabInfo.pin) : '';
   if(!pinAttendu){ showNotif('Aucun PIN configuré — contacte l\'admin','error'); return; }
-  const saisi = await uiPrompt('Ouverture du tiroir sans vente\n\nCode PIN employés :');
+  const saisi = prompt('Ouverture du tiroir sans vente\n\nCode PIN employés :');
   if(saisi==null) return;                                   // annulé
   if(String(saisi).trim() !== pinAttendu){ showNotif('Code PIN incorrect','error'); return; }
   const ok = await eposOuvrirTiroir();

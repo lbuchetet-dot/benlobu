@@ -164,7 +164,7 @@ tr:hover td{background:var(--bg)}
 .gt-cell .gt-cout{max-width:78px;color:var(--text-muted);font-size:12px}
 .gt-cell.gt-off input{background:var(--bg);opacity:.5}
 .gt-empty{padding:22px 16px;text-align:center;color:var(--text-muted);font-size:13px}
-.modal-actions{display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-end;margin-top:24px;padding-top:16px;border-top:1px solid var(--border)}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:24px;padding-top:16px;border-top:1px solid var(--border)}
 
 /* ETAB CARDS */
 .etab-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
@@ -412,8 +412,8 @@ tr:hover td{background:var(--bg)}
               <div class="form-field"><label class="form-label">Date</label><input type="date" class="form-input" id="ov-date"></div>
               <div class="form-field"><label class="form-label">Service</label>
                 <select class="form-select" id="ov-service">
-                  <option value="midi">Midi</option>
-                  <option value="soir">Soir</option>
+                  <option value="midi">Midi (10h30–15h00)</option>
+                  <option value="soir">Soir (17h00–22h00)</option>
                   <option value="journee">Journée entière</option>
                 </select>
               </div>
@@ -632,20 +632,6 @@ tr:hover td{background:var(--bg)}
             </div>
           </div>
           <div class="card">
-            <div class="card-title">🕑 Horaires de service affichés aux clients</div>
-            <p style="font-size:12px;color:var(--text-muted);margin:4px 0 16px">Source unique des horaires Pok&amp;Ben : planning, événements et site pokeben.fr. Un emplacement peut garder des horaires particuliers (fenêtre du planning).</p>
-            <div class="form-grid">
-              <div class="form-field"><label class="form-label">Midi — début</label><input type="time" class="form-input" id="cpb-cfg-midi-debut" value="11:30"></div>
-              <div class="form-field"><label class="form-label">Midi — fin</label><input type="time" class="form-input" id="cpb-cfg-midi-fin" value="13:30"></div>
-              <div class="form-field"><label class="form-label">Soir — début</label><input type="time" class="form-input" id="cpb-cfg-soir-debut" value="18:30"></div>
-              <div class="form-field"><label class="form-label">Soir — fin</label><input type="time" class="form-input" id="cpb-cfg-soir-fin" value="20:30"></div>
-            </div>
-            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:6px">
-              <button class="btn btn-secondary btn-sm" onclick="appliquerHorairesPlanningPb()">↻ Appliquer ces horaires à tout le planning des camions Poké</button>
-              <span style="font-size:11px;color:var(--text-muted)">remplace les horaires enregistrés emplacement par emplacement (ex. anciens 19h00–22h00)</span>
-            </div>
-          </div>
-          <div class="card">
             <div class="card-title">🕐 Créneaux de retrait</div>
             <p style="font-size:12px;color:var(--text-muted);margin:4px 0 16px">Un créneau par ligne ou séparés par des virgules, au format <strong>12h30</strong>. Valable pour tous les emplacements des deux camions.</p>
             <div class="form-grid">
@@ -655,7 +641,7 @@ tr:hover td{background:var(--bg)}
               </div>
               <div class="form-field">
                 <label class="form-label">🌙 Créneaux du soir</label>
-                <textarea class="form-input" id="cpb-cfg-crx-soir" rows="4" style="resize:vertical;font-family:ui-monospace,monospace;font-size:13px;line-height:1.7">18h30, 18h45, 19h00, 19h15, 19h30, 19h45, 20h00, 20h15, 20h30</textarea>
+                <textarea class="form-input" id="cpb-cfg-crx-soir" rows="4" style="resize:vertical;font-family:ui-monospace,monospace;font-size:13px;line-height:1.7">19h00, 19h15, 19h30, 19h45, 20h00, 20h15, 20h30</textarea>
               </div>
             </div>
             <div style="display:flex;align-items:center;gap:14px;margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
@@ -895,7 +881,7 @@ tr:hover td{background:var(--bg)}
           <div class="stat-card"><div class="stat-label">Clients enrôlés (total)</div><div class="stat-value" id="fid-total">—</div></div>
           <div class="stat-card"><div class="stat-label" id="fid-actifs-lbl">Actifs sur la période</div><div class="stat-value" id="fid-actifs">—</div></div>
           <div class="stat-card"><div class="stat-label">Solde points total</div><div class="stat-value" id="fid-points" style="color:var(--amber,#d98c1f)">—</div></div>
-          <div class="stat-card"><div class="stat-label">Récompense débloquée</div><div class="stat-value green" id="fid-repas" title="Clients ayant assez de points pour au moins une récompense">—</div></div>
+          <div class="stat-card"><div class="stat-label">Repas à honorer</div><div class="stat-value green" id="fid-repas">—</div></div>
         </div>
 
         <div class="card">
@@ -1130,7 +1116,7 @@ tr:hover td{background:var(--bg)}
         </div>
 
         <div class="card">
-          <div class="card-title">Détection du service en caisse <small style="font-weight:500;color:var(--text-muted)">(technique : quand l'iPad bascule midi/soir — les horaires affichés aux clients Pok&amp;Ben se règlent dans Commandes Pok&amp;Ben → Paramètres)</small></div>
+          <div class="card-title">Horaires de service</div>
           <div class="form-grid">
             <div class="form-field"><label class="form-label">Début service midi</label><input type="time" class="form-input" id="p-midi-debut" value="10:30"></div>
             <div class="form-field"><label class="form-label">Fin service midi</label><input type="time" class="form-input" id="p-midi-fin" value="15:00"></div>
@@ -1210,7 +1196,7 @@ tr:hover td{background:var(--bg)}
             <p>Tous les outils partagent <strong>une seule base de données</strong> (Firebase « pokeben-caisse »). Le <strong>numéro de téléphone du client</strong> est la clé qui relie tout : un client reconnu à la caisse l'est aussi sur la tablette fidélité et dans cet admin.</p>
             <table class="man-table">
               <tr><th>Outil</th><th>À quoi il sert</th><th>Qui l'utilise</th><th>Support</th></tr>
-              <tr><td><strong>App Fidélité</strong></td><td>Le client valide ses passages et cumule des points</td><td>Le client (en autonomie)</td><td>Tablette Android sur le camion</td></tr>
+              <tr><td><strong>App Fidélité</strong></td><td>Le client valide ses passages, cumule points &amp; tampons</td><td>Le client (en autonomie)</td><td>Tablette Android sur le camion</td></tr>
               <tr><td><strong>Caisse</strong></td><td>Encaisser, imprimer les bons, ouvrir le tiroir</td><td>L'équipe</td><td>iPad</td></tr>
               <tr><td><strong>Admin</strong> (ce site)</td><td>Piloter : ventes, produits, planning, CRM fidélité</td><td>Gérant / responsable</td><td>Ordinateur</td></tr>
               <tr><td><strong>Site Capt&amp;Fish</strong></td><td>Commander à l'avance, voir les emplacements</td><td>Les clients</td><td>Web (téléphone/PC)</td></tr>
@@ -1228,8 +1214,8 @@ tr:hover td{background:var(--bg)}
             <div class="man-screen"><div class="ms-t">1. Écran de veille</div><div class="ms-benef">Bénéfice : attire l'œil, donne envie de s'inscrire.</div>Logo + « On a un cadeau pour toi 🎁 » + bouton <span class="man-kbd">LET'S GO</span>. En haut à gauche, le camion rattaché s'affiche (ex : « 📍 Poké C1 »).</div>
             <div class="man-screen"><div class="ms-t">2. Saisie du numéro</div><div class="ms-benef">Bénéfice : identification rapide, sans clavier compliqué.</div>Indicatif +33 + pavé numérique. Le client tape son numéro et valide.</div>
             <div class="man-screen"><div class="ms-t">3. Inscription (nouveau client)</div><div class="ms-benef">Bénéfice : compte créé en 20 s, conforme RGPD.</div>Prénom, date de naissance, et la question de consentement marketing (Oui/Non) — <strong>obligatoire pour pouvoir lui envoyer un SMS plus tard</strong>.</div>
-            <div class="man-screen"><div class="ms-t">4. Profil &amp; validation</div><div class="ms-benef">Bénéfice : le client voit sa progression → il revient.</div>Barre de progression vers la prochaine récompense, total de points, carrousel des récompenses (avec cadenas 🔒 tant que le palier n'est pas atteint), parfois une petite question. Gros bouton <span class="man-kbd">Valider mon passage</span>.</div>
-            <div class="man-screen"><div class="ms-t">5. Gratification</div><div class="ms-benef">Bénéfice : la récompense immédiate crée l'habitude.</div>« BOOM ! +10 points » avec confettis et le total de points.</div>
+            <div class="man-screen"><div class="ms-t">4. Profil &amp; validation</div><div class="ms-benef">Bénéfice : le client voit sa progression → il revient.</div>Carte de tampons (🐟), total de points, carrousel des récompenses (avec cadenas 🔒 tant que le palier n'est pas atteint), parfois une petite question. Gros bouton <span class="man-kbd">Valider mon passage</span>.</div>
+            <div class="man-screen"><div class="ms-t">5. Gratification</div><div class="ms-benef">Bénéfice : la récompense immédiate crée l'habitude.</div>« BOOM ! +10 points » avec confettis. Si la carte est complète : écran « Repas offert » à montrer à l'équipe.</div>
 
             <h4>Espace admin de la tablette (code <span class="man-kbd">2205</span>)</h4>
             <ul>
@@ -1249,8 +1235,8 @@ tr:hover td{background:var(--bg)}
             <h4>Pourquoi des passages et pas le chiffre d'affaires ?</h4>
             <p>On ne peut pas se connecter au terminal SumUp pour récupérer les montants. Le <strong>passage</strong> est donc la seule donnée fiable, et il se valide en autonomie par le client. Simple, lisible, sans dépendance technique.</p>
 
-            <h4>Un seul système : les points</h4>
-            <p>Depuis le 22/09/2026, la carte à tampons (10 passages = 1 repas offert) est supprimée. Tout passe par les points et le barème de récompenses ci-dessous, réglé dans l'onglet Fidélité. Le client utilise sa récompense sur la tablette (points déduits à ce moment-là) et montre l'écran ; en caisse, le bouton 🎁 Fidélité ajoute l'article lié à 0 €, tagué pour le pilotage.</p>
+            <h4>Carte de tampons : 10 passages = 1 repas offert</h4>
+            <p><strong>Pourquoi 10 ?</strong> Assez court pour rester atteignable (un habitué y arrive en quelques semaines, ce qui entretient sa motivation), assez long pour rester rentable : le repas offert représente environ 1 repas sur 11, soit ~9 % de remise effective sur les clients très fidèles — un coût maîtrisé pour fidéliser durablement.</p>
 
             <h4>Points : +10 par passage</h4>
             <p><strong>Pourquoi +10 ?</strong> Un chiffre rond et valorisant (« +10 points » sonne mieux que « +1 »). Les points alimentent un carrousel de petites récompenses qui jalonnent le parcours.</p>
@@ -1797,7 +1783,6 @@ tr:hover td{background:var(--bg)}
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="fermerModal('modal-options')">Annuler</button>
       <button class="btn btn-primary" onclick="enregistrerOptionsCarte()">Enregistrer</button>
-      <div id="mo-etat" style="flex-basis:100%;order:-1;text-align:left;display:none;margin-top:10px;padding:10px 12px;border-radius:8px;font-size:13px;line-height:1.45"></div>
     </div>
   </div>
 </div>
@@ -1853,13 +1838,6 @@ tr:hover td{background:var(--bg)}
       <div class="gt-hint" id="gt-regle"></div>
       <div id="tailles-list"></div>
     </div>
-    <div style="font-size:13px;font-weight:600;margin-bottom:4px;color:var(--text)">Sauces proposées <small style="font-weight:500;color:var(--text-muted)">(liste pilotée dans « 🥫 Sauces de la carte » — ne concerne que les bowls)</small></div>
-    <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:13px;margin-bottom:8px">
-      <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="radio" name="prod-sauces-mode" value="toutes" checked onchange="prodSaucesModeChange()" style="width:auto"> Toutes les sauces de la carte</label>
-      <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="radio" name="prod-sauces-mode" value="choix" onchange="prodSaucesModeChange()" style="width:auto"> Seulement celles cochées</label>
-      <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="radio" name="prod-sauces-mode" value="aucune" onchange="prodSaucesModeChange()" style="width:auto"> Pas de choix de sauce</label>
-    </div>
-    <div id="prod-sauces" style="display:none;max-height:140px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:8px 10px;background:var(--bg);margin-bottom:14px"></div>
     <div style="font-size:13px;font-weight:600;margin-bottom:4px;color:var(--text)">Suppléments proposés <small style="font-weight:500;color:var(--text-muted)">(liste pilotée dans « 🍟 Suppléments &amp; accompagnements »)</small></div>
     <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px">Coche les suppléments que le client peut ajouter sur ce produit. Les prix sont définis une fois pour toute la carte.</div>
     <div id="prod-options" style="max-height:160px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:8px 10px;background:var(--bg);margin-bottom:14px"></div>
@@ -1871,12 +1849,6 @@ tr:hover td{background:var(--bg)}
     </div>
     <div class="form-field"><label class="form-label">Statut</label>
       <select class="form-select" id="prod-actif"><option value="true">Actif</option><option value="false">Inactif</option></select>
-    </div>
-    <div class="form-field"><label class="form-label">Visible sur <small style="font-weight:500;color:var(--text-muted)">(un produit inactif n'apparaît nulle part, quelles que soient ces cases)</small></label>
-      <div style="display:flex;gap:18px;flex-wrap:wrap;font-size:13px">
-        <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="prod-canal-site" checked style="width:auto"> 🌐 Site client</label>
-        <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="prod-canal-caisse" checked style="width:auto"> 🧾 Caisse (iPad)</label>
-      </div>
     </div>
     </div>
     <div class="modal-actions">
@@ -2932,7 +2904,7 @@ function ouvrirModalPlanning(etabId,jour,service,info){
   document.getElementById('pl-lieu').value=info?.nom||'';
   document.getElementById('pl-cap').value=info?.capacite||'';
   // Horaires : ceux déjà enregistrés, sinon les habituels du service
-  const _def = _horairesDefaut(etabId, service);
+  const _def = (service==='midi') ? ['11:30','14:30'] : ['19:00','22:00'];
   document.getElementById('pl-h1').value = info?.h_debut || _def[0];
   document.getElementById('pl-h2').value = info?.h_fin   || _def[1];
   document.getElementById('modal-planning-title').textContent=`${jour.charAt(0).toUpperCase()+jour.slice(1)} — ${service}`;
@@ -3184,20 +3156,16 @@ function renderOvMenuPicker(selectedIds){
   selectedIds = selectedIds || [];
   const box = document.getElementById('ov-menu-event'); if(!box) return;
   box.innerHTML = 'Chargement…';
-  // Carte du CAMION sélectionné (poke → cartes/poke, burger → cartes/burger) — avant, toujours la carte burger,
-  // donc impossible de composer une soirée Pok&Ben.
-  const carteEv = (etabsData[selectedPlanningEtab] && etabsData[selectedPlanningEtab].carte) || 'burger';
-  db.ref('cartes/'+carteEv+'/produits').once('value', function(snap){
+  db.ref('cartes/burger/produits').once('value', function(snap){
     const data = snap.val() || {};
     const cats = {};
     Object.keys(data).forEach(function(id){
       const pr = data[id]; if(!pr || pr.actif===false) return;
-      if(pr.canaux && pr.canaux.site===false) return; // réservé caisse → jamais sur le site
       const c = pr.categorie || 'Autres';
-      // prix normal affiché = le plus bas des tailles (un poké a S/M/L, un burger une seule taille)
-      var prixs = Object.values(pr.tailles||{}).map(function(t){ return (t && typeof t.prix==='number') ? t.prix : null; }).filter(function(x){ return x!=null; });
-      var pn = prixs.length ? Math.min.apply(null, prixs) : null;
-      (cats[c] = cats[c] || []).push({id:id, nom:(pr.nom||id), prixNormal:pn, multiTailles:prixs.length>1});
+      // prix normal = prix de la 1re taille (les burgers n'en ont qu'une)
+      var t = pr.tailles ? Object.keys(pr.tailles)[0] : null;
+      var pn = (t && pr.tailles[t] && typeof pr.tailles[t].prix==='number') ? pr.tailles[t].prix : null;
+      (cats[c] = cats[c] || []).push({id:id, nom:(pr.nom||id), prixNormal:pn});
     });
     const sel = {}; selectedIds.forEach(function(x){ sel[x]=true; });
     const prix = _ovPrixSel || {};
@@ -3213,7 +3181,7 @@ function renderOvMenuPicker(selectedIds){
         + cats[cat].map(function(x){
             var isOn = !!sel[x.id];
             var pv = (prix[x.id]!=null) ? prix[x.id] : '';
-            var ph = (x.prixNormal!=null) ? ((x.multiTailles?'dès ':'')+x.prixNormal.toFixed(2).replace('.',',')) : 'prix';
+            var ph = (x.prixNormal!=null) ? x.prixNormal.toFixed(2).replace('.',',') : 'prix';
             return '<div style="display:flex;align-items:center;gap:8px;font-size:13px;padding:3px 0">'
               + '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;flex:1">'
               +   '<input type="checkbox" class="ovme-cb" data-cat="'+safe+'" value="'+x.id+'"'+(isOn?' checked':'')+' onchange="ovTogglePrixField(this)" style="width:auto">'
@@ -3530,7 +3498,6 @@ function renderProduits(data){
           </div>
         </div>
         <span class="badge ${p.actif?'badge-green':'badge-gray'}">${p.actif?'Actif':'Inactif'}</span>
-        <span style="font-size:11px;color:var(--text-muted);white-space:nowrap" title="Canaux où le produit est proposé">${(p.canaux&&p.canaux.site===false)?'':'🌐 '}${(p.canaux&&p.canaux.caisse===false)?'':'🧾'}</span>
         <button class="btn btn-secondary btn-sm" onclick="ouvrirModalProduit('${id}')">Modifier</button>
         <button class="btn btn-icon btn-danger" onclick="supprimerProduit('${id}')">🗑</button>`;
       sec.appendChild(item);
@@ -3549,27 +3516,21 @@ function ouvrirModalProduit(id){
     document.getElementById('prod-carte').value=currentCarte;
     document.getElementById('prod-tva').value=p.tva||'sur_place';
     document.getElementById('prod-actif').value=String(p.actif!==false);
-    document.getElementById('prod-canal-site').checked = !(p.canaux && p.canaux.site===false);
-    document.getElementById('prod-canal-caisse').checked = !(p.canaux && p.canaux.caisse===false);
     document.getElementById('prod-desc').value=p.description||'';
     document.getElementById('prod-photo-data').value=p.photo||'';
     renderPhotoPreviewProduit(p.photo||'');
     renderAllergenesProduit(p.allergenes||{});
     chargerGrilleDepuisProduit(p.tailles||{}, currentCarte);
     renderOptionsProduit(id, p);
-    renderSaucesProduit(p);
   } else {
     document.getElementById('modal-produit-title').textContent='Nouveau produit';
     ['prod-nom','prod-cat','prod-desc'].forEach(i=>document.getElementById(i).value='');
-    document.getElementById('prod-canal-site').checked=true;
-    document.getElementById('prod-canal-caisse').checked=true;
     document.getElementById('prod-photo-data').value='';
     renderPhotoPreviewProduit('');
     renderAllergenesProduit({});
     document.getElementById('prod-carte').value=currentCarte;
     chargerGrilleDepuisProduit({}, currentCarte);
     renderOptionsProduit(null, {});
-    renderSaucesProduit({});
   }
   const pf=document.getElementById('prod-photo-file'); if(pf) pf.value='';
   document.getElementById('modal-produit').classList.add('open');
@@ -3715,22 +3676,6 @@ function _resoudreSupplements(carte, options_ids, accomp_ids){
   });
   return out;
 }
-// Sauces par produit : sauces_mode = 'toutes' (défaut) | 'choix' (sauces_liste) | 'aucune'
-function renderSaucesProduit(p){
-  const carte=document.getElementById('prod-carte')?.value||currentCarte;
-  const liste=((SAUCES_CARTE[carte]||{}).liste)||[];
-  const mode=(p&&p.sauces_mode)||'toutes';
-  const sel={}; ((p&&p.sauces_liste)||[]).forEach(n=>sel[n]=true);
-  const r=document.querySelector('input[name="prod-sauces-mode"][value="'+mode+'"]'); if(r) r.checked=true;
-  const box=document.getElementById('prod-sauces');
-  box.innerHTML=liste.length?liste.map(n=>`<label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer;padding:3px 0"><input type="checkbox" class="prod-sauce-cb" value="${String(n).replace(/"/g,'&quot;')}" ${sel[n]?'checked':''}> ${n}</label>`).join('')
-    :'<div style="font-size:12px;color:var(--text-muted)">Aucune sauce définie — bouton « 🥫 Sauces de la carte » en haut de la page.</div>';
-  prodSaucesModeChange();
-}
-function prodSaucesModeChange(){
-  const m=(document.querySelector('input[name="prod-sauces-mode"]:checked')||{}).value||'toutes';
-  document.getElementById('prod-sauces').style.display = m==='choix' ? 'block' : 'none';
-}
 function renderOptionsProduit(selfId, p){
   const ref=_optCarte(currentCarte);
   const selO={}; (p.options_ids||[]).forEach(i=>selO[i]=true);
@@ -3746,8 +3691,6 @@ function renderOptionsProduit(selfId, p){
     :'<div style="font-size:12px;color:var(--text-muted)">Aucun accompagnement défini pour cette carte.</div>';
 }
 function ouvrirModalOptions(){
-  _moEtat('');
-  const _b=document.querySelector('#modal-options .btn-primary'); if(_b){ _b.disabled=false; _b.textContent='Enregistrer'; }
   document.getElementById('mo-carte-nom').textContent=(currentCarte==='burger'?'Burger':'Poké');
   const ref=_optCarte(currentCarte);
   document.getElementById('mo-sups-list').innerHTML='';
@@ -3785,10 +3728,9 @@ function migrerOptionsCarte(){
     if(catalogue[k]){ accompagnements[id]={prodId:catalogue[k],prix:l.prix}; l.produits.forEach(pid=>{ (parProduit[pid]=parProduit[pid]||{o:[],a:[]}).a.push(id); }); }
     else { supplements[id]={nom:l.nom,prix:l.prix,cout_revient:l.cout_revient}; l.produits.forEach(pid=>{ (parProduit[pid]=parProduit[pid]||{o:[],a:[]}).o.push(id); }); }
   });
+  OPTIONS_CARTE[currentCarte]={supplements,accompagnements};
   const up={};
   up['parametres/options_carte/'+currentCarte]={supplements,accompagnements};
-  const _prev=OPTIONS_CARTE[currentCarte];
-  OPTIONS_CARTE[currentCarte]={supplements,accompagnements};   // nécessaire à _resoudreSupplements ci-dessous
   Object.entries(parProduit).forEach(([pid,v])=>{
     up[`cartes/${currentCarte}/produits/${pid}/options_ids`]=v.o;
     up[`cartes/${currentCarte}/produits/${pid}/accomp_ids`]=v.a;
@@ -3796,34 +3738,28 @@ function migrerOptionsCarte(){
   });
   db.ref().update(up)
     .then(()=>{ showNotif('Référentiel créé à partir des fiches ('+Object.keys(supplements).length+' suppléments, '+Object.keys(accompagnements).length+' accompagnements)','success'); chargerProduits(currentCarte); fermerModal('modal-options'); setTimeout(ouvrirModalOptions,300); })
-    .catch(e=>{ OPTIONS_CARTE[currentCarte]=_prev; console.error('migrerOptionsCarte',e); showNotif(/permission/i.test((e&&e.code)||'')?'Refusé par Firebase (règles) : parametres/options_carte n\'est pas autorisé en écriture':'Échec : '+((e&&e.message)||e),'error'); });
+    .catch(()=>showNotif('Erreur Firebase','error'));
 }
-// Identifiant sûr pour une clé Firebase : jamais de « . # $ / [ ] ».
-// AVANT : (Date.now()+Math.random()).toString(36) produisait « opld.jll » → « . » interdit dans une clé
-// → db.ref().set() levait une exception SYNCHRONE (jamais attrapée) : aucun message, rien d'enregistré,
-// bouton figé sur « Enregistrement… ». C'était la cause du supplément « qui s'affiche mais ne s'enregistre pas ».
-function _moId(prefix){ return prefix+Date.now().toString(36)+Math.floor(Math.random()*1679616).toString(36).padStart(4,'0'); }
 function moAjouterSup(nom='',prix='',cout='',id=''){
-  const rid=id||_moId('o');
+  const rid=id||('o'+(Date.now()+Math.random()).toString(36).slice(-7));
   const div=document.createElement('div');
   div.className='mo-sup-row'; div.dataset.id=rid;
   div.style.cssText='display:grid;grid-template-columns:1.4fr 1fr 1fr auto;gap:10px;align-items:center;margin-bottom:8px';
   div.innerHTML='<input type="text" class="form-input mo-nom" value="'+String(nom).replace(/"/g,'&quot;')+'" placeholder="Cheddar en plus">'
-    +'<input type="number" step="0.10" min="0" class="form-input mo-prix" value="'+prix+'" placeholder="prix, ex. 1,00">'
-    +'<input type="number" step="0.10" min="0" class="form-input mo-cout" value="'+cout+'" placeholder="coût, ex. 0,30">'
+    +'<input type="number" step="0.10" class="form-input mo-prix" value="'+prix+'" placeholder="1.00">'
+    +'<input type="number" step="0.10" class="form-input mo-cout" value="'+cout+'" placeholder="0.30">'
     +'<button class="btn btn-danger btn-sm" style="margin-bottom:0" onclick="this.parentNode.remove()">✕</button>';
   document.getElementById('mo-sups-list').appendChild(div);
 }
 function moAjouterAcc(prodId='',prix='',id=''){
-  const rid=id||_moId('a');
+  const rid=id||('a'+(Date.now()+Math.random()).toString(36).slice(-7));
   const div=document.createElement('div');
   div.className='mo-acc-row'; div.dataset.id=rid;
   div.style.cssText='display:grid;grid-template-columns:1.4fr 1fr 1fr auto;gap:10px;align-items:center;margin-bottom:8px';
-  let opts=Object.entries(produitsData).sort((a,b)=>(a[1].nom||'').localeCompare(b[1].nom||'')).map(([pid,p])=>`<option value="${pid}" ${pid===prodId?'selected':''}>${p.nom||'Sans nom'}${p.actif===false?' (inactif)':''}</option>`).join('');
-  if(prodId && !produitsData[prodId]) opts='<option value="__absent__'+prodId+'" selected>⚠ produit introuvable sur cette carte ('+prodId+')</option>'+opts;
+  const opts=Object.entries(produitsData).sort((a,b)=>(a[1].nom||'').localeCompare(b[1].nom||'')).map(([pid,p])=>`<option value="${pid}" ${pid===prodId?'selected':''}>${p.nom||'Sans nom'}${p.actif===false?' (inactif)':''}</option>`).join('');
   div.innerHTML='<select class="form-select mo-prod" onchange="moMajPrixSeul(this)"><option value="">— produit —</option>'+opts+'</select>'
     +'<span class="mo-seul" style="font-size:13px;color:var(--text-muted)"></span>'
-    +'<input type="number" step="0.10" min="0" class="form-input mo-prix" value="'+prix+'" placeholder="prix, ex. 2,00">'
+    +'<input type="number" step="0.10" class="form-input mo-prix" value="'+prix+'" placeholder="2.00">'
     +'<button class="btn btn-danger btn-sm" style="margin-bottom:0" onclick="this.parentNode.remove()">✕</button>';
   document.getElementById('mo-acc-list').appendChild(div);
   moMajPrixSeul(div.querySelector('.mo-prod'));
@@ -3832,76 +3768,39 @@ function moMajPrixSeul(sel){
   const p=produitsData[sel.value]; const sp=sel.parentNode.querySelector('.mo-seul');
   sp.textContent=p?_prixCatalogue(p).toFixed(2).replace('.',',')+' €':'';
 }
-function _moEtat(msg,type){ const e=document.getElementById('mo-etat'); if(!e) return; if(!msg){ e.style.display='none'; return; } e.style.display='block'; e.textContent=msg; e.style.background=type==='error'?'#fdecea':(type==='success'?'#e8f5e9':'#fff7e6'); e.style.color=type==='error'?'#c0392b':(type==='success'?'#2e7d32':'#9a6b00'); }
 function enregistrerOptionsCarte(){
-  _moEtat('');
   const supplements={}, accompagnements={};
   const noms=[];
-  // AVANT : une ligne sans prix était IGNORÉE en silence (« 1.00 » affiché en gris n'est qu'un exemple,
-  // pas une valeur) → le supplément disparaissait à l'enregistrement sans aucun message.
-  const incompletes=[];
-  const _num=el=>{ const v=String(el.value).trim().replace(',','.'); return v===''?NaN:parseFloat(v); };
   document.querySelectorAll('#mo-sups-list .mo-sup-row').forEach(r=>{
-    const elN=r.querySelector('.mo-nom'), elP=r.querySelector('.mo-prix');
-    elN.style.borderColor=''; elP.style.borderColor='';
-    const nom=elN.value.trim(); const prix=_num(elP);
-    if(!nom && elP.value==='') return;                                     // ligne vide : ignorée
-    if(!nom){ elN.style.borderColor='#c0392b'; incompletes.push('un supplément sans nom'); return; }
-    if(isNaN(prix)||prix<0){ elP.style.borderColor='#c0392b'; incompletes.push('« '+nom+' » sans prix'); return; }
-    supplements[r.dataset.id]={nom,prix,cout_revient:_num(r.querySelector('.mo-cout'))||0}; noms.push(nom);
+    const nom=r.querySelector('.mo-nom').value.trim(); const prix=parseFloat(r.querySelector('.mo-prix').value);
+    if(!nom||isNaN(prix)) return;
+    supplements[r.dataset.id]={nom,prix,cout_revient:parseFloat(r.querySelector('.mo-cout').value)||0}; noms.push(nom);
   });
   document.querySelectorAll('#mo-acc-list .mo-acc-row').forEach(r=>{
-    const elS=r.querySelector('.mo-prod'), elP=r.querySelector('.mo-prix');
-    elS.style.borderColor=''; elP.style.borderColor='';
-    const prodId=elS.value; const prix=_num(elP);
-    if(!prodId && elP.value==='') return;
-    if(!prodId || prodId.startsWith('__absent__')){ elS.style.borderColor='#c0392b'; incompletes.push('un accompagnement sans produit (choisis-le dans la liste, ou supprime la ligne avec ✕)'); return; }
-    if(isNaN(prix)||prix<0){ elP.style.borderColor='#c0392b'; incompletes.push('un accompagnement sans prix « avec »'); return; }
+    const prodId=r.querySelector('.mo-prod').value; const prix=parseFloat(r.querySelector('.mo-prix').value);
+    if(!prodId||isNaN(prix)) return;
     accompagnements[r.dataset.id]={prodId,prix};
   });
-  if(incompletes.length){ const m='Rien n\'a été enregistré : '+incompletes.join(', ')+' — complète les cases en rouge (0 si gratuit)'; _moEtat(m,'error'); showNotif(m,'error'); return; }
   // Garde-fou : un supplément qui porte le nom d'un produit du catalogue doit être un accompagnement
   const catalogue=Object.values(produitsData).map(p=>(p.nom||'').trim().toLowerCase());
   const doublon=noms.find(n=>catalogue.includes(n.toLowerCase()));
   if(doublon && !confirm('« '+doublon+' » existe déjà comme produit du catalogue.\nUtilise plutôt un accompagnement (coût et TVA repris de sa fiche).\n\nEnregistrer quand même ?')) return;
-  // AVANT : OPTIONS_CARTE était modifié en local AVANT l'écriture, et tout partait dans une seule
-  // mise à jour atomique. Si Firebase refusait (règles, réseau), la fiche produit affichait quand même
-  // le supplément (« ça s'affiche ») alors que rien n'était enregistré, avec un simple « Erreur Firebase ».
-  // MAINTENANT : 1) le référentiel seul, 2) relecture serveur, 3) resynchro des fiches — erreur exacte affichée.
-  const carte=currentCarte;
-  const ref={supplements,accompagnements};
-  const btn=document.querySelector('#modal-options .btn-primary'); if(btn){ btn.disabled=true; btn.textContent='Enregistrement…'; }
-  const fin=()=>{ if(btn){ btn.disabled=false; btn.textContent='Enregistrer'; } };
-  const badKey=Object.keys(supplements).concat(Object.keys(accompagnements)).find(k=>/[.#$\/\[\]]/.test(k));
-  if(badKey){ fin(); showNotif('Identifiant invalide ('+badKey+') — supprime cette ligne et ressaisis-la','error'); return; }
-  _moEtat('Écriture du référentiel…');
-  let _wr;
-  try{ _wr=db.ref('parametres/options_carte/'+carte).set(ref); }
-  catch(e){ fin(); console.error('enregistrerOptionsCarte (sync)',e); _moEtat('Enregistrement impossible : '+((e&&e.message)||e),'error'); showNotif('Enregistrement impossible','error'); return; }
-  const _lent=setTimeout(()=>{ _moEtat('Firebase ne répond pas (10 s) — connexion ? Le bouton est réactivé, tu peux réessayer.','error'); fin(); },10000);
-  _wr.then(()=>{ clearTimeout(_lent); _moEtat('Référentiel écrit, relecture…'); return db.ref('parametres/options_carte/'+carte).once('value'); })
-    .then(sn=>{
-      const lu=sn.val()||{};
-      const nLu=Object.keys(lu.supplements||{}).length, nAtt=Object.keys(supplements).length;
-      if(nLu!==nAtt) throw {code:'relecture', message:'relu '+nLu+' supplément(s) au lieu de '+nAtt};
-      OPTIONS_CARTE[carte]={supplements:lu.supplements||{}, accompagnements:lu.accompagnements||{}};
-      // Resynchronise la copie `supplements` de chaque produit de la carte
-      const up={};
-      Object.entries(produitsData).forEach(([pid,p])=>{
-        if(!p) return;
-        if(!(p.options_ids||p.accomp_ids)) return;      // fiche jamais migrée : on ne touche pas
-        const o=(p.options_ids||[]).filter(i=>supplements[i]);
-        const a=(p.accomp_ids||[]).filter(i=>accompagnements[i]);
-        up[`cartes/${carte}/produits/${pid}/options_ids`]=o;
-        up[`cartes/${carte}/produits/${pid}/accomp_ids`]=a;
-        up[`cartes/${carte}/produits/${pid}/supplements`]=_resoudreSupplements(carte,o,a);
-      });
-      return Object.keys(up).length ? db.ref().update(up).catch(e=>{ throw {code:(e&&e.code)||'fiches', message:'référentiel OK mais fiches produits non mises à jour ('+((e&&e.message)||e)+')'}; }) : null;
-    })
-    .then(()=>{ fin(); _moEtat(''); fermerModal('modal-options'); showNotif('Référentiel enregistré — fiches produits mises à jour','success'); chargerProduits(carte); })
-    .catch(e=>{ fin(); const c=(e&&e.code)||''; console.error('enregistrerOptionsCarte',e);
-      const m=/permission/i.test(c)?'Refusé par Firebase (règles) : parametres/options_carte n\'est pas autorisé en écriture':'Échec enregistrement : '+((e&&e.message)||c||e);
-      _moEtat(m,'error'); showNotif(m,'error'); });
+  OPTIONS_CARTE[currentCarte]={supplements,accompagnements};
+  const up={};
+  up['parametres/options_carte/'+currentCarte]={supplements,accompagnements};
+  // Resynchronise la copie `supplements` de chaque produit de la carte
+  Object.entries(produitsData).forEach(([pid,p])=>{
+    if(!p) return;
+    const o=(p.options_ids||[]).filter(i=>supplements[i]);
+    const a=(p.accomp_ids||[]).filter(i=>accompagnements[i]);
+    if(!(p.options_ids||p.accomp_ids)) return;      // fiche jamais migrée : on ne touche pas
+    up[`cartes/${currentCarte}/produits/${pid}/options_ids`]=o;
+    up[`cartes/${currentCarte}/produits/${pid}/accomp_ids`]=a;
+    up[`cartes/${currentCarte}/produits/${pid}/supplements`]=_resoudreSupplements(currentCarte,o,a);
+  });
+  db.ref().update(up)
+    .then(()=>{ fermerModal('modal-options'); showNotif('Référentiel enregistré — fiches produits mises à jour','success'); chargerProduits(currentCarte); })
+    .catch(()=>showNotif('Erreur Firebase','error'));
 }
 
 /* ---------- Modal « Sauces de la carte » ---------- */
@@ -4042,15 +3941,12 @@ function sauvegarderProduit(){
   const carte=document.getElementById('prod-carte').value;
   const tva=document.getElementById('prod-tva').value;
   const actif=document.getElementById('prod-actif').value==='true';
-  // Canaux : le produit reste actif mais n'est proposé que là où c'est coché (site client / caisse iPad)
-  const canaux={ site:document.getElementById('prod-canal-site').checked, caisse:document.getElementById('prod-canal-caisse').checked };
   const description=document.getElementById('prod-desc').value.trim();
   const photo=document.getElementById('prod-photo-data').value||'';
   const allergenes={};
   document.querySelectorAll('.prod-alg-cb:checked').forEach(cb=>{ allergenes[cb.value]=true; });
   const editId=document.getElementById('prod-edit-id').value;
   if(!nom||!cat){ showNotif('Nom et catégorie requis','error'); return; }
-  if(actif && !canaux.site && !canaux.caisse){ showNotif('Coche au moins un canal (site ou caisse), sinon passe le produit en Inactif','error'); return; }
   const tailles=_tailleseDepuisGrille();
   if(!Object.keys(tailles).length){ showNotif('Renseigne au moins un prix dans la grille','error'); return; }
   const options_ids=[...document.querySelectorAll('.prod-opt-cb:checked')].map(cb=>cb.value);
@@ -4058,32 +3954,9 @@ function sauvegarderProduit(){
   // `supplements` = copie résolue depuis le référentiel (compat caisse / site Pok&Ben)
   const supplements=_resoudreSupplements(carte, options_ids, accomp_ids);
   const key=editId||'prod_'+Date.now();
-  // Garde-fou : un supplément coché doit exister dans le référentiel ENREGISTRÉ (sinon il disparaîtrait)
-  const manquants=options_ids.filter(id=>!supplements['sup_'+id]);
-  if(manquants.length){ showNotif('Supplément introuvable dans le référentiel — enregistre d\'abord « 🍟 Suppléments & accompagnements »','error'); return; }
-  const sauces_mode=(document.querySelector('input[name="prod-sauces-mode"]:checked')||{}).value||'toutes';
-  const sauces_liste=sauces_mode==='choix'?[...document.querySelectorAll('.prod-sauce-cb:checked')].map(cb=>cb.value):[];
-  if(sauces_mode==='choix' && !sauces_liste.length){ showNotif('Coche au moins une sauce, ou choisis « Pas de choix de sauce »','error'); return; }
-  const rec={nom,categorie:cat,tva,actif,canaux,description,photo,allergenes,tailles,supplements,options_ids,accomp_ids,sauces_mode,sauces_liste};
-  // Valeurs refusées par Firebase (NaN, Infinity) → message clair au lieu d'une exception silencieuse
-  const badNum=JSON.stringify(rec,(k,v)=>(typeof v==='number'&&!isFinite(v))?'__BAD__':v).indexOf('__BAD__')>=0;
-  if(badNum){ showNotif('Un prix ou un coût de la grille n\'est pas un nombre valide — corrige-le avant d\'enregistrer','error'); return; }
-  const btnP=document.querySelector('#modal-produit .btn-primary'); if(btnP){ btnP.disabled=true; btnP.textContent='Enregistrement…'; }
-  const finP=()=>{ if(btnP){ btnP.disabled=false; btnP.textContent='Enregistrer'; } };
-  let _w;
-  try{ _w=db.ref(`cartes/${carte}/produits/${key}`).set(rec); }
-  catch(e){ finP(); console.error('sauvegarderProduit (sync)',e); showNotif('Enregistrement impossible : '+((e&&e.message)||e),'error'); return; }
-  _w.then(()=>db.ref(`cartes/${carte}/produits/${key}`).once('value'))
-    .then(sn=>{
-      finP();
-      const lu=sn.val();
-      if(!lu){ showNotif('Enregistrement non confirmé par le serveur — réessaie','error'); return; }
-      const nSup=Object.keys(lu.supplements||{}).length;
-      fermerModal('modal-produit');
-      showNotif('✓ '+(lu.nom||'Produit')+' enregistré'+(nSup?' · '+nSup+' supplément(s)':' · aucun supplément'),'success');
-      chargerProduits(carte);
-    })
-    .catch(e=>{ finP(); console.error('sauvegarderProduit',e); showNotif(/permission/i.test((e&&e.code)||'')?'Refusé par Firebase (règles) : cartes/'+carte+'/produits':'Échec enregistrement produit : '+((e&&e.code)||(e&&e.message)||e),'error'); });
+  db.ref(`cartes/${carte}/produits/${key}`).set({nom,categorie:cat,tva,actif,description,photo,allergenes,tailles,supplements,options_ids,accomp_ids})
+    .then(()=>{ fermerModal('modal-produit'); showNotif('Produit enregistré','success'); chargerProduits(carte); })
+    .catch(()=>showNotif('Erreur Firebase','error'));
 }
 
 function supprimerProduit(id){
@@ -5980,7 +5853,7 @@ async function chargerRapportComptable(){
     const allClotures=clotSnap.val()||{};
     const tvaParams=tvaSnap.val()||{sur_place:10,a_emporter:5.5};
     let caTTC_sp=0,caTTC_ae=0,caTTC_total=0;
-    const pmtTotaux={}; let totAnn=0,totRem=0,nbSvc=0,nbCmd=0,fidNb=0,fidVal=0,fidPts=0;
+    const pmtTotaux={}; let totAnn=0,totRem=0,nbSvc=0,nbCmd=0;
     etabIds.forEach(eid=>{
       Object.entries(allClotures[eid]||{}).forEach(([date,services])=>{
         if(!dates.includes(date)) return;
@@ -5998,7 +5871,6 @@ async function chargerRapportComptable(){
           Object.entries(pn).forEach(([m,v])=>{ pmtTotaux[m]=(pmtTotaux[m]||0)+v; });
           totAnn+=cl.annulations||cl.total_annulations||cl.montant_annulations||0;
           totRem+=cl.remises||cl.total_remises||cl.offerts||cl.montant_offerts||0;
-          if(cl.offerts_fidelite){ fidNb+=cl.offerts_fidelite.nb||0; fidVal+=cl.offerts_fidelite.valeur||0; fidPts+=cl.offerts_fidelite.pts||0; }
         });
       });
     });
@@ -6008,7 +5880,6 @@ async function chargerRapportComptable(){
     const htAE=caTTC_ae/(1+tauxAE);
     _rcData={
       debut,fin,etabIds,tvaParams,
-      fidNb, fidVal:Math.round(fidVal*100)/100, fidPts,
       caTTC_total:Math.round(caTTC_total*100)/100,
       caTTC_sp:Math.round(caTTC_sp*100)/100,
       caTTC_ae:Math.round(caTTC_ae*100)/100,
@@ -6088,10 +5959,9 @@ function _afficherRapportComptable(){
       <div class="table-wrap"><table>
         <thead><tr><th>Catégorie</th><th>Montant</th></tr></thead>
         <tbody>
-          <tr><td>Remises commerciales</td><td style="font-weight:600">${fmt2(d.totRem)}</td></tr>
-          <tr><td>Offerts fidélité <span style="color:var(--text-muted);font-size:11px">(${d.fidNb||0} article${(d.fidNb||0)>1?'s':''} · ${d.fidPts||0} pts débités · valeur carte)</span></td><td style="font-weight:600">${fmt2(d.fidVal||0)}</td></tr>
+          <tr><td>Total remises &amp; offerts</td><td style="font-weight:600">${fmt2(d.totRem)}</td></tr>
           <tr><td>Total annulations</td><td style="font-weight:600;color:var(--coral)">${fmt2(d.totAnn)}</td></tr>
-          <tr style="font-weight:700;background:var(--bg)"><td>Total</td><td>${fmt2(d.totRem+(d.fidVal||0)+d.totAnn)}</td></tr>
+          <tr style="font-weight:700;background:var(--bg)"><td>Total</td><td>${fmt2(d.totRem+d.totAnn)}</td></tr>
         </tbody>
       </table></div>
       <p style="font-size:11px;color:var(--text-muted);margin-top:10px">⚠️ Remises et annulations remontées uniquement si les champs <code>annulations</code> / <code>remises</code> / <code>offerts</code> sont renseignés lors des clôtures dans la caisse.</p>
@@ -6119,10 +5989,9 @@ function exportRapportComptable(){
     // Feuille remises & annulations
     const rowsRem=[
       {data:['Catégorie','Montant (€)'],style:'header'},
-      {data:['Remises commerciales',n(d.totRem)],style:''},
-      {data:['Offerts fidélité ('+(d.fidNb||0)+' art., '+(d.fidPts||0)+' pts)',n(d.fidVal||0)],style:''},
+      {data:['Total remises & offerts',n(d.totRem)],style:''},
       {data:['Total annulations',n(d.totAnn)],style:''},
-      {data:['Total',n(d.totRem+(d.fidVal||0)+d.totAnn)],style:'total'}
+      {data:['Total',n(d.totRem+d.totAnn)],style:'total'}
     ];
     _telechargerXLS(_genXLS([
       {name:'TVA',rows:rowsTVA},
@@ -6136,9 +6005,7 @@ function exportRapportComptable(){
 // ============================================================
 // FIDELITE
 // ============================================================
-// Le « repas offert tous les 10 passages » est supprimé (22/09/2026) : tout passe par les points.
-function _fidMinPts(){ const l=(_pfRewards.poke||[]).concat(_pfRewards.captn||[]).filter(r=>r&&r.actif!==false&&r.pts>0).map(r=>r.pts); return l.length?Math.min(...l):Infinity; }
-function _fidRecompensesUtilisees(c){ return (c&&c.history?Object.values(c.history):[]).filter(h=>h&&h.type==='recompense').length; }
+const FID_PASSAGES_REPAS = 10; // 10 passages = 1 repas offert (aligné app fidélité)
 let _fidCache = {}; // clients_fidelite chargés
 let _fidPeriode = 'semaine';
 let _fidCamion = 'tous';
@@ -6298,7 +6165,6 @@ function chargerSuiviRemises(){
 }
 
 function chargerParamFidelite(){
-  if(!_pfProduits._ecoute){ _pfProduits._ecoute=true; _pfChargerProduits(); }
   db.ref('site_config/fidelite/home_message').once('value',s=>{
     const el=document.getElementById('pf-home-msg'); if(el) el.value = (s.exists()&&typeof s.val()==='string') ? s.val() : '3 camions, 1 fidélité 🎁\nÇa se passe juste ici 👇';
   });
@@ -6307,19 +6173,6 @@ function chargerParamFidelite(){
     _pfRewards.captn = (sc.exists()&&Array.isArray(sc.val())) ? sc.val() : _pfDefaut.captn.slice();
     pfSetBrand(_pfBrand);
   });
-}
-// Produits de la carte par marque (poke → carte poke, captn → carte burger) pour lier une récompense à un article
-let _pfProduits = { poke:{}, captn:{} };
-function _pfChargerProduits(){
-  db.ref('cartes/poke/produits').on('value', s=>{ _pfProduits.poke = s.val()||{}; if(_pfBrand==='poke') pfRenderRewards(); });
-  db.ref('cartes/burger/produits').on('value', s=>{ _pfProduits.captn = s.val()||{}; if(_pfBrand==='captn') pfRenderRewards(); });
-}
-function _pfOptionsProduits(brand, sel){
-  const prods=_pfProduits[brand]||{};
-  return '<option value="">— Aucun article lié (saisie manuelle en caisse) —</option>'+Object.entries(prods)
-    .filter(([,p])=>p && p.actif!==false)
-    .sort((a,b)=>String(a[1].categorie||'').localeCompare(String(b[1].categorie||''))||String(a[1].nom||'').localeCompare(String(b[1].nom||'')))
-    .map(([id,p])=>'<option value="'+id+'"'+(id===sel?' selected':'')+'>'+String(p.categorie||'')+' · '+String(p.nom||id).replace(/</g,'&lt;')+'</option>').join('');
 }
 function pfSetBrand(b){
   _pfBrand=b;
@@ -6339,7 +6192,6 @@ function pfRenderRewards(){
     +'<div style="display:flex;align-items:center;gap:4px"><input type="number" min="0" step="10" value="'+(r.pts!=null?r.pts:0)+'" oninput="pfEdit('+i+',\'pts\',this.value)" style="width:72px;padding:6px;border:1px solid var(--border);border-radius:6px;font-size:13px;text-align:right"><span style="color:var(--text-muted);font-size:12px">pts</span></div>'
     +'<label style="display:flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);cursor:pointer"><input type="checkbox" '+(r.actif!==false?'checked':'')+' onchange="pfEdit('+i+',\'actif\',this.checked)" style="width:auto"> Actif</label>'
     +'<button class="btn btn-icon btn-danger" onclick="pfDelReward('+i+')" title="Supprimer">🗑</button>'
-    +'<div style="flex-basis:100%;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-muted)">🧾 Article offert en caisse : <select onchange="pfEdit('+i+',\'prodId\',this.value)" style="flex:1;min-width:200px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px">'+_pfOptionsProduits(_pfBrand, r.prodId||'')+'</select></div>'
     +'</div>'
   ).join('');
 }
@@ -6352,7 +6204,7 @@ function pfEdit(i,champ,val){
 function pfAddReward(){ _pfRewards[_pfBrand].push({pts:0,nom:'',emoji:'🎁',actif:true}); pfRenderRewards(); }
 function pfDelReward(i){ _pfRewards[_pfBrand].splice(i,1); pfRenderRewards(); }
 function pfSaveRewards(){
-  const clean=(_pfRewards[_pfBrand]||[]).filter(r=>r && (r.nom||'').trim()).map(r=>({pts:parseInt(r.pts)||0,nom:(r.nom||'').trim(),emoji:(r.emoji||'🎁').trim(),actif:r.actif!==false,prodId:(r.prodId||'')})).sort((a,b)=>a.pts-b.pts);
+  const clean=(_pfRewards[_pfBrand]||[]).filter(r=>r && (r.nom||'').trim()).map(r=>({pts:parseInt(r.pts)||0,nom:(r.nom||'').trim(),emoji:(r.emoji||'🎁').trim(),actif:r.actif!==false})).sort((a,b)=>a.pts-b.pts);
   _pfRewards[_pfBrand]=clean;
   db.ref('site_config/fidelite/'+_pfBrand+'/rewards').set(clean)
     .then(()=>{ const el=document.getElementById('pf-result'); el.style.color='var(--green-dark)'; el.textContent='✅ Récompenses '+(_pfBrand==='poke'?'Poké':'Capt&Fish')+' enregistrées ('+clean.length+'). La tablette se met à jour au prochain chargement.'; pfRenderRewards(); })
@@ -6378,7 +6230,7 @@ function renderFidelite(){
   // KPIs globaux
   set('fid-total', clients.length);
   set('fid-points', clients.reduce((s,c)=>s+(c.points||0),0).toLocaleString('fr-FR'));
-  { const mp=_fidMinPts(); set('fid-repas', clients.filter(c=>(c.points||0)>=mp).length); }
+  set('fid-repas', clients.reduce((s,c)=>s+Math.max(0,Math.floor((c.visites||0)/FID_PASSAGES_REPAS)-(c.rewards_used||0)),0));
   // Actifs sur la période = au moins une visite depuis le début de période
   const actifs=clients.filter(c=>c.derniere_visite && c.derniere_visite>=debut && camMatch(c)).length;
   set('fid-actifs', actifs);
@@ -6464,10 +6316,11 @@ function filtrerListe(filtre){
 // Exporte la liste actuellement affichée
 function exportFidAffiche(){
   if(!_fidListe.length){ showNotif('Affiche d\'abord une liste','error'); return; }
-  const head=['Prénom','Téléphone','Marque','Visites','Points','Récompenses utilisées','Dernière visite','Anniversaire','Plat favori','SMS OK'];
+  const head=['Prénom','Téléphone','Marque','Visites','Points','Carte (x/10)','Repas dûs','Dernière visite','Anniversaire','Plat favori','SMS OK'];
   const rows=_fidListe.map(([tel,c])=>{
+    const repasDus=Math.max(0,Math.floor((c.visites||0)/FID_PASSAGES_REPAS)-(c.rewards_used||0));
     const dv=c.derniere_visite?new Date(c.derniere_visite).toLocaleDateString('fr-FR'):'';
-    return [c.prenom||'',tel,_fidMarque(c),c.visites||0,c.points||0,_fidRecompensesUtilisees(c),dv,c.date_naissance||'',(c.profile&&c.profile.favori)||'',c.consent_marketing?'Oui':'Non'];
+    return [c.prenom||'',tel,_fidMarque(c),c.visites||0,c.points||0,(c.visites||0)%FID_PASSAGES_REPAS,repasDus,dv,c.date_naissance||'',(c.profile&&c.profile.favori)||'',c.consent_marketing?'Oui':'Non'];
   });
   const csv='\ufeff'+[head,...rows].map(r=>r.map(_csvCell).join(';')).join('\n');
   const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
@@ -6487,10 +6340,12 @@ function rechercherClient(){
     const div=document.getElementById('fid-result');
     if(!c){ div.innerHTML='<p style="color:var(--text-muted);font-size:13px">Client non trouvé.</p>'; return; }
     const visites=c.visites||0;
-    const recUt=_fidRecompensesUtilisees(c);
+    const repasGagnes=Math.floor(visites/FID_PASSAGES_REPAS);
+    const repasDus=repasGagnes-(c.rewards_used||0);
+    const prog=visites%FID_PASSAGES_REPAS;
     const hist=c.history?Object.values(c.history):[];
     const histHtml=hist.length
-      ? hist.slice().reverse().slice(0,30).map(h=>`<div style="display:flex;justify-content:space-between;padding:8px 12px;background:var(--card,#fff);border-radius:8px;font-size:13px;margin-bottom:6px;border:1px solid var(--border,#eee)"><span>${h.type==='recompense' ? ('🎁 '+(h.nom||'Récompense')+' (−'+(h.points_deduits||0)+' pts'+(h.source==='caisse'?', caisse':'')+')') : ('🐟 Passage #'+(h.visites||'?')+(h.points!=null?' · '+h.points+' pts':''))}</span><span style="color:var(--text-muted)">${_fidDate(h.ts)}</span></div>`).join('')
+      ? hist.slice().reverse().slice(0,30).map(h=>`<div style="display:flex;justify-content:space-between;padding:8px 12px;background:var(--card,#fff);border-radius:8px;font-size:13px;margin-bottom:6px;border:1px solid var(--border,#eee)"><span>🐟 Passage #${h.visites||'?'}${h.points!=null?' · '+h.points+' pts':''}</span><span style="color:var(--text-muted)">${_fidDate(h.ts)}</span></div>`).join('')
       : '<p style="color:var(--text-muted);font-size:13px">Aucun passage enregistré.</p>';
     const prenom=c.prenom?c.prenom+' · ':'';
     const consent=c.consent_marketing?'✅ SMS accepté':'❌ SMS refusé';
@@ -6501,8 +6356,8 @@ function rechercherClient(){
         <div class="stats-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:12px">
           <div class="stat-card"><div class="stat-label">Points</div><div class="stat-value green">${c.points||0}</div></div>
           <div class="stat-card"><div class="stat-label">Visites</div><div class="stat-value">${visites}</div></div>
-          <div class="stat-card"><div class="stat-label">Récompenses utilisées</div><div class="stat-value" style="font-size:18px">${recUt?'🎁 '+recUt:'0'}</div></div>
-          <div class="stat-card"><div class="stat-label">Débloquée</div><div class="stat-value ${(c.points||0)>=_fidMinPts()?'green':''}" style="font-size:18px">${(c.points||0)>=_fidMinPts()?'Oui':'Non'}</div></div>
+          <div class="stat-card"><div class="stat-label">Carte</div><div class="stat-value" style="font-size:16px">${prog}/${FID_PASSAGES_REPAS}</div></div>
+          <div class="stat-card"><div class="stat-label">Repas dûs</div><div class="stat-value ${repasDus>0?'green':''}" style="font-size:18px">${repasDus>0?'🎁 '+repasDus:'0'}</div></div>
         </div>
         <div style="font-size:13px;font-weight:600;margin:14px 0 8px">Historique des passages</div>
         ${histHtml}
@@ -6579,38 +6434,9 @@ function renderModes(){
   });
 }
 
-// AVANT : ajout / activation / suppression ne modifiaient que la mémoire de la page — AUCUNE écriture
-// en base, et aucun bouton « Enregistrer » pour cette carte. Au rechargement, tout revenait comme avant.
-// MAINTENANT : chaque action est écrite immédiatement dans parametres/modes_paiement, avec confirmation.
-function _sauverModes(msgOk){
-  const modes=Object.assign({}, parametresData.modes_paiement||modesState);
-  return db.ref('parametres/modes_paiement').set(modes)
-    .then(()=>db.ref('parametres/modes_paiement').once('value'))
-    .then(sn=>{ parametresData.modes_paiement=sn.val()||{}; renderModes(); showNotif(msgOk||'Modes de paiement enregistrés — visibles sur les caisses','success'); })
-    .catch(e=>{ console.error('modes_paiement',e); showNotif(/permission/i.test((e&&e.code)||'')?'Refusé par Firebase (règles) : parametres/modes_paiement':'Échec enregistrement : '+((e&&e.message)||e),'error');
-      db.ref('parametres/modes_paiement').once('value').then(sn=>{ if(sn.exists()){ parametresData.modes_paiement=sn.val(); renderModes(); } }); });
-}
-function toggleMode(k,v){
-  parametresData.modes_paiement=Object.assign({}, parametresData.modes_paiement||modesState); parametresData.modes_paiement[k]=v;
-  _sauverModes(k.replace(/_/g,' ')+(v?' activé':' désactivé')+' sur les caisses');
-}
-function supprimerMode(k){
-  if(['CB','Especes'].includes(k)){ showNotif('CB et Espèces ne peuvent pas être supprimés (désactive-les si besoin)','error'); return; }
-  if(!confirm('Supprimer le mode « '+k.replace(/_/g,' ')+' » ? Les encaissements passés gardent leur mode.')) return;
-  parametresData.modes_paiement=Object.assign({}, parametresData.modes_paiement||modesState); delete parametresData.modes_paiement[k];
-  _sauverModes('« '+k.replace(/_/g,' ')+' » supprimé');
-}
-function ajouterMode(){
-  const n=prompt('Nom du mode de paiement (ex. Carte titre resto) :');
-  if(!n||!n.trim()) return;
-  // Clé Firebase sûre : pas de . # $ / [ ], espaces → _
-  const k=n.trim().replace(/[.#$\/\[\]]/g,'').replace(/\s+/g,'_').slice(0,40);
-  if(!k){ showNotif('Nom invalide','error'); return; }
-  const cur=parametresData.modes_paiement||modesState;
-  if(Object.keys(cur).some(x=>x.toLowerCase()===k.toLowerCase())){ showNotif('Ce mode existe déjà','error'); return; }
-  parametresData.modes_paiement=Object.assign({}, cur); parametresData.modes_paiement[k]=true;
-  _sauverModes('« '+n.trim()+' » ajouté — il apparaît sur les caisses à la prochaine ouverture de l\'encaissement');
-}
+function toggleMode(k,v){ parametresData.modes_paiement=parametresData.modes_paiement||{}; parametresData.modes_paiement[k]=v; }
+function supprimerMode(k){ if(parametresData.modes_paiement) delete parametresData.modes_paiement[k]; renderModes(); }
+function ajouterMode(){ const n=prompt('Nom du mode de paiement :'); if(n?.trim()){ parametresData.modes_paiement=parametresData.modes_paiement||{}; parametresData.modes_paiement[n.trim().replace(/\s+/g,'_')]=true; renderModes(); } }
 
 function sauvegarderEntreprise(){
   const data={raison_sociale:v('p-raison'),siret:v('p-siret'),adresse:v('p-adresse'),tva_intracom:v('p-tva-intra'),tel:v('p-tel'),email:v('p-email'),web:v('p-web'),msg_ticket:v('p-msg')};
@@ -6647,37 +6473,6 @@ function _crxParse(txt){
   return String(txt||'').split(/[,\n;]+/).map(function(x){return x.trim();})
     .filter(function(x){ return /^\d{1,2}h\d{2}$/.test(x); });
 }
-// Horaires clients Pok&Ben (site_config/pokeben/commande_config) — défaut du planning pour les camions Poké
-let HORAIRES_PB = {midi_debut:'11:30', midi_fin:'13:30', soir_debut:'18:30', soir_fin:'20:30'};
-db.ref('site_config/pokeben/commande_config').on('value', function(sn){
-  const c=sn.val()||{};
-  ['midi_debut','midi_fin','soir_debut','soir_fin'].forEach(k=>{ if(c[k]) HORAIRES_PB[k]=c[k]; });
-});
-function _horairesDefaut(etabId, service){
-  const e=etabsData[etabId]||{};
-  if((e.carte||'poke')==='poke') return service==='midi' ? [HORAIRES_PB.midi_debut, HORAIRES_PB.midi_fin] : [HORAIRES_PB.soir_debut, HORAIRES_PB.soir_fin];
-  return (service==='midi') ? ['11:30','14:30'] : ['19:00','22:00'];
-}
-async function appliquerHorairesPlanningPb(){
-  const md=document.getElementById('cpb-cfg-midi-debut').value, mf=document.getElementById('cpb-cfg-midi-fin').value;
-  const sd=document.getElementById('cpb-cfg-soir-debut').value, sf=document.getElementById('cpb-cfg-soir-fin').value;
-  if(!md||!mf||!sd||!sf||md>=mf||sd>=sf){ showNotif('Horaires invalides','error'); return; }
-  const ids=Object.entries(etabsData||{}).filter(([,e])=>e && (e.carte||'poke')==='poke').map(([id])=>id);
-  if(!ids.length){ showNotif('Aucun camion Poké trouvé','error'); return; }
-  if(!confirm('Remplacer les horaires de TOUS les emplacements du planning des camions Poké par :\n\nMidi '+md+' – '+mf+'\nSoir '+sd+' – '+sf+' ?')) return;
-  const up={}; let n=0;
-  for(const id of ids){
-    const sn=await db.ref('planning_emplacements/'+id).once('value'); const pl=sn.val()||{};
-    Object.keys(pl).forEach(j=>['midi','soir'].forEach(sv=>{
-      if(pl[j] && pl[j][sv] && pl[j][sv].nom){
-        up['planning_emplacements/'+id+'/'+j+'/'+sv+'/h_debut']= sv==='midi'?md:sd;
-        up['planning_emplacements/'+id+'/'+j+'/'+sv+'/h_fin']  = sv==='midi'?mf:sf; n++;
-      }
-    }));
-  }
-  db.ref().update(up).then(()=>showNotif('✓ '+n+' emplacement(s) mis à jour — visible immédiatement sur pokeben.fr','success'))
-    .catch(e=>showNotif('Échec : '+((e&&e.code)||e),'error'));
-}
 function chargerCmdConfig(node){
   db.ref('site_config/'+node+'/commande_config').once('value', function(sn){
     var c = sn.val()||{};
@@ -6690,8 +6485,6 @@ function chargerCmdConfig(node){
       set('cct-cfg-soir-debut', c.soir_debut); set('cct-cfg-soir-fin', c.soir_fin);
       set('cct-cfg-pas', c.pas); set('cct-cfg-capacite', c.capacite);
     } else {
-      set('cpb-cfg-midi-debut', c.midi_debut); set('cpb-cfg-midi-fin', c.midi_fin);
-      set('cpb-cfg-soir-debut', c.soir_debut); set('cpb-cfg-soir-fin', c.soir_fin);
       if(Array.isArray(c.creneaux_midi) && c.creneaux_midi.length) set('cpb-cfg-crx-midi', c.creneaux_midi.join(', '));
       if(Array.isArray(c.creneaux_soir) && c.creneaux_soir.length) set('cpb-cfg-crx-soir', c.creneaux_soir.join(', '));
     }
@@ -6714,11 +6507,6 @@ function sauverCmdConfig(node){
     cfg.capacite   = Math.max(1, parseInt(val('cct-cfg-capacite'))||6);
     if(cfg.midi_debut>=cfg.midi_fin || cfg.soir_debut>=cfg.soir_fin){ showNotif('Plage invalide : le début doit précéder la fin','error'); return; }
   } else {
-    cfg.midi_debut = val('cpb-cfg-midi-debut')||'11:30';
-    cfg.midi_fin   = val('cpb-cfg-midi-fin')||'13:30';
-    cfg.soir_debut = val('cpb-cfg-soir-debut')||'18:30';
-    cfg.soir_fin   = val('cpb-cfg-soir-fin')||'20:30';
-    if(cfg.midi_debut>=cfg.midi_fin || cfg.soir_debut>=cfg.soir_fin || cfg.midi_fin>cfg.soir_debut){ showNotif('Horaires invalides : le début doit précéder la fin, et le midi finir avant le soir','error'); return; }
     var cm=_crxParse(val('cpb-cfg-crx-midi')), cs=_crxParse(val('cpb-cfg-crx-soir'));
     if(!cm.length || !cs.length){ showNotif('Créneaux invalides — format attendu : 12h30','error'); return; }
     cfg.creneaux_midi = cm; cfg.creneaux_soir = cs;
@@ -6916,12 +6704,35 @@ function refuserPkb(id){
     .catch(()=>showNotif('Erreur Firebase','error'));
 }
 
+// Identifiants des établissements caisse (camions Poké) — pour retrouver une commande de service
+function _pkbEtabIds(){
+  return Object.keys(etabsData||{}).filter(id => { const e=etabsData[id]; return e && (e.carte||'poke')==='poke' && !/capt/i.test(e.nom||''); });
+}
+// Retire la commande du service de TOUS les camions (jamais si elle est encaissée), puis applique `webPatch`
+function _pkbRetirerDuServicePuis(id, o, webPatch, okMsg){
+  const key = o.service_cmd_key || ('web_'+String(id));
+  const jours = [...new Set([o.jour, new Date().toISOString().split('T')[0]].filter(j=>j && /^\d{4}-\d{2}-\d{2}$/.test(j)))];
+  const lectures = [];
+  _pkbEtabIds().forEach(eid => jours.forEach(j => lectures.push(db.ref('commandes/'+eid+'/'+j+'/'+key).once('value').then(sn=>({path:'commandes/'+eid+'/'+j+'/'+key, eid, c:sn.val()})))));
+  return Promise.all(lectures).then(res => {
+    const trouvees = res.filter(r=>r.c);
+    if(trouvees.some(r=>r.c.statut==='payee')){ showNotif('Déjà encaissée en caisse : impossible','error'); return; }
+    const _u = {};
+    trouvees.forEach(r=>{ _u[r.path] = null; });
+    Object.entries(webPatch).forEach(([k,v])=>{ _u['commandes_web/'+PKB_ETAB+'/'+id+'/'+k] = v; });
+    return db.ref().update(_u).then(()=>showNotif(okMsg+(trouvees.length?' — retirée du service de '+trouvees.map(r=>(etabsData[r.eid]||{}).nom||r.eid).join(', '):''),'success'));
+  }).catch(()=>showNotif('Erreur Firebase','error'));
+}
 function remettreEnAttentePkb(id){
   const o = _pkbOrders[id]; if(!o) return;
-  if(!confirm('Remettre la commande '+(o.num||'')+' en attente ?')) return;
-  db.ref('commandes_web/'+PKB_ETAB+'/'+id).update({ status:'pending', email_statut:null, email_type:null, motif_refus:null })
-    .then(()=>showNotif('Remise en attente','success'))
-    .catch(()=>showNotif('Erreur Firebase','error'));
+  if(!confirm('Remettre la commande '+(o.num||'')+' en attente ?'+(o.service_cmd_key?'\n\nElle est déjà en service sur un camion : elle en sera retirée (sauf si elle est encaissée).':''))) return;
+  _pkbRetirerDuServicePuis(id, o, { status:'pending', email_statut:null, email_type:null, motif_refus:null, service_cmd_key:null, envoye_service_le:null }, 'Remise en attente');
+}
+// Renvoie une commande déjà imprimée/envoyée en service dans « À préparer » sur l'iPad du bon camion
+function renvoyerAuCamionPkb(id){
+  const o = _pkbOrders[id]; if(!o) return;
+  if(!confirm('Renvoyer la commande '+(o.num||'')+' dans « À préparer » sur l\'iPad du '+(o.camion||'camion')+' ?\n\nElle sera retirée du service en cours (même si elle a été envoyée depuis l\'autre camion) et pourra être réimprimée depuis la caisse.')) return;
+  _pkbRetirerDuServicePuis(id, o, { status:'confirmed', service_cmd_key:null, envoye_service_le:null }, 'Renvoyée au '+(o.camion||'camion'));
 }
 
 // ── Réattribution inter-camion ──
@@ -6969,9 +6780,10 @@ function renderPkbPlanning(){
         <td style="font-size:12px">${(o.items||[]).map(it=>(it.nom||'')+' ×'+(it.qty||1)).join(', ')}</td>
         <td style="white-space:nowrap">${fmtPrix(_pkbTotal(o))}</td>
         <td style="text-align:right;white-space:nowrap">
-          ${o.status==='printed'?'<span class="badge badge-green">Imprimé</span>':''}
+          ${o.status==='printed'?'<span class="badge badge-green" title="Bon imprimé et commande envoyée en service par la caisse">Imprimé</span>':''}
+          ${o.status==='printed'?`<button class="btn btn-secondary btn-sm" onclick="renvoyerAuCamionPkb('${o.id}')" title="Remet la commande dans « À préparer » sur l'iPad du camion, pour réimprimer le bon">📲 Renvoyer au camion</button>`:''}
           <button class="btn btn-danger btn-sm" onclick="remettreEnAttentePkb('${o.id}')" title="Renvoyer la commande dans « À valider »">↩︎ Dévalider</button>
-          <button class="btn btn-secondary btn-sm" onclick="imprimerTicketPkb('${o.id}')">🖨</button>
+          <button class="btn btn-secondary btn-sm" onclick="imprimerTicketPkb('${o.id}')" title="Aperçu du ticket (imprimante du PC)">🖨</button>
           <button class="btn btn-secondary btn-sm" onclick="reattribuerPkb('${o.id}')" title="Réattribuer vers l'autre camion">🔄</button>
         </td>
       </tr>`).join('');
@@ -6981,7 +6793,7 @@ function renderPkbPlanning(){
           <strong style="font-size:14px;text-transform:capitalize">${_pkbJourLbl(jour)} · ${_pkbServiceLbl(service)}</strong>
           <span style="font-size:12px;color:var(--text-muted);margin-left:8px">${camBadge} · ${orders.length} commande${orders.length>1?'s':''}</span>
         </div>
-        <button class="btn btn-primary btn-sm" onclick="imprimerTiroirPkb('${k}')">🖨 Imprimer le tiroir</button>
+        <button class="btn btn-primary btn-sm" onclick="imprimerTiroirPkb('${k}')" title="Aperçu sur le PC — n'affecte pas l'iPad">🖨 Aperçu du tiroir</button>
       </div>
       <table><thead><tr><th>Retrait</th><th>N° / Client</th><th>Détail</th><th>Total</th><th></th></tr></thead><tbody>${rows}</tbody></table>
     </div>`;
@@ -7108,7 +6920,9 @@ function imprimerTiroirPkb(k){
     .sort((a,b)=>_pkbHeure(a).localeCompare(_pkbHeure(b)));
   if(!orders.length) return;
   const html = orders.map(o=>_pkbTicketHTML(o)).join('<div style="border-top:2px solid #000;margin:14px 0"></div>');
-  _pkbPrintWindow(html, orders.map(o=>o.id), true);
+  // Aperçu seulement : marquer « printed » ici faisait disparaître les commandes de « À préparer »
+  // sur l'iPad (seule la caisse, qui envoie en service, pose ce statut).
+  _pkbPrintWindow(html, orders.map(o=>o.id), false);
 }
 
 // ============================================================
@@ -7348,7 +7162,7 @@ function remettreEnAttenteCaptn(id){
   if(!o) return;
   if(!confirm('Remettre la commande '+(o.num||'')+' en attente de validation ?'
     + (o.email_statut==='envoye' ? '\n\n⚠️ L\'email de confirmation est déjà parti au client — il ne sera pas annulé.' : ''))) return;
-  db.ref('commandes_web/'+CAPTN_ETAB+'/'+id).update({ status:'pending', email_statut:null })
+  db.ref('commandes_web/'+CAPTN_ETAB+'/'+id).update({ status:'pending', email_statut:null, email_type:null, motif_refus:null, service_cmd_key:null, envoye_service_le:null })
     .then(()=>showNotif('Commande remise en attente','success'))
     .catch(()=>showNotif('Erreur Firebase','error'));
 }
