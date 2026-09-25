@@ -4036,9 +4036,14 @@ function detectService(d){
   const mdebut = heureToMin(s.midi_debut||'10:30');
   const mfin = heureToMin(s.midi_fin||'15:00');
   const sdebut = heureToMin(s.soir_debut||'17:00');
-  if(h>=mdebut && h<mfin) return 'midi';
-  if(h>=sdebut) return 'soir';
-  return 'midi';
+  // Entre la fin du midi et le début du soir, l'ancien code renvoyait « midi » : à 17h40,
+  // l'iPad proposait encore le service et l'emplacement du MIDI (et ses commandes web).
+  // Règle : on bascule sur le soir à mi-chemin entre la fin du midi et le début du soir
+  // (ex. 15h00 → 19h00 : bascule à 17h00). Avant, c'est le midi (préparation comprise).
+  const pivot = (mfin < sdebut) ? Math.round((mfin + sdebut)/2) : mfin;
+  if(h >= pivot) return 'soir';
+  if(h >= mdebut - 4*60) return 'midi';      // matin : préparation du midi
+  return (h < 4*60) ? 'soir' : 'midi';       // après minuit : fin de service du soir
 }
 
 function heureToMin(h){ const [hh,mm]=h.split(':'); return parseInt(hh)*60+parseInt(mm); }
