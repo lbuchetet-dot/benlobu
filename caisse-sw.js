@@ -4,7 +4,7 @@
 // démarre et fonctionne même sans réseau (les données passent
 // par la file locale et se synchronisent à la reconnexion).
 // ══════════════════════════════════════════════════════════
-const CACHE = 'pokben-caisse-v2';   // v2 : ajout de carte-poke.js (modèle de carte commun)
+const CACHE = 'pokben-caisse-v3';   // v3 : ajouts sur commande persistés + brouillon ; v2 : carte-poke.js
 
 const ASSETS = [
   './caisse.html',
