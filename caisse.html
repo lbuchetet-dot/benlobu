@@ -13,6 +13,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="/carte-poke.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-check-compat.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;user-select:none}
@@ -179,6 +180,18 @@ input,select,textarea{font-family:inherit;outline:none}
 .taille-btn-prix{font-size:13px;color:var(--text-muted);margin-top:2px}
 .sups-title{font-size:13px;font-weight:600;margin-bottom:10px;color:var(--text)}
 .sups-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px}
+.mt-step{font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px;margin:4px 0 8px}
+.mt-step small{font-weight:500;text-transform:none;letter-spacing:0;margin-left:6px}
+.mt-grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+.menu-btn{padding:12px 10px;border:2px solid var(--border);border-radius:var(--radius);text-align:center;background:var(--white)}
+.menu-btn.selected{border-color:var(--green);background:var(--green-light)}
+.menu-btn-nom{font-size:15px;font-weight:700;color:var(--text)}
+.menu-btn-prix{font-size:14px;font-weight:700;color:var(--green-dark);margin-top:2px}
+.menu-btn-sub{font-size:11px;color:var(--text-muted);margin-top:2px}
+.slot-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;margin-bottom:14px}
+.slot-btn{padding:10px 8px;border:1.5px solid var(--border);border-radius:var(--radius);background:var(--white);font-size:13px;font-weight:500;color:var(--text);text-align:center}
+.slot-btn.selected{border-color:var(--green);background:var(--green-light);font-weight:700}
+.panier-item-compo{font-size:11px;color:var(--text-muted);margin-top:2px;line-height:1.4}
 .sup-btn{padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--radius);display:flex;justify-content:space-between;align-items:center;background:var(--white);font-size:13px;transition:all .15s}
 .sup-btn.selected{border-color:var(--green);background:var(--green-light)}
 .sup-btn-nom{font-weight:500;color:var(--text)}
@@ -294,6 +307,7 @@ input,select,textarea{font-family:inherit;outline:none}
 @media print{
   body>*:not(#print-area){display:none!important}
   #print-area{display:block;font-family:monospace;font-size:12px;width:280px;margin:0 auto}
+  #print-area .bon{width:100%}
   .pr-logo{text-align:center;font-size:16px;font-weight:bold;margin-bottom:4px}
   .pr-center{text-align:center}
   .pr-sep{border-top:1px dashed #000;margin:6px 0}
@@ -527,6 +541,7 @@ input,select,textarea{font-family:inherit;outline:none}
       <div>💰 <span id="topbar-s1-ca" style="font-weight:600">—</span></div>
       <div>🪑 <span id="topbar-s1-cvt" style="font-weight:600">—</span></div>
     </div>
+    <button id="btn-recharger" onclick="rechargerCaisse()" title="Recharger la caisse pour prendre la dernière version" style="padding:6px 12px;background:none;border:1.5px solid var(--border);border-radius:var(--radius);font-size:12px;font-weight:600;color:var(--text-muted);cursor:pointer">⟳ Recharger</button>
     <button id="btn-fond-caisse" onclick="ouvrirFondCaisse()" style="padding:6px 12px;background:none;border:1.5px solid var(--border);border-radius:var(--radius);font-size:12px;font-weight:600;color:var(--text-muted);cursor:pointer">💶 Fond de caisse</button>
     <button id="btn-ouvrir-tiroir" onclick="ouvrirTiroirManuel()" style="padding:6px 12px;background:none;border:1.5px solid var(--border);border-radius:var(--radius);font-size:12px;font-weight:600;color:var(--text-muted);cursor:pointer" title="Ouvrir le tiroir sans vente (PIN requis)">🗄 Tiroir</button>
     <button id="btn-fin-service" onclick="ouvrirFinDeService()" style="padding:6px 12px;background:var(--amber-light);border:1.5px solid var(--amber);border-radius:var(--radius);font-size:12px;font-weight:600;color:var(--amber);cursor:pointer">☕ Fin de service</button>
@@ -764,17 +779,16 @@ input,select,textarea{font-family:inherit;outline:none}
   <div class="sheet" style="border-radius:var(--radius-lg);max-width:480px;max-height:88vh;overflow-y:auto;padding:24px 20px">
     <div class="sheet-handle" style="display:none"></div>
     <div class="sheet-title" id="mt-title"></div>
-    <div class="sheet-sub">Choisir la taille</div>
-    <div class="taille-grid" id="mt-tailles"></div>
-    <div id="mt-sups-section" style="display:none">
-      <div class="sups-title">Suppléments</div>
-      <div class="sups-grid" id="mt-sups"></div>
-    </div>
+    <div class="sheet-sub" id="mt-sub">Composer</div>
+    <div id="mt-body"></div>
     <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Commentaire / Allergie</div>
     <textarea class="comment-field" id="mt-comment" placeholder="Ex: sans avocat — allergie noix…"></textarea>
     <div class="sheet-actions">
       <button class="btn-sheet-cancel" onclick="fermerModal('modal-taille')">Annuler</button>
       <button class="btn-sheet-ok" id="mt-ok" onclick="confirmerArticle()">Ajouter au panier</button>
+    </div>
+    <div id="mt-total" style="text-align:right;font-size:13px;color:var(--text-muted);margin-top:8px"></div>
+    <div style="display:none">
     </div>
   </div>
 </div>
@@ -1548,6 +1562,18 @@ function lancerCaisse(etabId, e, directCaisse){
     cacheSet('carte_'+etabId, carteData);
     renderArticles();
   });
+  // Formules / menus (même source que le site Pok&Ben : cartes/<carte>/formules)
+  const _fCached = cacheGet('formules_'+etabId);
+  if(_fCached) formulesData = _fCached;
+  db.ref('cartes/'+(e.carte||'poke')+'/formules').on('value', snap => {
+    formulesData = snap.val() || {};
+    cacheSet('formules_'+etabId, formulesData);
+  });
+  // Paramètres de carte (grille de tailles, sauces, suppléments) : tenus à jour en direct
+  db.ref('parametres').on('value', snapP => {
+    const v = snapP.val(); if(!v) return;
+    parametresData = v; cacheSet('parametres', parametresData);
+  });
 
   // Écouter l'état de l'établissement en temps réel
   db.ref('etablissements/'+etabId).on('value', snap => {
@@ -1742,6 +1768,20 @@ function faireClotureManquante(){
 // ══════════════════════════════════════════════════════════
 // BON IMPRIMÉ — MARQUEUR DANS LE PANIER
 // ══════════════════════════════════════════════════════════
+// Mise à jour : vide le cache hors-ligne puis recharge la page (la session reste ouverte,
+// les écritures en attente sont conservées dans la file locale).
+function rechargerCaisse(){
+  if(panier.length && !confirm('Un panier est en cours de saisie et sera perdu. Recharger quand même ?')) return;
+  showNotif('Mise à jour de la caisse…','info');
+  const done=()=>{ location.reload(); };
+  try{
+    Promise.all([
+      (typeof caches!=='undefined') ? caches.keys().then(ks=>Promise.all(ks.map(k=>caches.delete(k)))) : Promise.resolve(),
+      (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) ? navigator.serviceWorker.getRegistrations().then(rs=>Promise.all(rs.map(r=>r.update().catch(()=>{})))) : Promise.resolve()
+    ]).then(done, done);
+    setTimeout(done, 2500);
+  }catch(e){ done(); }
+}
 function marquerBonImprime(){
   const heure = new Date().toTimeString().substring(0,5);
   const heureEl = document.getElementById('bon-envoye-heure');
@@ -2041,7 +2081,7 @@ function envoyerBonCuisine(){
   const mapArt = i=>({
     prodId:i.prodId, nom:i.nom, taille:i.taille,
     prix:i.prixTotal, supplements:i.supplements||[],
-    commentaire:i.commentaire||'', qte:i.qte
+    commentaire:i.commentaire||'', qte:i.qte, ..._artExtra(i)
   });
 
   // ── COMPLÉMENT : commande déjà ouverte (rouverte via "+") → on AJOUTE, on ne crée pas de nouvelle commande ──
@@ -2453,7 +2493,7 @@ function rouvriCommandePayee(key, e){
     panier = (c.articles||[]).map(a=>({
       prodId:a.prodId, nom:a.nom, taille:a.taille,
       prixBase:a.prix, supplements:a.supplements||[],
-      prixTotal:a.prix, commentaire:a.commentaire||'', qte:a.qte, _dejaEnvoye:true
+      prixTotal:a.prix, commentaire:a.commentaire||'', qte:a.qte, _dejaEnvoye:true, ..._artExtra(a)
     }));
     document.getElementById('input-nom').value = c.nom_client||'';
     document.getElementById('input-couverts').value = c.couverts||'';
@@ -2512,7 +2552,7 @@ function rouvriCommandeAjouter(key, e){
     panier = (c.articles||[]).map(a=>({
       prodId:a.prodId, nom:a.nom, taille:a.taille,
       prixBase:a.prix, supplements:a.supplements||[],
-      prixTotal:a.prix, commentaire:a.commentaire||'', qte:a.qte, _dejaEnvoye:true
+      prixTotal:a.prix, commentaire:a.commentaire||'', qte:a.qte, _dejaEnvoye:true, ..._artExtra(a)
     }));
     document.getElementById('input-nom').value = c.nom_client||'';
     document.getElementById('input-couverts').value = c.couverts||'';
@@ -2705,7 +2745,7 @@ function renderArticles(){
     });
     articles.forEach(([id,p])=>{
       const tailles = Object.entries(p.tailles || {});
-      const premierPrixNormal = tailles.length ? tailles[0][1].prix : 0;
+      const premierPrixNormal = _pkPrixMin(p);   // le moins cher de la gamme, pas la première clé saisie
       const premierPrix = _prixEventProd(id, premierPrixNormal);
       const _soiree = premierPrix !== premierPrixNormal;
       const qteTotal = panierQteProduit(id);
@@ -2725,6 +2765,15 @@ function renderArticles(){
   });
 }
 
+// Champs optionnels d'une ligne (menu, protéine) — propagés tels quels vers Firebase et le bon
+function _artExtra(i){
+  const o={};
+  if(i.type) o.type=i.type;
+  if(i.formuleId) o.formuleId=i.formuleId;
+  if(i.composition) o.composition=i.composition;
+  if(i.proteine) o.proteine=i.proteine;
+  return o;
+}
 function panierQteProduit(prodId){
   return panier.filter(i=>i.prodId===prodId).reduce((s,i)=>s+i.qte,0);
 }
@@ -2732,64 +2781,140 @@ function panierQteProduit(prodId){
 // ══════════════════════════════════════════════════════════
 // MODAL TAILLE
 // ══════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════
+// MODÈLE CARTE POKÉ — même lecture que le site pokeben.fr :
+//   produit.tailles = { "M Saumon": {prix, taille:"M", proteine:"Saumon"} … }
+//   parametres.grille_tailles.<carte>  = [{nom:"S",supp:0},{nom:"M",supp:3},…]   (ordre des tailles)
+//   parametres.sauces.<carte>          = {liste:[…], prix_extra:0.5}            (1 incluse)
+//   cartes/<carte>/formules            = menus (prix fixe + écart taille/protéine + suppléments)
+// ══════════════════════════════════════════════════════════
+let formulesData = {};
+// Lecture du modèle de carte : déléguée au module commun carte-poke.js (partagé avec le site et l'admin).
+// Aucune règle de prix ou de tailles n'est écrite ici : une évolution du modèle se fait dans carte-poke.js.
+function _pkCarte(){ return (etabInfo && etabInfo.carte) || 'poke'; }
+function _pkGrille(){ return CartePoke.grille(parametresData, _pkCarte()); }
+function _pkVariantes(prod){ return CartePoke.variantes(prod, _pkGrille()); }
+function _pkAxe(prod,champ){ return CartePoke.axe(prod, champ, _pkGrille()); }
+function _pkVar(prod,t,p){ return CartePoke.variante(prod, t, p, _pkGrille()); }
+function _pkPrixMin(prod){ return CartePoke.prixMin(prod, _pkGrille()); }
+function _pkEstBowl(prod){ return CartePoke.estBowl(prod); }
+function _pkSauces(){ return CartePoke.sauces(parametresData, _pkCarte()); }
+function _pkFormules(){ return CartePoke.formulesActives(formulesData); }
+function _pkProduitsSlot(sl){ return CartePoke.produitsSlot(sl, carteData); }
+function _pkFormulesPour(prodId){ return CartePoke.formulesPour(prodId, _pkFormules(), carteData); }
+function _pkSlotsMenu(f){ return CartePoke.slotsMenu(f, carteData); }
+
+// ══════════════════════════════════════════════════════════
+// MODALE PRODUIT : taille → protéine → sauce → seul / menu → suppléments
+// ══════════════════════════════════════════════════════════
+let _mtTaille=null, _mtProt=null, _mtSauces=[], _mtMenu=null, _mtMenuSel={};
 function ouvrirTaille(prodId, prod){
   articleEnCours = {prodId, prod};
   tailleSelectionnee = null;
   supsSelectionnes = {};
+  _mtTaille=null; _mtProt=null; _mtSauces=[]; _mtMenu=null; _mtMenuSel={};
+  const T=_pkAxe(prod,'taille'), P=_pkAxe(prod,'proteine');
+  if(T.length===1) _mtTaille=T[0];
+  if(P.length<=1) _mtProt=P[0]||'';
+  if(!T.length && !P.length){ const v=_pkVariantes(prod)[0]; if(v){ _mtTaille=v.taille; _mtProt=v.proteine; } }
   document.getElementById('mt-title').textContent = prod.nom;
   document.getElementById('mt-comment').value = '';
-  // Tailles
-  const tailles = Object.entries(prod.tailles || {});
-  const grid = document.getElementById('mt-tailles');
-  grid.innerHTML = '';
-  if(tailles.length === 1){
-    // Taille unique → sélection auto
-    tailleSelectionnee = tailles[0][0];
-  }
-  tailles.forEach(([nom, val]) => {
-    const btn = document.createElement('button');
-    btn.className = 'taille-btn' + (tailles.length===1?' selected':'');
-    const _pe = _prixEventProd(prodId, val.prix);
-    const _pxHTML = (_pe!==val.prix)
-      ? `<span style="text-decoration:line-through;opacity:.5;font-size:.8em;margin-right:4px">${fmtPrix(val.prix)}</span>${fmtPrix(_pe)} 🎉`
-      : fmtPrix(val.prix);
-    btn.innerHTML = `<div class="taille-btn-nom">${nom}</div><div class="taille-btn-prix">${_pxHTML}</div>`;
-    btn.onclick = () => {
-      document.querySelectorAll('.taille-btn').forEach(b=>b.classList.remove('selected'));
-      btn.classList.add('selected');
-      tailleSelectionnee = nom;
-      renderSups(prod);
-    };
-    grid.appendChild(btn);
-  });
-  // Suppléments
-  const sups = Object.entries(prod.supplements || {});
-  const supsSection = document.getElementById('mt-sups-section');
-  if(sups.length){
-    supsSection.style.display = 'block';
-    renderSups(prod);
-  } else {
-    supsSection.style.display = 'none';
-  }
+  _mtRender();
   document.getElementById('modal-taille').classList.add('open');
 }
-
-function renderSups(prod){
-  const sups = Object.entries(prod.supplements || {});
-  const grid = document.getElementById('mt-sups');
-  grid.innerHTML = '';
-  sups.forEach(([id, s]) => {
-    const btn = document.createElement('button');
-    btn.className = 'sup-btn' + (supsSelectionnes[id]?' selected':'');
-    btn.innerHTML = `<span class="sup-btn-nom">${s.nom}</span><span class="sup-btn-prix">+${fmtPrix(s.prix)}</span>`;
-    btn.onclick = () => {
-      if(supsSelectionnes[id]) delete supsSelectionnes[id];
-      else supsSelectionnes[id] = s;
-      btn.classList.toggle('selected');
-    };
-    grid.appendChild(btn);
-  });
+function _mtVar(){ const {prod}=articleEnCours; return _pkVar(prod,_mtTaille,_mtProt) || (_pkVariantes(prod).length===1?_pkVariantes(prod)[0]:null); }
+function _mtPrixVar(){ const v=_mtVar(); return v?_prixEventProd(articleEnCours.prodId, v.prix):null; }
+function _mtCtx(){ const pv=_mtPrixVar(); if(pv==null) return null;
+  return { prixVariante:pv, prixMinProduit:_pkPrixMin(articleEnCours.prod), supplements:Object.values(supsSelectionnes), nbSauces:_mtSauces.length, prixExtraSauce:_pkSauces().prixExtra }; }
+function _mtPrixSeul(){ const c=_mtCtx(); return c?CartePoke.prixSeul(c):null; }
+function _mtPrixMenu(f){ const c=_mtCtx(); return c?CartePoke.prixMenu(f,c):null; }
+function _mtEtape(n,titre,note){ return `<div class="mt-step">${n} · ${titre}${note?`<small>${note}</small>`:''}</div>`; }
+function _mtRender(){
+  const {prodId, prod} = articleEnCours;
+  const body=document.getElementById('mt-body'); if(!body) return;
+  const T=_pkAxe(prod,'taille'), P=_pkAxe(prod,'proteine');
+  const bowl=_pkEstBowl(prod);
+  const sauces=bowl?_pkSauces():{liste:[],prixExtra:0};
+  const formules=_pkFormulesPour(prodId);
+  const sups=Object.entries(prod.supplements||{});
+  let n=0, h='';
+  document.getElementById('mt-sub').textContent = (T.length>1||P.length>1) ? 'Composer le bowl' : (sauces.liste.length||formules.length?'Composer':'');
+  // 1 · taille (prix de la protéine la moins chère pour cette taille)
+  if(T.length>1){
+    h+=_mtEtape(++n,'Taille');
+    h+='<div class="taille-grid">'+T.map(t=>{
+      const vs=_pkVariantes(prod).filter(v=>v.taille===t);
+      const pmin=Math.min(...vs.map(v=>_prixEventProd(prodId,v.prix)));
+      const soiree=vs.some(v=>_prixEventProd(prodId,v.prix)!==v.prix);
+      return `<button class="taille-btn${_mtTaille===t?' selected':''}" onclick="_mtSetTaille('${t.replace(/'/g,"\\'")}')"><div class="taille-btn-nom">${t}</div><div class="taille-btn-prix">${P.length>1?'dès ':''}${fmtPrix(pmin)}${soiree?' 🎉':''}</div></button>`;
+    }).join('')+'</div>';
+  }
+  // 2 · protéine (écart affiché par rapport à la moins chère de la taille)
+  if(P.length>1){
+    h+=_mtEtape(++n,'Protéine');
+    const tRef=_mtTaille||T[0];
+    const vsT=_pkVariantes(prod).filter(v=>v.taille===tRef);
+    const base=vsT.length?Math.min(...vsT.map(v=>v.prix)):0;
+    h+='<div class="taille-grid">'+P.map(pn=>{
+      const v=_pkVar(prod,tRef,pn); const ecart=v?v.prix-base:0;
+      return `<button class="taille-btn${_mtProt===pn?' selected':''}" onclick="_mtSetProt('${pn.replace(/'/g,"\\'")}')"><div class="taille-btn-nom">${pn}</div><div class="taille-btn-prix">${ecart>0.009?'+'+fmtPrix(ecart):'—'}</div></button>`;
+    }).join('')+'</div>';
+  }
+  // 3 · sauce : 1 incluse, les suivantes facturées
+  if(sauces.liste.length){
+    h+=_mtEtape(++n,'Sauce', '1 incluse'+(sauces.prixExtra>0?', +'+fmtPrix(sauces.prixExtra)+' par sauce en plus':''));
+    h+='<div class="sups-grid">'+sauces.liste.map((sc,i)=>{
+      const rang=_mtSauces.indexOf(sc), on=rang>=0;
+      const lbl=on?(rang===0?'incluse':'+'+fmtPrix(sauces.prixExtra)):(_mtSauces.length?'+'+fmtPrix(sauces.prixExtra):'incluse');
+      return `<button class="sup-btn${on?' selected':''}" onclick="_mtToggleSauce(${i})"><span class="sup-btn-nom">${sc}</span><span class="sup-btn-prix">${lbl}</span></button>`;
+    }).join('')+'</div>';
+  }
+  // 4 · seul ou en menu
+  if(formules.length){
+    h+=_mtEtape(++n,'Seul ou en menu ?');
+    const ps=_mtPrixSeul();
+    h+='<div class="mt-grid2">';
+    h+=`<button class="menu-btn${_mtMenu===null?' selected':''}" onclick="_mtChoixMenu(null)"><div class="menu-btn-nom">Seul</div><div class="menu-btn-prix">${ps==null?'—':fmtPrix(ps)}</div></button>`;
+    formules.forEach(f=>{
+      const pm=_mtPrixMenu(f);
+      const slots=_pkSlotsMenu(f);
+      const contenu=slots.map(x=>x.sl.label).join(' + ');
+      // économie vs tout acheter séparément (produit le moins cher de chaque emplacement)
+      const carte=CartePoke.prixSlotsALaCarte(f, carteData, _pkGrille());
+      const eco=(ps!=null&&pm!=null)?(ps+carte-pm):0;
+      h+=`<button class="menu-btn${_mtMenu===f.id?' selected':''}" onclick="_mtChoixMenu('${f.id}')"><div class="menu-btn-nom">${f.nom}</div><div class="menu-btn-prix">${pm==null?'—':fmtPrix(pm)}</div><div class="menu-btn-sub">${contenu}${eco>0.009?' — économie '+fmtPrix(eco):''}</div></button>`;
+    });
+    h+='</div>';
+    const f=formules.find(x=>x.id===_mtMenu);
+    if(f){
+      _pkSlotsMenu(f).forEach(x=>{
+        const ids=_pkProduitsSlot(x.sl);
+        if(ids.length===1 && !_mtMenuSel[x.si]) _mtMenuSel[x.si]=ids[0];
+        h+=`<div class="mt-step">${x.sl.label}<small>${_mtMenuSel[x.si]?'':'à choisir'}</small></div><div class="slot-grid">`+ids.map(id=>{
+          const p=carteData[id]||{};
+          return `<button class="slot-btn${_mtMenuSel[x.si]===id?' selected':''}" onclick="_mtChoixSlot(${x.si},'${id}')">${p.nom||id}</button>`;
+        }).join('')+'</div>';
+      });
+    }
+  }
+  // 5 · suppléments
+  if(sups.length){
+    h+=_mtEtape(++n,'Suppléments');
+    h+='<div class="sups-grid">'+sups.map(([id,sp])=>`<button class="sup-btn${supsSelectionnes[id]?' selected':''}" onclick="_mtToggleSup('${id}')"><span class="sup-btn-nom">${sp.nom}</span><span class="sup-btn-prix">+${fmtPrix(sp.prix)}</span></button>`).join('')+'</div>';
+  }
+  body.innerHTML=h;
+  // total
+  const f=formules.find(x=>x.id===_mtMenu);
+  const total=f?_mtPrixMenu(f):_mtPrixSeul();
+  const tot=document.getElementById('mt-total');
+  if(tot) tot.innerHTML = total==null ? '' : (f?f.nom:'Article')+' : <strong style="color:var(--text);font-size:15px">'+fmtPrix(total)+'</strong>';
 }
+function _mtSetTaille(t){ _mtTaille=t; _mtRender(); }
+function _mtSetProt(p){ _mtProt=p; _mtRender(); }
+function _mtToggleSauce(i){ const sc=_pkSauces().liste[i]; if(!sc) return; const k=_mtSauces.indexOf(sc); if(k>=0) _mtSauces.splice(k,1); else _mtSauces.push(sc); _mtRender(); }
+function _mtToggleSup(id){ const sp=(articleEnCours.prod.supplements||{})[id]; if(!sp) return; if(supsSelectionnes[id]) delete supsSelectionnes[id]; else supsSelectionnes[id]=sp; _mtRender(); }
+function _mtChoixMenu(id){ _mtMenu=id; if(!id) _mtMenuSel={}; _mtRender(); }
+function _mtChoixSlot(si,id){ _mtMenuSel[si]=id; _mtRender(); }
 
 function _prixEventProd(prodId, prixNormal){
   if(_prixEventJour && _prixEventJour[prodId]!=null){
@@ -2799,15 +2924,34 @@ function _prixEventProd(prodId, prixNormal){
   return prixNormal;
 }
 function confirmerArticle(){
-  if(!tailleSelectionnee){ showNotif('Choisis une taille','error'); return; }
   const {prodId, prod} = articleEnCours;
-  const taille = prod.tailles[tailleSelectionnee];
-  const sups = Object.values(supsSelectionnes);
-  const prixBase = _prixEventProd(prodId, taille.prix);
-  const prixTotal = prixBase + sups.reduce((s,sup)=>s+sup.prix,0);
+  const T=_pkAxe(prod,'taille'), P=_pkAxe(prod,'proteine');
+  if(T.length>1 && !_mtTaille){ showNotif('Choisis une taille','error'); return; }
+  if(P.length>1 && !_mtProt){ showNotif('Choisis une protéine','error'); return; }
+  const v = _mtVar();
+  if(!v){ showNotif('Combinaison introuvable dans la carte','error'); return; }
+  const sc=_pkSauces();
+  // Sauces = suppléments à 0 € (la première) puis prix_extra, comme sur le site
+  const sups = Object.values(supsSelectionnes).map(x=>({nom:x.nom, prix:Number(x.prix)||0})).concat(CartePoke.saucesEnSupplements(_mtSauces, sc.prixExtra));
+  const supsTot = sups.reduce((a,x)=>a+x.prix,0);
+  const prixVar = _prixEventProd(prodId, v.prix);
   const comment = document.getElementById('mt-comment').value.trim();
-  // Stocker l'article en attente
-  articleEnAttente = { prodId, nom:prod.nom, taille:tailleSelectionnee, prixBase, supplements:sups, prixTotal, commentaire:comment, qte:1 };
+  const f = _mtMenu ? _pkFormulesPour(prodId).find(x=>x.id===_mtMenu) : null;
+  if(f){
+    const slots=_pkSlotsMenu(f);
+    const manque=slots.find(x=>!_mtMenuSel[x.si]);
+    if(manque){ showNotif('Choisis : '+manque.sl.label,'error'); return; }
+    const ecart=Math.max(0, prixVar-_pkPrixMin(prod));
+    // variante au prix du jour (événement) pour la composition
+    const vJour=Object.assign({}, v, {prix:prixVar});
+    const composition=CartePoke.composition(f, prod, prodId, vJour, sups, _mtMenuSel, carteData, _pkGrille());
+    const prixTotal = Math.round((f.prix+ecart+supsTot)*100)/100;
+    articleEnAttente = { prodId:f.id, formuleId:f.id, type:'formule', nom:f.nom, taille:v.nom, proteine:v.proteine||'', composition,
+                         prixBase:f.prix, supplements:[], prixTotal, commentaire:comment, qte:1 };
+  } else {
+    const prixTotal = Math.round((prixVar+supsTot)*100)/100;
+    articleEnAttente = { prodId, nom:prod.nom, taille:v.nom, proteine:v.proteine||'', prixBase:prixVar, supplements:sups, prixTotal, commentaire:comment, qte:1 };
+  }
   fermerModal('modal-taille');
   // Premier article → imposer nom + couverts
   if(panier.length === 0){
@@ -2904,7 +3048,8 @@ function renderPanier(){
       <div class="panier-item-top">
         <div style="flex:1">
           <div class="panier-item-name">${item.nom}</div>
-          <div class="panier-item-taille">${item.taille}${item.supplements?.length?' · '+supsStr:''}</div>
+          <div class="panier-item-taille">${item.taille||''}${item.supplements?.length?' · '+supsStr:''}</div>
+          ${item.composition?`<div class="panier-item-compo">${item.composition.map(c=>'• '+(c.label?c.label+' : ':'')+c.nom).join('<br>')}</div>`:''}
           ${item.commentaire?`<div class="panier-item-comment">⚠️ ${item.commentaire}</div>`:''}
         </div>
         <div style="text-align:right">
@@ -3651,7 +3796,7 @@ function _assurerCommandeOuverte(apres){
     const articles = panier.map(i=>({
       prodId:i.prodId, nom:i.nom, taille:i.taille,
       prix:i.prixTotal, supplements:i.supplements||[],
-      commentaire:i.commentaire||'', qte:i.qte
+      commentaire:i.commentaire||'', qte:i.qte, ..._artExtra(i)
     }));
     const cmd = {
       num, nom_client:nom, couverts, retrait_souhaite:retrait,
@@ -3981,7 +4126,7 @@ function finaliserCommande(paiements){
       articles: panier.length > 0 ? panier.map(i=>({
         prodId:i.prodId, nom:i.nom, taille:i.taille,
         prix:i.prixTotal, supplements:i.supplements||[],
-        commentaire:i.commentaire||'', qte:i.qte
+        commentaire:i.commentaire||'', qte:i.qte, ..._artExtra(i)
       })) : (base.articles || []),
       paiements,
       date: todayKey(),
@@ -4074,7 +4219,7 @@ function ouvrirBonAvantPaiement(){
     articles: panier.map(i=>({
       prodId:i.prodId, nom:i.nom, taille:i.taille,
       prix:i.prixTotal, supplements:i.supplements||[],
-      commentaire:i.commentaire||'', qte:i.qte
+      commentaire:i.commentaire||'', qte:i.qte, ..._artExtra(i)
     })),
     total: getTotal(),
     paiements: []
@@ -4235,57 +4380,119 @@ function imprimerBon(){
   const retrait = document.getElementById('input-retrait').value || commandeEnCours?.retrait_souhaite || '';
   const articles = commandeEnCours ? commandeEnCours.articles : panier.map(i=>({
     nom:i.nom, taille:i.taille, qte:i.qte,
-    supplements:i.supplements||[], commentaire:i.commentaire||''
+    supplements:i.supplements||[], commentaire:i.commentaire||'', ..._artExtra(i)
   }));
   const num = commandeEnCours ? commandeEnCours.num : cmdCounter + 1;
   const total = commandeEnCours ? commandeEnCours.total : getTotal();
   const nomAffiche = commandeEnCours ? commandeEnCours.nom_client : nom;
-  // Impression réseau Epson si configurée
-  if(eposActif()){
-    eposImprimerBon({num, nom:nomAffiche, retrait, articles, total,
-      heure:(commandeEnCours?commandeEnCours.heure:''), couverts:(commandeEnCours?commandeEnCours.couverts:'')}, false);
-    marquerBonImprime();
-    return;
-  }
-  const html = `
-    <div style="text-align:center;font-size:20px;font-weight:bold;margin-bottom:4px">#${String(num).padStart(3,'0')}</div>
-    <div style="text-align:center;font-size:18px;font-weight:bold;margin-bottom:4px">${nomAffiche}</div>
-    ${retrait?`<div style="text-align:center;font-size:14px;font-weight:bold;color:#c07000;margin-bottom:4px;padding:4px 0;border:2px solid #c07000">⏰ RETRAIT ${retrait}</div>`:''}
-    <div style="border-top:2px solid #000;margin-bottom:8px;margin-top:8px"></div>
-    ${articles.map(a=>`
-      <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid #eee">
-        <div style="font-size:24px;font-weight:bold;min-width:36px">×${a.qte}</div>
-        <div>
-          <div style="font-size:16px;font-weight:bold">${a.nom}</div>
-          <div style="font-size:13px;color:#555">${a.taille}${(a.supplements||[]).length?' + '+(a.supplements.map(s=>s.nom).join(', ')):''}</div>
-          ${a.commentaire?`<div style="font-size:13px;color:#c00;font-weight:600">⚠️ ${a.commentaire}</div>`:''}
-        </div>
-      </div>`).join('')}
-    <div style="margin-top:10px;font-size:13px;color:#555">Total : ${fmtPrix(total)}</div>`;
-  document.getElementById('print-area').innerHTML = html;
-  window.print();
+  imprimerBons([{num, nom:nomAffiche, retrait, articles, total,
+    heure:(commandeEnCours?commandeEnCours.heure:''), couverts:(commandeEnCours?commandeEnCours.couverts:'')}]);
   marquerBonImprime();
 }
 
-function bonHtmlPourImpression(c){
-  const retrait=c.retrait_souhaite||'';
-  return `
-    <div style="text-align:center;font-size:20px;font-weight:bold;margin-bottom:4px">#${String(c.num).padStart(3,'0')}</div>
-    <div style="text-align:center;font-size:18px;font-weight:bold;margin-bottom:4px">${c.nom_client||'Client'}</div>
-    ${c.heure?`<div style="text-align:center;font-size:13px;color:#555;margin-bottom:4px">${c.heure}${c.couverts?' · '+c.couverts+' cvt':''}</div>`:''}
-    ${retrait?`<div style="text-align:center;font-size:14px;font-weight:bold;color:#c07000;margin-bottom:4px;padding:4px 0;border:2px solid #c07000">⏰ RETRAIT ${retrait}</div>`:''}
-    <div style="border-top:2px solid #000;margin-bottom:8px;margin-top:8px"></div>
-    ${(c.articles||[]).map(a=>`
-      <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid #eee">
-        <div style="font-size:24px;font-weight:bold;min-width:36px">×${a.qte}</div>
-        <div>
-          <div style="font-size:16px;font-weight:bold">${a.nom}</div>
-          <div style="font-size:13px;color:#555">${a.taille||''}${(a.supplements||[]).length?' + '+(a.supplements.map(s=>s.nom).join(', ')):''}</div>
-          ${a.commentaire?`<div style="font-size:13px;color:#c00;font-weight:600">⚠️ ${a.commentaire}</div>`:''}
-        </div>
-      </div>`).join('')}
-    <div style="margin-top:10px;font-size:13px;color:#555">Total : ${fmtPrix(c.total||0)}</div>`;
+// ══════════════════════════════════════════════════════════
+// BON DE PRÉPARATION — gabarit unique (maquette « B », validée le 30/09/2026)
+//   · 3 cm de blanc en haut pour l'accroche au passe-bon
+//   · numéro + client, retrait encadré, tout en double taille
+//   · un article par bloc : « 2x NOM », taille · protéine, une ligne par supplément
+//     et par sauce, composition d'un menu ligne par ligne, allergie « !! » en gras
+//   · total en petit tout en bas
+// Même contenu pour l'Epson (lignes ePOS) et pour AirPrint (HTML).
+// d = {num, nom, retrait, articles, total, heure, couverts, complement:{rappel, heure}?}
+// ══════════════════════════════════════════════════════════
+const BON_MARGE_HAUT_MM = 30;
+function _bonTailleLbl(a){
+  let t=String(a.taille||'').trim(); const p=String(a.proteine||'').trim();
+  if(/^unique$/i.test(t)) t='';
+  if(p && t.toLowerCase().endsWith(p.toLowerCase())) t=t.slice(0,t.length-p.length).trim();
+  return [t,p].filter(Boolean).join(' · ');
 }
+function _bonNomArticle(a){ return String(a.nom||'').replace(/\s*\(.*\)\s*$/,''); }   // « Bowl M Saumon (Sauce…) » → nom seul
+// Lignes structurées communes : [{t:'feed'|'h1'|'h2'|'h3'|'txt'|'sep'|'sep2'|'small'|'alert', v, align}]
+function _bonBlocs(d){
+  const L=[];
+  L.push({t:'feed'});
+  L.push({t:'h1', v:'#'+String(d.num||'').padStart(3,'0')+' '+String(d.nom||'Client').toUpperCase(), align:'center'});
+  const meta=[d.heure, d.couverts?d.couverts+' couverts':''].filter(Boolean).join(' · ');
+  if(meta) L.push({t:'txt', v:meta, align:'center'});
+  L.push({t:'sep2'});
+  if(d.retrait){ L.push({t:'h1', v:'RETRAIT '+String(d.retrait).replace(':','H').toUpperCase(), align:'center'}); L.push({t:'sep2'}); }
+  if(d.complement){
+    L.push({t:'alert', v:'COMPLEMENT'+(d.complement.rappel?' - deja envoye a '+d.complement.rappel:''), align:'center'});
+    L.push({t:'h2', v:'AJOUT '+(d.complement.heure||''), align:'center'});
+    L.push({t:'sep2'});
+  }
+  (d.articles||[]).forEach((a,i)=>{
+    if(i>0) L.push({t:'sep'});
+    L.push({t:'h1', v:(a.qte||1)+'x '+_bonNomArticle(a).toUpperCase()});
+    if(a.composition && a.composition.length){
+      a.composition.forEach(c=>{
+        const cs=c.supplements||[];
+        const nomC=(c.nom||'').replace(/\s*\(.*\)\s*$/,'');
+        const tl=_bonTailleLbl({taille:c.taille, proteine:c.proteine});
+        // le bowl du menu : « Chiratch'eese M Saumon » → nom seul puis « M · Saumon »
+        const nomSeul = tl && nomC.toLowerCase().endsWith(String(c.taille||'').toLowerCase()) ? nomC.slice(0, nomC.length-String(c.taille||'').length).trim() : nomC;
+        L.push({t:'h2', v:'  '+nomSeul});
+        if(tl) L.push({t:'h2', v:'  '+tl});
+        cs.forEach(sp=>L.push({t:'h3', v:'  + '+sp.nom}));
+      });
+    } else {
+      const tl=_bonTailleLbl(a);
+      if(tl) L.push({t:'h2', v:'  '+tl});
+      (a.supplements||[]).forEach(sp=>L.push({t:'h3', v:'  + '+sp.nom}));
+    }
+    if(a.commentaire) L.push({t:'alert', v:'  !! '+String(a.commentaire).toUpperCase()});
+  });
+  L.push({t:'sep2'});
+  L.push({t:'small', v:'Total '+fmtPrix(d.total||0)+'  ·  #'+String(d.num||'').padStart(3,'0'), align:'right'});
+  return L;
+}
+// → lignes ePOS (Epson). Double largeur = 21 colonnes : on replie les titres trop longs.
+function _bonLignesEpos(d){
+  const out=[]; const W2=Math.floor(EPOS_COLS/2);
+  const wrap=(v,w)=>{ v=String(v); const res=[]; while(v.length>w){ let k=v.lastIndexOf(' ',w); if(k<Math.floor(w/2)) k=w; res.push(v.slice(0,k)); v=v.slice(k).replace(/^\s+/,'  '); } res.push(v); return res; };
+  _bonBlocs(d).forEach(b=>{
+    if(b.t==='feed'){ out.push({feedUnit:Math.round(BON_MARGE_HAUT_MM*8)}); return; }      // 8 points / mm (203 dpi)
+    if(b.t==='sep'){ out.push({sep:true}); return; }
+    if(b.t==='sep2'){ out.push({v:'='.repeat(EPOS_COLS), bold:true}); return; }
+    if(b.t==='h1'||b.t==='alert'){ wrap(b.v,W2).forEach(v=>out.push({v, align:b.align||'left', bold:true, dw:true, dh:true})); return; }
+    if(b.t==='h2'){ wrap(b.v,W2).forEach(v=>out.push({v, align:b.align||'left', bold:true, dw:true, dh:true})); return; }
+    if(b.t==='h3'){ wrap(b.v,EPOS_COLS).forEach(v=>out.push({v, align:b.align||'left', dh:true})); return; }
+    if(b.t==='small'){ out.push({v:b.v, align:b.align||'left'}); return; }
+    out.push({v:b.v, align:b.align||'left'});
+  });
+  return out;
+}
+// → HTML (AirPrint / aperçu) : mêmes blocs, mêmes proportions, marge haute identique
+function _bonHtml(d){
+  const e=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  const st={h1:'font-size:26px;font-weight:800;line-height:1.25', h2:'font-size:22px;font-weight:700;line-height:1.3', h3:'font-size:17px;line-height:1.4',
+            alert:'font-size:22px;font-weight:800;line-height:1.3', txt:'font-size:14px', small:'font-size:12px;color:#555;margin-top:6px'};
+  return '<div class="bon" style="padding-top:'+BON_MARGE_HAUT_MM+'mm;font-family:\'Courier New\',monospace;color:#000">'+_bonBlocs(d).map(b=>{
+    if(b.t==='feed') return '';
+    if(b.t==='sep') return '<div style="border-top:1px dashed #000;margin:8px 0"></div>';
+    if(b.t==='sep2') return '<div style="border-top:3px double #000;margin:10px 0"></div>';
+    return '<div style="'+(st[b.t]||st.txt)+';text-align:'+(b.align||'left')+';white-space:pre-wrap">'+e(b.v)+'</div>';
+  }).join('')+'</div>';
+}
+function _bonDepuisCommande(c, extra){
+  return Object.assign({num:c.num, nom:c.nom_client, retrait:c.retrait_souhaite, articles:c.articles||[], total:c.total, heure:c.heure, couverts:c.couverts}, extra||{});
+}
+// Impression d'un ou plusieurs bons, quel que soit le canal. Renvoie true si l'envoi a pu partir.
+function imprimerBons(ds){
+  if(!ds || !ds.length) return false;
+  try{
+    if(eposActif()){
+      (async()=>{ for(const d of ds){ await eposImprimerBon(d,false); } })();
+      return true;
+    }
+    const pa=document.getElementById('print-area'); if(!pa) return false;
+    pa.innerHTML = ds.map(_bonHtml).join('<div style="page-break-after:always"></div>');
+    window.print();
+    return true;
+  }catch(e){ console.error('Impression bon:', e); return false; }
+}
+function bonHtmlPourImpression(c){ return _bonHtml(_bonDepuisCommande(c)); }
 
 function imprimerTousLesBons(){
   const today=todayKey();
@@ -4295,8 +4502,7 @@ function imprimerTousLesBons(){
     const aImp=all.filter(([,c])=> c.statut==='en_cours' && c.importe && !c.bon_imprime && ((c.service||serviceActuel)===serviceActuel))
       .sort(([,a],[,b])=>{ const ra=a.retrait_souhaite||a.heure||'99:99', rb=b.retrait_souhaite||b.heure||'99:99'; return ra.localeCompare(rb); });
     if(!aImp.length){ showNotif('Aucun bon à imprimer','error'); return; }
-    document.getElementById('print-area').innerHTML = aImp.map(([,c])=>bonHtmlPourImpression(c)).join('<div style="page-break-after:always"></div>');
-    lancerImpressionZone();
+    imprimerBons(aImp.map(([,c])=>_bonDepuisCommande(c)));
     const updates={};
     aImp.forEach(([key,])=>{ updates['commandes/'+selectedEtabId+'/'+today+'/'+key+'/bon_imprime']=true; });
     db.ref().update(updates);
@@ -4306,29 +4512,7 @@ function imprimerTousLesBons(){
 }
 
 function imprimerBonComplement(cmd, nouveauxArticles, heuresPrec, heure){
-  const retrait = cmd.retrait_souhaite || '';
-  const numStr = String(cmd.num).padStart(3,'0');
-  const rappel = heuresPrec.length
-    ? '⚠️ COMPLÉMENT — ' + (heuresPrec.length>1 ? 'parties déjà envoyées à ' : '1ère partie déjà envoyée à ') + heuresPrec.join(' / ')
-    : '⚠️ COMPLÉMENT';
-  const html = `
-    <div style="text-align:center;font-size:20px;font-weight:bold;margin-bottom:4px">#${numStr}</div>
-    <div style="text-align:center;font-size:18px;font-weight:bold;margin-bottom:4px">${cmd.nom_client}</div>
-    ${retrait?`<div style="text-align:center;font-size:14px;font-weight:bold;color:#c07000;margin-bottom:4px;padding:4px 0;border:2px solid #c07000">⏰ RETRAIT ${retrait}</div>`:''}
-    <div style="text-align:center;font-size:13px;font-weight:bold;margin:6px 0;padding:6px 4px;border:2px dashed #000">${rappel}</div>
-    <div style="text-align:center;font-size:15px;font-weight:bold;margin-bottom:4px">➕ AJOUT À PRÉPARER — ${heure}</div>
-    <div style="border-top:2px solid #000;margin-bottom:8px;margin-top:8px"></div>
-    ${nouveauxArticles.map(a=>`
-      <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid #eee">
-        <div style="font-size:24px;font-weight:bold;min-width:36px">×${a.qte}</div>
-        <div>
-          <div style="font-size:16px;font-weight:bold">${a.nom}</div>
-          <div style="font-size:13px;color:#555">${a.taille}${(a.supplements||[]).length?' + '+(a.supplements.map(s=>s.nom).join(', ')):''}</div>
-          ${a.commentaire?`<div style="font-size:13px;color:#c00;font-weight:600">⚠️ ${a.commentaire}</div>`:''}
-        </div>
-      </div>`).join('')}`;
-  document.getElementById('print-area').innerHTML = html;
-  lancerImpressionZone();
+  imprimerBons([_bonDepuisCommande(cmd, {articles:nouveauxArticles, complement:{rappel:heuresPrec.join(' / '), heure}})]);
 }
 
 function imprimerNote(avecDetail){
@@ -5715,15 +5899,7 @@ function imprimerEtEnvoyerService(){
 // Imprime un lot de bons (best-effort). Renvoie true si l'impression a pu se lancer.
 function _imprimerLotBons(cmds){
   if(!cmds || !cmds.length) return false;
-  try{
-    const pa = document.getElementById('print-area');
-    if(pa){
-      pa.innerHTML = cmds.map(bonHtmlPourImpression).join('<div style="page-break-after:always"></div>');
-      lancerImpressionZone();
-      return true;
-    }
-  }catch(e){ console.error('Impression lot:', e); }
-  return false;
+  return imprimerBons(cmds.map(c=>_bonDepuisCommande(c)));
 }
 // Réimpression du bon d'une commande web déjà en service
 function reimprimerBonService(key, ev){
@@ -5731,12 +5907,7 @@ function reimprimerBonService(key, ev){
   db.ref('commandes/'+selectedEtabId+'/'+todayKey()+'/'+key).once('value', snap=>{
     const c = snap.val(); if(!c){ showNotif('Commande introuvable','error'); return; }
     try{
-      if(typeof eposActif==='function' && eposActif()){
-        eposImprimerBon({num:c.num, nom:c.nom_client, retrait:c.retrait_souhaite, articles:c.articles, total:c.total, heure:c.heure, couverts:c.couverts}, false);
-      } else {
-        const pa=document.getElementById('print-area');
-        if(pa){ pa.innerHTML = bonHtmlPourImpression(c); window.print(); }
-      }
+      imprimerBons([_bonDepuisCommande(c)]);
       showNotif('Bon #'+String(c.num).padStart(3,'0')+' réimprimé','success');
     }catch(e){ console.error(e); showNotif('Impression indisponible','error'); }
   });
@@ -6043,6 +6214,7 @@ function eposBuildBody(lignes, ouvrirTiroir){
     for(const l of lignes){
       if(l.sep){ xml += '<text align="left"/>'; curAlign='left'; xml += '<text>'+ '-'.repeat(EPOS_COLS) +'&#10;</text>'; continue; }
       if(l.feed){ xml += '<feed line="'+(l.feed||1)+'"/>'; continue; }
+      if(l.feedUnit){ xml += '<feed unit="'+l.feedUnit+'"/>'; continue; }
       if(l.cut){ xml += '<cut type="feed"/>'; continue; }
       const align = l.align||'left';
       if(align!==curAlign){ xml += '<text align="'+align+'"/>'; curAlign=align; }
@@ -6089,23 +6261,7 @@ function eposSend(body){
 }
 
 // Lignes structurées d'un bon de préparation à partir des données commande
-function eposLignesBon(d){
-  const L = [];
-  L.push({v:'#'+String(d.num).padStart(3,'0'), align:'center', bold:true, dw:true, dh:true});
-  L.push({v:d.nom||'Client', align:'center', bold:true, dh:true});
-  if(d.heure) L.push({v:d.heure+(d.couverts?(' - '+d.couverts+' cvt'):''), align:'center'});
-  if(d.retrait) L.push({v:'RETRAIT '+d.retrait, align:'center', bold:true});
-  L.push({sep:true});
-  (d.articles||[]).forEach(a=>{
-    L.push({v:'x'+a.qte+'  '+a.nom, align:'left', bold:true, dh:true});
-    const sub = (a.taille||'') + ((a.supplements||[]).length ? ' + '+a.supplements.map(s=>s.nom).join(', ') : '');
-    if(sub.trim()) L.push({v:'    '+sub, align:'left'});
-    if(a.commentaire) L.push({v:'    !! '+a.commentaire, align:'left', bold:true});
-  });
-  L.push({sep:true});
-  L.push({v:'Total : '+fmtPrix(d.total||0), align:'right', bold:true});
-  return L;
-}
+function eposLignesBon(d){ return _bonLignesEpos(d); }
 
 // Envoi via Epson TM Print Assistant (Bluetooth) — lien URL scheme
 function tmPrintAssistant(eposBody){

@@ -4,10 +4,11 @@
 // démarre et fonctionne même sans réseau (les données passent
 // par la file locale et se synchronisent à la reconnexion).
 // ══════════════════════════════════════════════════════════
-const CACHE = 'pokben-caisse-v1';
+const CACHE = 'pokben-caisse-v2';   // v2 : ajout de carte-poke.js (modèle de carte commun)
 
 const ASSETS = [
   './caisse.html',
+  './carte-poke.js',
   'https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js',
   'https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js',
   'https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js',

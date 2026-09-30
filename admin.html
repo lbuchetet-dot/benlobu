@@ -8,6 +8,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="/carte-poke.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -3618,13 +3619,8 @@ function ecouterGrilleTailles(){
 }
 function taillesCarte(carte){ return GRILLE_TAILLES[carte||currentCarte] || GRILLE_TAILLES.poke; }
 function _k(t,p){ return t+'|'+p; }
-function _deduireAxes(nom){
-  const parts=String(nom||'').trim().split(/\s+/);
-  if(parts.length>1 && AXE_TAILLES.some(t=>t.toLowerCase()===parts[0].toLowerCase())){
-    return {taille:parts[0], proteine:parts.slice(1).join(' ')};
-  }
-  return {taille:String(nom||'').trim(), proteine:''};
-}
+// Lecture « L Saumon » → taille + protéine : module commun carte-poke.js (même règle que le site et la caisse)
+function _deduireAxes(nom){ return CartePoke.deduireAxes(nom, taillesCarte()); }
 
 /* ---------- Modal « Tailles de la carte » ---------- */
 function ouvrirModalTailles(){
@@ -4160,7 +4156,7 @@ function sauvegarderFormule(){
     // En mode catégorie, la liste est figée à l'enregistrement pour la caisse et les anciens
     // clients, mais le site recalcule à partir de la catégorie → les nouveaux produits entrent seuls.
     const produits = categorieAuto
-      ? Object.entries(_formuleProds).filter(([,p])=>p&&p.actif!==false&&(p.categorie||'Autres')===categorieAuto).map(([id])=>id)
+      ? CartePoke.produitsSlot({categorieAuto}, _formuleProds)
       : [...el.querySelectorAll('.slot-prod-cb:checked')].map(cb=>cb.value);
     if(!label) return;
     if(!produits.length){ slotSansProduit = true; return; }
