@@ -2087,7 +2087,7 @@ function envoyerBonCuisine(){
 
   // ── COMPLÉMENT : commande déjà ouverte (rouverte via "+") → on AJOUTE, on ne crée pas de nouvelle commande ──
   if(commandeEnCoursKey && commandeEnCours){
-    const nouveaux = panier.filter(i=>!i._dejaEnvoye);
+    const nouveaux = panier.filter(i=>i._dejaEnvoye===false);
     if(nouveaux.length===0){ showNotif('Aucun nouveau produit à envoyer','error'); return; }
     const heuresPrec = (commandeEnCours.envois||[]).map(e=>e.heure).filter(Boolean);
     nouveaux.forEach(i=>{ i._dejaEnvoye = true; i._aEnvoyer = false; });   // envoyés : plus « à envoyer »
@@ -2253,6 +2253,14 @@ function chargerEmplacementEtStatsS1(){
   });
 }
 
+// Correction rapide des couverts depuis la carte « Service en cours » (sans ouvrir la commande)
+function changerCouvertsCommande(key, delta, e){
+  if(e) e.stopPropagation();
+  const ref = db.ref('commandes/'+selectedEtabId+'/'+todayKey()+'/'+key+'/couverts');
+  ref.transaction(n => Math.max(1, Math.min(99, (parseInt(n)||1) + delta))).then(r=>{
+    if(commandeEnCoursKey===key){ document.getElementById('input-couverts').value = r.snapshot.val(); if(commandeEnCours) commandeEnCours.couverts = r.snapshot.val(); }
+  });
+}
 function sauvegarderInfosCommande(){
   if(!commandeEnCoursKey) return;
   const nom = nettoyerTexte(document.getElementById('input-nom').value.trim());
@@ -2407,8 +2415,15 @@ function renderServiceEnCours(){
           +retrait
           +'<span style="font-size:13px;font-weight:700;color:var(--amber)">'+fmtPrix(c.total)+'</span>'
           +'</div>'
-          +'<div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:6px">'+c.nom_client+'</div>'
-          +((c.articles||[]).some(a=>a.a_envoyer) ? '<div style="font-size:10px;font-weight:700;color:#fff;background:var(--amber);border-radius:10px;padding:2px 8px;display:inline-block;margin-bottom:6px">'+(c.articles||[]).filter(a=>a.a_envoyer).reduce((s,a)=>s+(a.qte||1),0)+' ajout(s) non envoyé(s) en cuisine</div>' : '')
+          +'<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:6px">'
+            +'<span style="font-size:14px;font-weight:600;color:var(--text)">'+c.nom_client+'</span>'
+            +'<span style="display:inline-flex;align-items:center;gap:2px;font-size:11px;color:var(--text-muted);white-space:nowrap" title="Couverts">'
+              +'<button onclick="changerCouvertsCommande(\''+key+'\',-1,event)" style="width:22px;height:22px;padding:0;background:var(--white);border:1px solid var(--border);border-radius:6px;font-size:13px;line-height:1;cursor:pointer">−</button>'
+              +'<b style="min-width:34px;text-align:center;color:var(--text)">'+(c.couverts||1)+' cvt</b>'
+              +'<button onclick="changerCouvertsCommande(\''+key+'\',1,event)" style="width:22px;height:22px;padding:0;background:var(--white);border:1px solid var(--border);border-radius:6px;font-size:13px;line-height:1;cursor:pointer">+</button>'
+            +'</span>'
+          +'</div>'
+          +(((c.articles||[]).some(a=>a.a_envoyer) && !((c.articles||[]).every(a=>a.a_envoyer) && ((c.envois||[]).length||c.bon_imprime||c.origine==='web'))) ? '<div style="font-size:10px;font-weight:700;color:#fff;background:var(--amber);border-radius:10px;padding:2px 8px;display:inline-block;margin-bottom:6px">'+(c.articles||[]).filter(a=>a.a_envoyer).reduce((s,a)=>s+(a.qte||1),0)+' ajout(s) non envoyé(s) en cuisine</div>' : '')
           +'<div style="font-size:10px;color:var(--text-muted);margin-bottom:8px">'+
             (c.articles||[]).map(a=>a.qte+'× '+a.nom.split(' ').slice(1).join(' ')||a.nom).join(', ')+'</div>'
           +'<div style="display:flex;gap:6px">'
@@ -2464,11 +2479,7 @@ function corrigerPaiement(key, e){
     commandeEnCoursKey = key;
     commandeEnCours = {...c, statut:'en_cours'};
     remiseEnCours = rehydraterRemise(c);   // ③ on repart de la remise réellement stockée (ou aucune)
-    panier = (c.articles||[]).map(a=>({
-      prodId:a.prodId, nom:a.nom, taille:a.taille,
-      prixBase:a.prix, supplements:a.supplements||[],
-      prixTotal:a.prix, commentaire:a.commentaire||'', qte:a.qte
-    }));
+    panier = _panierDepuisArticles(c.articles, c);
     document.getElementById('input-nom').value = c.nom_client||'';
     document.getElementById('input-couverts').value = c.couverts||'';
     document.getElementById('input-retrait').value = c.retrait_souhaite||'';
@@ -2485,7 +2496,7 @@ function corrigerPaiement(key, e){
 
 function rouvriCommandePayee(key, e){
   e.stopPropagation();
-  _garderAjoutsAvantDeQuitter();
+  if(!_garderAjoutsAvantDeQuitter()) return;
   db.ref('commandes/'+selectedEtabId+'/'+todayKey()+'/'+key).once('value', snap=>{
     const c = snap.val();
     if(!c) return;
@@ -2495,11 +2506,7 @@ function rouvriCommandePayee(key, e){
     commandeEnCours = {...c, statut:'en_cours'};
     remiseEnCours = rehydraterRemise(c);   // ③
     // Charger les articles dans le panier
-    panier = (c.articles||[]).map(a=>({
-      prodId:a.prodId, nom:a.nom, taille:a.taille,
-      prixBase:a.prix, supplements:a.supplements||[],
-      prixTotal:a.prix, commentaire:a.commentaire||'', qte:a.qte, _dejaEnvoye:!a.a_envoyer, _aEnvoyer:!!a.a_envoyer, ..._artExtra(a)
-    }));
+    panier = _panierDepuisArticles(c.articles, c);
     document.getElementById('input-nom').value = c.nom_client||'';
     document.getElementById('input-couverts').value = c.couverts||'';
     document.getElementById('input-retrait').value = c.retrait_souhaite||'';
@@ -2518,7 +2525,7 @@ function rouvriCommandePayee(key, e){
 
 function rouvriCommande(key, e){
   e.stopPropagation();
-  _garderAjoutsAvantDeQuitter();
+  if(!_garderAjoutsAvantDeQuitter()) return;
   db.ref('commandes/'+selectedEtabId+'/'+todayKey()+'/'+key).once('value', snap=>{
     const c = snap.val();
     if(!c) return;
@@ -2526,11 +2533,7 @@ function rouvriCommande(key, e){
     commandeEnCoursKey = key;
     commandeEnCours = c;
     remiseEnCours = rehydraterRemise(c);   // ③
-    panier = (c.articles||[]).map(a=>({
-      prodId:a.prodId, nom:a.nom, taille:a.taille,
-      prixBase:a.prix, supplements:a.supplements||[],
-      prixTotal:a.prix, commentaire:a.commentaire||'', qte:a.qte
-    }));
+    panier = _panierDepuisArticles(c.articles, c);
     document.getElementById('input-nom').value = c.nom_client||'';
     document.getElementById('input-couverts').value = c.couverts||'';
     document.getElementById('input-retrait').value = c.retrait_souhaite||'';
@@ -2549,18 +2552,14 @@ function rouvriCommande(key, e){
 
 function rouvriCommandeAjouter(key, e){
   e.stopPropagation();
-  _garderAjoutsAvantDeQuitter();
+  if(!_garderAjoutsAvantDeQuitter()) return;
   db.ref('commandes/'+selectedEtabId+'/'+todayKey()+'/'+key).once('value', snap=>{
     const c = snap.val();
     if(!c) return;
     commandeEnCoursKey = key;
     commandeEnCours = c;
     remiseEnCours = rehydraterRemise(c);   // ③
-    panier = (c.articles||[]).map(a=>({
-      prodId:a.prodId, nom:a.nom, taille:a.taille,
-      prixBase:a.prix, supplements:a.supplements||[],
-      prixTotal:a.prix, commentaire:a.commentaire||'', qte:a.qte, _dejaEnvoye:!a.a_envoyer, _aEnvoyer:!!a.a_envoyer, ..._artExtra(a)
-    }));
+    panier = _panierDepuisArticles(c.articles, c);
     document.getElementById('input-nom').value = c.nom_client||'';
     document.getElementById('input-couverts').value = c.couverts||'';
     document.getElementById('input-retrait').value = c.retrait_souhaite||'';
@@ -2773,9 +2772,24 @@ function renderArticles(){
 }
 
 // Champs optionnels d'une ligne (menu, protéine) — propagés tels quels vers Firebase et le bon
+// Articles lus dans Firebase → lignes de panier. Tout ce qui est enregistré est considéré envoyé en cuisine,
+// sauf marquage explicite a_envoyer:true (ajout fait via « + » et pas encore imprimé).
+function _panierDepuisArticles(articles, c){
+  articles = articles||[];
+  // Nettoyage : une commande déjà passée en cuisine (envois) dont TOUS les articles sont marqués « à envoyer »
+  // est un faux marquage (version du 30/09) → on les considère envoyés.
+  const faux = articles.length && articles.every(a=>a.a_envoyer===true) && c && ((c.envois||[]).length || c.bon_imprime || c.origine==='web');
+  if(faux) articles = articles.map(a=>{ const b={...a}; delete b.a_envoyer; return b; });
+  return articles.map(a=>({
+    prodId:a.prodId, nom:a.nom, taille:a.taille,
+    prixBase:a.prix, supplements:a.supplements||[],
+    prixTotal:a.prix, commentaire:a.commentaire||'', qte:a.qte,
+    _dejaEnvoye: a.a_envoyer!==true, _aEnvoyer: a.a_envoyer===true, ..._artExtra(a)
+  }));
+}
 function _artExtra(i){
   const o={};
-  if(!i._dejaEnvoye && (i._aEnvoyer || commandeEnCoursKey)) o.a_envoyer=true;   // enregistré, pas encore envoyé en cuisine
+  if(i._dejaEnvoye===false && commandeEnCoursKey) o.a_envoyer=true;   // ajout enregistré, pas encore envoyé en cuisine
   if(i.type) o.type=i.type;
   if(i.formuleId) o.formuleId=i.formuleId;
   if(i.composition) o.composition=i.composition;
@@ -2789,11 +2803,10 @@ function _artExtra(i){
 //   · nouvelle commande pas encore envoyée : brouillon local (panier + client) restauré
 //     après un rechargement de la tablette
 // ══════════════════════════════════════════════════════════
-function _ajoutsNonEnvoyes(){ return commandeEnCoursKey ? panier.filter(i=>!i._dejaEnvoye) : []; }
+function _ajoutsNonEnvoyes(){ return commandeEnCoursKey ? panier.filter(i=>i._dejaEnvoye===false) : []; }
 function _persisterPanier(){
   if(commandeEnCoursKey){
     if(commandeEnCours && commandeEnCours.statut==='payee') return;   // commande soldée : rien à réécrire
-    panier.forEach(i=>{ if(!i._dejaEnvoye) i._aEnvoyer=true; });
     const articles = panier.map(i=>({
       prodId:i.prodId, nom:i.nom, taille:i.taille,
       prix:i.prixTotal, supplements:i.supplements||[],
@@ -2838,10 +2851,7 @@ function _garderAjoutsAvantDeQuitter(){
   const n=_ajoutsNonEnvoyes().length;
   if(!n) return true;
   const num=commandeEnCours?('#'+String(commandeEnCours.num).padStart(3,'0')):'';
-  if(confirm(n+' ajout'+(n>1?'s':'')+' sur la commande '+num+(n>1?' n\'ont':' n\'a')+' pas encore été envoyé'+(n>1?'s':'')+' en cuisine.\n\nOK = imprimer le bon maintenant\nAnnuler = quitter sans imprimer (les ajouts restent enregistrés sur la commande)')){
-    envoyerBonCuisine();
-  }
-  return true;
+  return confirm(n+' ajout'+(n>1?'s':'')+' sur la commande '+num+(n>1?' n\'ont':' n\'a')+' pas encore été envoyé'+(n>1?'s':'')+' en cuisine.\n\nOK = quitter quand même (les ajouts restent enregistrés sur la commande, rien n\'est imprimé)\nAnnuler = rester sur la commande pour appuyer sur « Bon »');
 }
 function panierQteProduit(prodId){
   return panier.filter(i=>i.prodId===prodId).reduce((s,i)=>s+i.qte,0);
@@ -3053,6 +3063,9 @@ function arrondirHeure10(el){
 }
 
 function ouvrirModalNomCouverts(){
+  const edition = !!commandeEnCoursKey;
+  document.querySelector('#modal-nom-couverts .sheet-title').textContent = edition ? 'Modifier la commande' : 'Nouvelle commande';
+  document.querySelector('#modal-nom-couverts .sheet-sub').textContent = edition ? 'Nom, couverts et heure de retrait sont enregistrés tout de suite' : 'Avant d\'ajouter au panier, renseigne le client';
   document.getElementById('mnc-nom').value = document.getElementById('input-nom').value || '';
   document.getElementById('mnc-couverts').value = document.getElementById('input-couverts').value || '';
   document.getElementById('mnc-retrait').value = document.getElementById('input-retrait').value || '';
@@ -3086,7 +3099,7 @@ function validerNomCouverts(){
 
 // ① Deuxième porte d'entrée : bouton « Nouvelle commande » → ouvre la même modale, à blanc
 function demarrerNouvelleCommande(){
-  if(_ajoutsNonEnvoyes().length){ _garderAjoutsAvantDeQuitter(); }
+  if(_ajoutsNonEnvoyes().length){ if(!_garderAjoutsAvantDeQuitter()) return; }
   else if(panier.length > 0 && !commandeEnCoursKey && !confirm('Une commande est en cours de saisie et n\'a pas été envoyée. La remplacer par une nouvelle commande vide ?')) return;
   nouvelleCommande();          // reset complet de l'état (panier, commande, remise…)
   window._afterNomCouverts = null;
@@ -3096,6 +3109,7 @@ function demarrerNouvelleCommande(){
 
 function ajouterArticleEnAttente(){
   if(!articleEnAttente) return;
+  articleEnAttente._dejaEnvoye = false;
   panier.push(articleEnAttente);
   articleEnAttente = null;
   _persisterPanier();
@@ -3115,7 +3129,7 @@ function renderPanier(){
     total += ligneTotal;
     const div = document.createElement('div');
     div.className = 'panier-item';
-    const aEnvoyer = commandeEnCoursKey && !item._dejaEnvoye;
+    const aEnvoyer = commandeEnCoursKey && item._dejaEnvoye===false;
     if(aEnvoyer) div.style.cssText='border-left:4px solid var(--amber);background:#fff8e8';
     const supsStr = item.supplements?.map(s=>s.nom).join(', ');
     div.innerHTML = `
@@ -3396,8 +3410,8 @@ function ouvrirPaiement(){
   // Ajouts jamais envoyés en cuisine : on propose d'imprimer le bon avant d'encaisser (sans bloquer)
   const nbA=_ajoutsNonEnvoyes().length;
   if(nbA){
-    if(confirm(nbA+' ajout'+(nbA>1?'s':'')+(nbA>1?' n\'ont':' n\'a')+' pas encore été envoyé'+(nbA>1?'s':'')+' en cuisine.\n\nOK = imprimer le bon puis encaisser\nAnnuler = encaisser sans imprimer')){ envoyerBonCuisine(); }
-    else { _ajoutsNonEnvoyes().forEach(i=>{ i._dejaEnvoye=true; i._aEnvoyer=false; }); _persisterPanier(); renderPanier(); }
+    if(!confirm(nbA+' ajout'+(nbA>1?'s':'')+(nbA>1?' n\'ont':' n\'a')+' pas encore été envoyé'+(nbA>1?'s':'')+' en cuisine.\n\nOK = encaisser sans imprimer de bon\nAnnuler = revenir pour appuyer sur « Bon »')) return;
+    _ajoutsNonEnvoyes().forEach(i=>{ i._dejaEnvoye=true; i._aEnvoyer=false; }); _persisterPanier(); renderPanier();
   }
   selectedPmt = null;
   fermerModal('modal-especes');
@@ -4215,7 +4229,7 @@ function finaliserCommande(paiements){
       statut: 'payee',
       total,
       total_brut: totalBrut,
-      articles: panier.length > 0 ? panier.map(i=>({
+      articles: (panier.length > 0 && (!commandeEnCoursKey || panier.length >= (base.articles||[]).length)) ? panier.map(i=>({
         prodId:i.prodId, nom:i.nom, taille:i.taille,
         prix:i.prixTotal, supplements:i.supplements||[],
         commentaire:i.commentaire||'', qte:i.qte, ..._artExtra(i)
@@ -5883,6 +5897,18 @@ function fermerPopupReattrib(){
   try{ renderWebOrdersAccueil(); renderWebDuJour(); }catch(e){}
 }
 
+// Couverts d'une commande web : un par plat (bowl ou formule) ; desserts/boissons/sauces n'en font pas. Minimum 1.
+function _webCouverts(o){
+  const P = (typeof produitsData==='object' && produitsData) || {};
+  let n = 0;
+  (o.items||[]).forEach(it=>{
+    const q = it.qty||1;
+    if(it.type==='formule'){ n += q; return; }
+    const prod = P[it.id];
+    if(prod ? _pkEstBowl(prod) : /pok|bowl/i.test(it.nomBase||it.nom||'')) n += q;
+  });
+  return n || 1;
+}
 function envoyerWebEnService(id){
   const o = _webOrders[id]; if(!o){ showNotif('Commande introuvable','error'); return; }
   if(o.service_cmd_key){ showNotif('Déjà envoyée en service','info'); return; }
@@ -5894,7 +5920,7 @@ function envoyerWebEnService(id){
     supplements: it.supplements||[], type: it.type||null, composition: it.composition||null,
     commentaire:'', qte: it.qty||1, _dejaEnvoye:true
   }));
-  const couverts = (o.items||[]).reduce((s,it)=>s+(it.qty||1),0) || 1;
+  const couverts = _webCouverts(o);
   const nomClient = ((o.fname||o.prenom||'')+' '+(o.lname||o.nom||'')).trim() || (o.num||'Client web');
   reserverNumero(num=>{
     const cmdKey = 'web_'+String(o.id||id);
@@ -5959,7 +5985,7 @@ function imprimerEtEnvoyerService(){
         const num = startNum + idx;
         const hRetrait = _webHeure(o) || now.toTimeString().substring(0,5);
         const articles = (o.items||[]).map(it=>({prodId:it.id||'', nom:it.nomBase||it.nom||'', taille:(it.taille||''), prix:it.prix||0, prixBase:(it.prixBase!=null?it.prixBase:(it.prix||0)), supplements:it.supplements||[], type:it.type||null, composition:it.composition||null, commentaire:'', qte:it.qty||1, _dejaEnvoye:true}));
-        const couverts = (o.items||[]).reduce((s,it)=>s+(it.qty||1),0)||1;
+        const couverts = _webCouverts(o);
         const nomClient = ((o.fname||o.prenom||'')+' '+(o.lname||o.nom||'')).trim() || (o.num||'Client web');
         const cmdKey = 'web_'+String(o.id);
         const cmd = {
