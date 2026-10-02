@@ -839,7 +839,7 @@ tr:hover td{background:var(--bg)}
           <span id="rc-etabs" style="display:inline-flex;gap:6px;flex-wrap:wrap"></span>
           <button class="btn btn-secondary btn-sm" onclick="chargerRapportComptable()">Filtrer</button>
           <span style="flex:1"></span>
-          <label style="font-size:12px;color:var(--text-muted);display:inline-flex;align-items:center;gap:4px"><input type="checkbox" id="rc-origine" onchange="_afficherRapportComptable()"> Afficher les valeurs d'origine</label>
+          <label style="font-size:12px;color:var(--text-muted);display:inline-flex;align-items:center;gap:4px" title="Coché : totaux calculés avec les valeurs brutes de la caisse, ajustements rappelés en petit"><input type="checkbox" id="rc-origine" onchange="_afficherRapportComptable()"> Vue valeurs caisse (sans ajustements)</label>
           <button class="btn btn-primary btn-sm" onclick="exportRapportComptable()" id="btn-export-rc" style="display:none">📥 Export Excel</button>
           <button class="btn btn-secondary btn-sm" onclick="window.print()" id="btn-print-rc" style="display:none">🖨 Imprimer</button>
         </div>
@@ -5912,7 +5912,10 @@ function _rcCell(l, champ, val, opts){
   const fmt=opts.entier?String(Math.round(val||0)):_rcFmt(val);
   if(a){
     const o=opts.entier?String(Math.round(a.origine)):_rcFmt(a.origine);
-    return `<td class="rc-adj" onclick="_rcOuvrirAjust('${l.eid}','${l.date}','${l.svc}','${champ.replace(/'/g,"\\'")}')" title="${(a.motif||'').replace(/"/g,'&quot;')} — ${a.par||''} ${a.le||''}">${origine?'<s>'+o+'</s>':''}${fmt} ✎</td>`;
+    const c=opts.entier?String(Math.round(a.valeur)):_rcFmt(a.valeur);
+    const t=`title="${(a.motif||'').replace(/"/g,'&quot;')} — ${a.par||''} ${a.le||''}"`;
+    if(origine) return `<td class="rc-adj" onclick="_rcOuvrirAjust('${l.eid}','${l.date}','${l.svc}','${champ.replace(/'/g,"\\'")}')" ${t}>${o} <small style="color:var(--text-muted)">→ ${c} ✎</small></td>`;
+    return `<td class="rc-adj" onclick="_rcOuvrirAjust('${l.eid}','${l.date}','${l.svc}','${champ.replace(/'/g,"\\'")}')" ${t}><s>${o}</s>${c} ✎</td>`;
   }
   if(l) return `<td class="rc-cell" onclick="_rcOuvrirAjust('${l.eid}','${l.date}','${l.svc}','${champ.replace(/'/g,"\\'")}')" title="Cliquer pour ajuster">${(val||opts.zero)?fmt:'—'}</td>`;
   return `<td>${val?fmt:'—'}</td>`;
@@ -6011,7 +6014,7 @@ function _rcOuvrirAjust(eid,date,svc,champ){
   const pop=document.getElementById('rc-pop');
   pop.innerHTML=`<div style="font-weight:700;margin-bottom:6px">Ajuster — ${nomE} · ${_rcDateFr(date)} · ${svc} · ${lbl}</div>
     <div style="color:var(--text-muted)">Valeur caisse</div><div style="font-weight:600;margin-bottom:6px">${champ==='couverts'?brut:_rcFmt(brut)+' €'}</div>
-    <div style="color:var(--text-muted)">Valeur corrigée</div><input class="form-input" id="rc-aj-val" type="number" step="${champ==='couverts'?'1':'0.01'}" value="${existant?existant.valeur:brut}" style="width:100%;margin:2px 0 6px">
+    <div style="color:var(--text-muted)">Valeur corrigée</div><input class="form-input" id="rc-aj-val" type="text" inputmode="decimal" value="${String(existant?existant.valeur:brut).replace('.',',')}" style="width:100%;margin:2px 0 6px" onkeydown="if(event.key==='Enter'){event.preventDefault();_rcSauverAjust('${eid}','${date}','${svc}','${champ.replace(/'/g,"\\'")}');}">
     <div style="color:var(--text-muted)">Motif</div><input class="form-input" id="rc-aj-motif" type="text" placeholder="ex. TPE : règlement CTR passé en CB" value="${existant?(existant.motif||'').replace(/"/g,'&quot;'):''}" style="width:100%;margin:2px 0 10px">
     <div style="display:flex;gap:6px"><button class="btn btn-primary btn-sm" style="flex:1" onclick="_rcSauverAjust('${eid}','${date}','${svc}','${champ.replace(/'/g,"\\'")}')">Enregistrer</button>${existant?`<button class="btn btn-secondary btn-sm" onclick="_rcSupprimerAjust('${eid}','${date}','${svc}','${champ.replace(/'/g,"\\'")}')">Rétablir</button>`:''}<button class="btn btn-secondary btn-sm" onclick="document.getElementById('rc-pop').style.display='none'">Annuler</button></div>
     ${existant?`<div style="color:var(--text-muted);margin-top:8px">${existant.par||''} · ${existant.le||''}</div>`:''}`;
@@ -6020,8 +6023,8 @@ function _rcOuvrirAjust(eid,date,svc,champ){
   setTimeout(()=>document.getElementById('rc-aj-val').select(),50);
 }
 function _rcSauverAjust(eid,date,svc,champ){
-  const val=parseFloat(document.getElementById('rc-aj-val').value); const motif=(document.getElementById('rc-aj-motif').value||'').trim();
-  if(isNaN(val)){ showNotif('Valeur invalide','error'); return; }
+  const val=parseFloat(String(document.getElementById('rc-aj-val').value||'').replace(/\s/g,'').replace(',','.')); const motif=(document.getElementById('rc-aj-motif').value||'').trim();
+  if(isNaN(val)){ showNotif('Valeur invalide — ex. 596,93','error'); return; }
   if(!motif){ showNotif('Indique un motif (il apparaît dans l\'export)','error'); return; }
   const l=_rcData.lignes[_rcKey(eid,date,svc)]; if(!l) return;
   const brut=champ.indexOf('pmt:')===0?((l.brut.paiements[champ.slice(4)]||{}).montant||0):champ==='couverts'?l.brut.nb_couverts:champ==='remises'?l.brut.remises.montant:l.brut.annulations.montant;
@@ -6031,8 +6034,8 @@ function _rcSauverAjust(eid,date,svc,champ){
   db.ref('ajustements/'+eid+'/'+date+'/'+svc+'/'+key).set(rec).then(()=>{
     l.aj[key]=rec; l.z=RapportZ.ajuster(l.brut,l.aj);
     document.getElementById('rc-pop').style.display='none';
-    _afficherRapportComptable(); showNotif('Ajustement enregistré ✓','success');
-  }).catch(e=>showNotif('Erreur : '+e.message,'error'));
+    _afficherRapportComptable(); showNotif('Ajustement enregistré ✓ — '+_rcFmt(brut)+' → '+_rcFmt(val),'success');
+  }).catch(e=>{ console.error('[ajustement]',e); showNotif('Enregistrement refusé par Firebase : '+(e.code||e.message)+' — vérifie les règles sur « ajustements »','error'); });
 }
 function _rcSupprimerAjust(eid,date,svc,champ){
   const l=_rcData.lignes[_rcKey(eid,date,svc)]; if(!l) return;
