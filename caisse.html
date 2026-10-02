@@ -2268,6 +2268,7 @@ function changerCouvertsCommande(key, delta, e){
 }
 function sauvegarderInfosCommande(){
   if(!commandeEnCoursKey) return;
+  if(!panier.length){ return; }   // commande non chargée à l'écran : on ne la modifie pas
   const nom = nettoyerTexte(document.getElementById('input-nom').value.trim());
   const couverts = parseInt(document.getElementById('input-couverts').value)||1;
   const retrait = document.getElementById('input-retrait').value||'';
@@ -3039,19 +3040,7 @@ function confirmerArticle(){
   fermerModal('modal-taille');
   // Premier article → imposer nom + couverts
   if(panier.length === 0){
-    // Si un bon avait été envoyé (commande précédente terminée) → on repart sur une commande VIERGE
-    if(bonImprime || commandeEnCoursKey){
-      bonImprime = false;
-      commandeEnCours = null;
-      commandeEnCoursKey = null;
-      remiseEnCours = null;   // ③ nouvelle commande vierge → pas de remise héritée
-      multiPaiementsValides = [];
-      document.getElementById('input-nom').value = '';
-      document.getElementById('input-couverts').value = '';
-      document.getElementById('input-retrait').value = '';
-      document.getElementById('footer-avant-bon').style.display = 'flex';
-      document.getElementById('footer-apres-bon').style.display = 'none';
-    }
+    _detacherSiBonEnvoye();
     ouvrirModalNomCouverts();
   } else {
     ajouterArticleEnAttente();
@@ -3067,7 +3056,26 @@ function arrondirHeure10(el){
   el.value = String(Math.floor(tot/60)).padStart(2,'0')+':'+String(tot%60).padStart(2,'0');
 }
 
+// Après un bon envoyé, la caisse reste « accrochée » à la commande (pour Encaisser / Réimprimer).
+// Dès qu'on commence autre chose (produit, nom client), on repart sur une commande VIERGE :
+// sinon le nom saisi pour le client suivant écrase celui de la commande précédente.
+function _detacherSiBonEnvoye(){
+  if(panier.length !== 0) return false;
+  if(!(bonImprime || commandeEnCoursKey)) return false;
+  bonImprime = false;
+  commandeEnCours = null;
+  commandeEnCoursKey = null;
+  remiseEnCours = null;   // ③ nouvelle commande vierge → pas de remise héritée
+  multiPaiementsValides = [];
+  document.getElementById('input-nom').value = '';
+  document.getElementById('input-couverts').value = '';
+  document.getElementById('input-retrait').value = '';
+  document.getElementById('footer-avant-bon').style.display = 'flex';
+  document.getElementById('footer-apres-bon').style.display = 'none';
+  return true;
+}
 function ouvrirModalNomCouverts(){
+  _detacherSiBonEnvoye();
   const edition = !!commandeEnCoursKey;
   document.querySelector('#modal-nom-couverts .sheet-title').textContent = edition ? 'Modifier la commande' : 'Nouvelle commande';
   document.querySelector('#modal-nom-couverts .sheet-sub').textContent = edition ? 'Nom, couverts et heure de retrait sont enregistrés tout de suite' : 'Avant d\'ajouter au panier, renseigne le client';
