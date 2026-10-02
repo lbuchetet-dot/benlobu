@@ -14,6 +14,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="/carte-poke.js"></script>
+<script src="/rapport-z.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-check-compat.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;user-select:none}
@@ -877,6 +878,10 @@ input,select,textarea{font-family:inherit;outline:none}
   <div class="sheet">
     <div class="sheet-handle"></div>
     <div class="sheet-title">Tickets restaurant</div>
+    <div style="display:flex;gap:8px;margin-bottom:14px">
+      <button type="button" id="tr-type-carte" class="taille-btn selected" style="flex:1" onclick="_trType('carte')"><div class="taille-btn-nom">💳 Carte ticket resto</div><div class="taille-btn-prix">Edenred, Swile, Up…</div></button>
+      <button type="button" id="tr-type-papier" class="taille-btn" style="flex:1" onclick="_trType('papier')"><div class="taille-btn-nom">🎫 Tickets papier</div><div class="taille-btn-prix">la monnaie n'est pas rendue</div></button>
+    </div>
     <div class="ticket-field">
       <div>
         <div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.4px">Valeur unitaire (€)</div>
@@ -3438,8 +3443,8 @@ function ouvrirPaiement(){
   const modes = modesPaiementDispos.length ? modesPaiementDispos : ['CB','Especes','Tickets_resto','Cheques'];
   const grid = document.getElementById('pmt-grid');
   grid.innerHTML = '';
-  const icons = {CB:'💳',Especes:'💵',Tickets_resto:'🎫',Cheques:'✏️'};
-  const labels = {CB:'Carte bancaire',Especes:'Espèces',Tickets_resto:'Tickets resto',Cheques:'Chèque'};
+  const icons = {CB:'💳',Especes:'💵',Tickets_resto:'🎫',Cheques:'✏️',Virement:'🏦'};
+  const labels = {CB:'Carte bancaire',Especes:'Espèces',Tickets_resto:'Tickets resto',Cheques:'Chèque',Virement:'Virement'};
   modes.forEach(m => {
     const btn = document.createElement('button');
     btn.className = 'pmt-btn';
@@ -3553,6 +3558,7 @@ function ouvrirTickets(){
   const solde = getSoldeRestant();
   document.getElementById('ticket-val').value='';
   document.getElementById('ticket-nb').value='';
+  _trType('carte');
   document.getElementById('ticket-result').innerHTML = `<span style="color:var(--text-muted)">Montant à régler : <strong>${fmtPrix(solde)}</strong></span>`;
   document.getElementById('modal-tickets').classList.add('open');
 }
@@ -3571,7 +3577,8 @@ function calcTickets(){
   const res = document.getElementById('ticket-result');
   if(val && nb){
     if(totalTickets >= solde){
-      res.innerHTML = `<span style="color:var(--green-dark);font-weight:600">✓ Total tickets : ${fmtPrix(totalTickets)} — Soldé</span><br><span style="font-size:11px;color:var(--text-muted)">Pas de rendu monnaie sur tickets restaurant</span>`;
+      const surplus = Math.round((totalTickets-solde)*100)/100;
+      res.innerHTML = `<span style="color:var(--green-dark);font-weight:600">✓ Total tickets : ${fmtPrix(totalTickets)} — Soldé</span><br><span style="font-size:11px;color:var(--text-muted)">${surplus>0?'Surplus '+fmtPrix(surplus)+' non rendu (avoir émis, compta)':'Pas de rendu monnaie sur tickets restaurant'}</span>`;
     } else {
       const reste = Math.round((solde-totalTickets)*100)/100;
       res.innerHTML = `Total tickets : ${fmtPrix(totalTickets)}<br><span style="color:var(--amber);font-weight:600">Reste à payer : ${fmtPrix(reste)}</span>`;
@@ -3579,6 +3586,15 @@ function calcTickets(){
   }
 }
 
+let _trTypeChoisi = 'carte';
+function _trType(t){
+  _trTypeChoisi = t;
+  document.getElementById('tr-type-carte').classList.toggle('selected', t==='carte');
+  document.getElementById('tr-type-papier').classList.toggle('selected', t==='papier');
+  const nbEl = document.getElementById('ticket-nb');
+  if(t==='carte'){ nbEl.value = nbEl.value || '1'; }
+  calcTickets();
+}
 function validerTickets(){
   const val = parseFloat(document.getElementById('ticket-val').value)||0;
   const nb = parseInt(document.getElementById('ticket-nb').value)||0;
@@ -3586,7 +3602,8 @@ function validerTickets(){
   const totalTickets = Math.round(val*nb*100)/100;
   const solde = getSoldeRestant();
   const montantTickets = Math.min(totalTickets, solde);
-  const pmt = {mode:'Tickets resto', montant:montantTickets, valeur_unitaire:val, nb_tickets:nb};
+  const pmt = {mode:(_trTypeChoisi==='papier'?'Tickets resto':'Carte ticket resto'), montant:montantTickets, valeur_unitaire:val, nb_tickets:nb,
+               surplus: Math.max(0, Math.round((totalTickets-montantTickets)*100)/100)};   // on ne rend pas la monnaie : surplus = avoir émis (compta)
   multiPaiementsValides.push(pmt);
   majPanierPmtRecap();
   fermerModal('modal-tickets');
@@ -3631,8 +3648,8 @@ function ouvrirMultiPaiement(){
   majMultiShortcuts(solde);
   // Grille modes paiement
   const modes = modesPaiementDispos.length ? modesPaiementDispos : ['CB','Especes','Tickets_resto','Cheques'];
-  const icons = {CB:'💳',Especes:'💵',Tickets_resto:'🎫',Cheques:'✏️'};
-  const labels2 = {CB:'Carte bancaire',Especes:'Espèces',Tickets_resto:'Tickets resto',Cheques:'Chèque'};
+  const icons = {CB:'💳',Especes:'💵',Tickets_resto:'🎫',Cheques:'✏️',Virement:'🏦'};
+  const labels2 = {CB:'Carte bancaire',Especes:'Espèces',Tickets_resto:'Tickets resto',Cheques:'Chèque',Virement:'Virement'};
   const grid = document.getElementById('multi-pmt-grid');
   grid.innerHTML = '';
   modes.forEach(m=>{
@@ -4908,9 +4925,9 @@ function confirmerFinDeService(){
     const normaliser=m=>m.replace('Especes','Espèces').replace('Tickets_resto','Tickets resto').replace('Cheques','Chèques').replace('CB','Carte bancaire');
     payees.forEach(([,c])=>(c.paiements||[]).forEach(p=>{const m=normaliser(p.mode||'');parPmt[m]=(parPmt[m]||0)+p.montant;}));
     // Sauvegarder snapshot service (avec emplacement réel du jour)
-    lireEmplacementJour(service, empl=>{
+    _zCharger(service, z=>lireEmplacementJour(service, empl=>{
       db.ref('clotures/'+selectedEtabId+'/'+today+'/'+service).set({
-        service, date:today, heure_cloture:now.toTimeString().substring(0,5),
+        service, date:today, heure_cloture:now.toTimeString().substring(0,5), z: z||null,
         emplacement: empl.nom || etabInfo.emplacement_actuel || '—',
         capacite: empl.capacite!=null ? empl.capacite : null,
         evenement: empl.evenement||false, type_event: empl.type_event||null,
@@ -4918,7 +4935,7 @@ function confirmerFinDeService(){
         detail_paiements:parPmt, non_soldees:enCours.length,
         type:'fin_service'
       });
-    });
+    }));
     // Marquer commandes en attente comme "non_soldee"
     const updates={};
     enCours.forEach(([key,])=>{ updates['commandes/'+selectedEtabId+'/'+today+'/'+key+'/statut']='non_soldee'; });
@@ -4935,7 +4952,11 @@ function confirmerFinDeService(){
 }
 
 
+let _fondsCaisseJour = {};
 function ouvrirCloture(){
+  db.ref('fonds_caisse/'+selectedEtabId+'/'+todayKey()).once('value', s=>{ _fondsCaisseJour = s.val()||{}; _ouvrirClotureSuite(); });
+}
+function _ouvrirClotureSuite(){
   const today = todayKey();
   const now = new Date();
   const service = detectService(now);
@@ -4951,6 +4972,8 @@ function ouvrirCloture(){
     const normaliserMode = m => m.replace('Especes','Espèces').replace('Tickets_resto','Tickets resto').replace('Cheques','Chèques').replace('CB','Carte bancaire');
     cmds.forEach(c=>{ (c.paiements||[]).forEach(p=>{ const mode = normaliserMode(p.mode||''); parPmt[mode]=(parPmt[mode]||0)+(p.montant||0); }); });
     const controleActif = controleCaisseRequis();
+    const fondsJour = Object.values(_fondsCaisseJour||{}).sort((a,b)=>(a.heure||'').localeCompare(b.heure||''));
+    const fondInitial = fondsJour.length ? fondsJour[0].total : 0;
     let html = `
       <div class="cloture-section">
         <h3>Récapitulatif</h3>
@@ -4979,7 +5002,8 @@ function ouvrirCloture(){
         </div>
         <div class="fond-total">Total compté : <span id="fond-total-val">0,00 €</span></div>
         <div class="fond-ecart" id="fond-ecart"></div>
-        <input type="hidden" id="fond-theorique" value="${(parPmt['Espèces']||0).toFixed(2)}">
+        <div style="font-size:12px;color:var(--text-muted);margin-top:6px">Fond initial compté ce matin : ${fondInitial?fmtPrix(fondInitial):'aucun — le théorique = espèces du service'}</div>
+        <input type="hidden" id="fond-theorique" value="${(fondInitial+(parPmt['Espèces']||0)).toFixed(2)}">
       </div>`;
     }
     html += `<button class="btn-cloture-confirm" onclick="confirmerCloture('${service}',${ca},${nbCmd},${nbCvt},${pm},${JSON.stringify(parPmt).replace(/"/g,"'")},${controleActif?'true':'false'})">Clôturer le service ↓</button>`;
@@ -5057,6 +5081,8 @@ function imprimerFondCaisse(){
     <div class="pr-center" style="font-size:10px">Signature : ___________________</div>`;
   document.getElementById('print-area').innerHTML=html;
   lancerImpressionZone();
+  // Mémorisé : sert de « fond initial » au Ticket Z du service suivant
+  if(selectedEtabId) ecrireFiable('fonds_caisse/'+selectedEtabId+'/'+todayKey()+'/'+now.getTime(), {total:total/100, heure:heureStr, service:detectService(now)});
 }
 
 function controleCaisseRequis(){
@@ -5087,9 +5113,9 @@ function confirmerCloture(service, ca, nbCmd, nbCvt, pm, parPmt, controleActif){
     const theorique=parseFloat(document.getElementById('fond-theorique')?.value)||0;
     controleData={effectue:true,theorique_especes:theorique,compte_especes:compte,ecart:Math.round((compte-theorique)*100)/100,detail};
   }
-  lireEmplacementJour(service, empl=>{
+  _zCharger(service, z=>{ lireEmplacementJour(service, empl=>{
     const cloture={
-      service, date:today,
+      service, date:today, z: z||null, type:'cloture',
       emplacement: empl.nom || etabInfo.emplacement_actuel || '—',
       capacite: empl.capacite!=null ? empl.capacite : null,
       evenement: empl.evenement||false, type_event: empl.type_event||null,
@@ -5110,7 +5136,7 @@ function confirmerCloture(service, ca, nbCmd, nbCvt, pm, parPmt, controleActif){
     imprimerRapportCloture(cloture);
     // Afficher écran post-clôture
     afficherPostCloture(cloture);
-  });
+  }); });
 }
 
 function afficherPostCloture(cloture){
@@ -6099,7 +6125,113 @@ function renderWebDuJour(){
 
 // ----- Email de confirmation : géré par Apps Script (Option B) — rien à faire ici -----
 
+// ══════════════════════════════════════════════════════════
+// TICKET Z — calcul complet d'un service (paiements, TVA, remises, annulations, fond de caisse)
+// ══════════════════════════════════════════════════════════
+function _zCalculer(service, cmdsJour, annulJour, fonds){
+  return RapportZ.calculer(service, cmdsJour, annulJour, fonds, {tva:(parametresData&&parametresData.tva)||null, produits:carteData||{}, detectService:d=>detectService(d)});
+}
+// Lit tout ce qu'il faut puis calcule (cb(z))
+function _zCharger(service, cb){
+  const today=todayKey(), e=selectedEtabId;
+  Promise.all([db.ref('commandes/'+e+'/'+today).once('value'), db.ref('annulations/'+e+'/'+today).once('value'), db.ref('fonds_caisse/'+e+'/'+today).once('value')])
+    .then(([a,b,c])=>cb(_zCalculer(service, a.val()||{}, b.val()||{}, c.val()||{})))
+    .catch(()=>cb(null));
+}
+const _zFmtDate = d => { const [y,m,j]=(d||'').split('-'); return (j&&m&&y)?(j+'/'+m+'/'+y):(d||''); };
+// Blocs neutres du Ticket Z → rendus en ePOS ou HTML (même logique que le bon cuisine)
+function _zBlocs(cl){
+  const ent=(parametresData&&parametresData.entreprise)||{};
+  const z=cl.z||{}; const pm=z.paiements||cl.detail_paiements||{}; const B=[];
+  const ligne=(l,r,o)=>B.push({t:'ligne',l,r,...(o||{})});
+  const dateFr=_zFmtDate(cl.date);
+  B.push({t:'feed'});
+  B.push({t:'h1',v:'TICKET Z',align:'center'});
+  B.push({t:'h3',v:(etabInfo&&etabInfo.nom)||'',align:'center'});
+  B.push({t:'small',v:(ent.raison_sociale||'SARL BENLOBU'),align:'center'});
+  if(ent.adresse) String(ent.adresse).split(/\s*[,\n]\s*/).forEach(v=>{ if(v) B.push({t:'small',v,align:'center'}); });
+  B.push({t:'sep2'});
+  ligne('Service', (cl.service||'')+' · '+(cl.emplacement||'-'));
+  ligne('Ouverture', z.ouverture?dateFr+' '+z.ouverture:'-');
+  ligne('Fermeture', dateFr+' '+(cl.heure_cloture||''));
+  ligne('Impression', new Date().toLocaleDateString('fr-FR')+' '+new Date().toTimeString().substring(0,5));
+  ligne('Commandes', String(cl.nb_commandes||0));
+  ligne('Couverts', String(cl.nb_couverts||0));
+  ligne('Ticket moyen / cmd', fmtPrix(z.ticket_moyen!=null?z.ticket_moyen:(cl.nb_commandes?(cl.ca_total||cl.ca||0)/cl.nb_commandes:0)));
+  ligne('Panier moyen / cvt', fmtPrix(cl.panier_moyen||0));
+  B.push({t:'sep'});
+  B.push({t:'h4',v:'PAIEMENTS'});
+  Object.entries(pm).forEach(([m,v])=>{
+    const nb=(v&&v.nb!=null)?String(v.nb).padStart(2,' ')+'  ':'    ';
+    const mt=(v&&typeof v==='object')?v.montant:v;
+    ligne(nb+m+(/resto/i.test(m)&&z.nb_tickets_resto?' ('+z.nb_tickets_resto+' tickets)':''), fmtPrix(mt||0));
+  });
+  ligne('Total encaissé', fmtPrix(z.total_encaisse!=null?z.total_encaisse:(cl.ca_total||cl.ca||0)), {bold:true});
+  if(z.avoirs_emis){ B.push({t:'sep'}); B.push({t:'h4',v:'AVOIRS TICKETS RESTO'}); ligne('Avoirs émis ('+z.avoirs_emis.nb+')', fmtPrix(z.avoirs_emis.montant)); }
+  if(z.tva){
+    B.push({t:'sep'}); B.push({t:'h4',v:'TVA'});
+    B.push({t:'cols',c:['Taux','TTC','HT','TVA'],small:true});
+    Object.keys(z.tva).sort((a,b)=>b-a).forEach(t=>{ const x=z.tva[t]; B.push({t:'cols',c:['TVA '+String(t).replace('.',',')+' %', x.ttc.toFixed(2).replace('.',','), x.ht.toFixed(2).replace('.',','), x.tva.toFixed(2).replace('.',',')]}); });
+    ligne('Total HT', fmtPrix(z.total_ht||0), {bold:true});
+  }
+  B.push({t:'sep2'});
+  B.push({t:'h2',v:'TOTAL TTC  '+fmtPrix(cl.ca_total!=null?cl.ca_total:(cl.ca||0))});
+  B.push({t:'sep2'});
+  B.push({t:'h4',v:'REMISES / ANNULATIONS'});
+  ligne('Remises et offerts ('+((z.remises||{}).nb||0)+')', fmtPrix((z.remises||{}).montant||0));
+  ligne('Annulations ('+((z.annulations||{}).nb||0)+')', fmtPrix((z.annulations||{}).montant||0));
+  ligne('Commandes non soldées', String(z.non_soldees!=null?z.non_soldees:(cl.non_soldees||0)));
+  B.push({t:'sep'});
+  B.push({t:'h4',v:'FOND DE CAISSE'});
+  const f=z.fond||{}; const cc=cl.controle_caisse;
+  ligne('Fond initial'+(f.heure_initial?' ('+f.heure_initial+')':''), f.initial!=null?fmtPrix(f.initial):'non compté');
+  ligne('+ Espèces encaissées', fmtPrix(f.especes!=null?f.especes:((pm['Espèces']||{}).montant||pm['Espèces']||0)));
+  ligne('Fond théorique', fmtPrix(f.theorique!=null?f.theorique:(f.especes||0)));
+  if(cc){
+    ligne('Fond compté', fmtPrix(cc.compte_especes||0));
+    ligne('Écart', (cc.ecart>=0?'+':'')+fmtPrix(cc.ecart||0), {bold:true});
+  } else ligne('Fond compté', 'non contrôlé');
+  B.push({t:'sep'});
+  const pied=[(ent.raison_sociale||'SARL BENLOBU')+(ent.tva_intracom?' · TVA '+ent.tva_intracom:''), (ent.siret?'SIRET '+ent.siret:'')+(ent.naf?' · NAF '+ent.naf:''), 'Z n° '+(cl.date||'')+'-'+String(cl.service||'').charAt(0).toUpperCase()].filter(x=>x.trim());
+  pied.forEach(v=>B.push({t:'small',v,align:'center'}));
+  B.push({t:'txt',v:'Signé le '+dateFr+' à '+(cl.heure_cloture||''),align:'center',bold:true});
+  B.push({t:'txt',v:'___________________________',align:'center'});
+  return B;
+}
+function _zLignesEpos(cl){
+  const out=[]; const W2=Math.floor(EPOS_COLS/2);
+  const lr=(l,r)=>{ l=String(l); r=String(r); const w=EPOS_COLS-r.length-1; if(l.length>w) l=l.slice(0,w); return l+' '.repeat(Math.max(1,EPOS_COLS-l.length-r.length))+r; };
+  _zBlocs(cl).forEach(b=>{
+    if(b.t==='feed'){ out.push({feedUnit:Math.round(BON_MARGE_HAUT_MM*8)}); return; }
+    if(b.t==='sep'){ out.push({sep:true}); return; }
+    if(b.t==='sep2'){ out.push({v:'='.repeat(EPOS_COLS), bold:true}); return; }
+    if(b.t==='h1'){ out.push({v:b.v.slice(0,W2), align:b.align||'left', bold:true, dw:true, dh:true}); return; }
+    if(b.t==='h2'){ out.push({v:b.v.slice(0,W2), align:b.align||'left', bold:true, dw:true, dh:true}); return; }
+    if(b.t==='h3'){ out.push({v:b.v, align:b.align||'left', bold:true, dh:true}); return; }
+    if(b.t==='h4'){ out.push({v:b.v, align:'left', bold:true}); return; }
+    if(b.t==='ligne'){ out.push({v:lr(b.l,b.r), align:'left', bold:!!b.bold}); return; }
+    if(b.t==='cols'){ out.push({v:b.c[0].padEnd(12)+b.c[1].padStart(10)+b.c[2].padStart(10)+b.c[3].padStart(10), align:'left'}); return; }
+    out.push({v:b.v, align:b.align||'left', bold:!!b.bold});
+  });
+  return out;
+}
 function buildRapportCloture(cl){
+  const e=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  return '<div class="bon" style="padding-top:'+BON_MARGE_HAUT_MM+'mm;font-family:\'Courier New\',monospace;color:#000;font-size:13px">'+_zBlocs(cl).map(b=>{
+    if(b.t==='feed') return '';
+    if(b.t==='sep') return '<div style="border-top:1px dashed #000;margin:6px 0"></div>';
+    if(b.t==='sep2') return '<div style="border-top:2px solid #000;margin:8px 0"></div>';
+    if(b.t==='h1') return '<div style="text-align:center;font-size:26px;font-weight:800">'+e(b.v)+'</div>';
+    if(b.t==='h2') return '<div style="font-size:22px;font-weight:800">'+e(b.v)+'</div>';
+    if(b.t==='h3') return '<div style="text-align:center;font-size:18px;font-weight:700">'+e(b.v)+'</div>';
+    if(b.t==='h4') return '<div style="font-weight:700;margin-top:4px">'+e(b.v)+'</div>';
+    if(b.t==='ligne') return '<div style="display:flex;justify-content:space-between;gap:8px'+(b.bold?';font-weight:700':'')+'"><span>'+e(b.l)+'</span><span>'+e(b.r)+'</span></div>';
+    if(b.t==='cols') return '<div style="display:flex'+(b.small?';font-size:11px;color:#444':'')+'"><span style="flex:1.3">'+e(b.c[0])+'</span><span style="flex:1;text-align:right">'+e(b.c[1])+'</span><span style="flex:1;text-align:right">'+e(b.c[2])+'</span><span style="flex:1;text-align:right">'+e(b.c[3])+'</span></div>';
+    if(b.t==='small') return '<div style="font-size:11px;color:#444;text-align:'+(b.align||'left')+';white-space:pre">'+e(b.v)+'</div>';
+    return '<div style="text-align:'+(b.align||'left')+';white-space:pre'+(b.bold?';font-weight:700':'')+'">'+e(b.v)+'</div>';
+  }).join('')+'</div>';
+}
+function _buildRapportClotureAncien(cl){
   const ent = parametresData.entreprise || {};
   return `
     <div class="pr-logo">${ent.raison_sociale||'Pok&Ben'}</div>
@@ -6129,6 +6261,9 @@ function buildRapportCloture(cl){
 
 // Lignes structurées ePOS d'un rapport de clôture (tolérant aux 2 formats de champs)
 function eposLignesCloture(cl){
+  return _zLignesEpos(cl);
+}
+function _eposLignesClotureAncien(cl){
   const ent = (parametresData && parametresData.entreprise) || {};
   const ca = (cl.ca_total!=null ? cl.ca_total : (cl.ca||0));
   const L = [];

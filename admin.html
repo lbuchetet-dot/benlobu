@@ -9,6 +9,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="/carte-poke.js"></script>
+<script src="/rapport-z.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -829,17 +830,21 @@ tr:hover td{background:var(--bg)}
       <!-- RAPPORT COMPTABLE -->
       <div class="view" id="view-rapport-comptable">
         <div class="page-header">
-          <div class="page-header-left"><div class="page-title">Rapport comptable</div><div class="page-sub">TVA · Paiements · Remises &amp; annulations</div></div>
+          <div class="page-header-left"><div class="page-title">Rapport comptable</div><div class="page-sub">TVA · Paiements · Couverts · Remises &amp; annulations — par camion, par service, consolidé</div></div>
         </div>
-        <div class="rapport-filtres">
-          <select id="rc-etab"><option value="all">Tous les établissements</option></select>
+        <div class="rapport-filtres" style="flex-wrap:wrap;gap:8px">
           <input type="date" id="rc-debut" class="form-input" style="width:auto">
           <span style="font-size:13px;color:var(--text-muted)">→</span>
           <input type="date" id="rc-fin" class="form-input" style="width:auto">
+          <span id="rc-etabs" style="display:inline-flex;gap:6px;flex-wrap:wrap"></span>
           <button class="btn btn-secondary btn-sm" onclick="chargerRapportComptable()">Filtrer</button>
-          <button class="btn btn-primary btn-sm" onclick="exportRapportComptable()" id="btn-export-rc" style="display:none">📥 Export</button>
+          <span style="flex:1"></span>
+          <label style="font-size:12px;color:var(--text-muted);display:inline-flex;align-items:center;gap:4px"><input type="checkbox" id="rc-origine" onchange="_afficherRapportComptable()"> Afficher les valeurs d'origine</label>
+          <button class="btn btn-primary btn-sm" onclick="exportRapportComptable()" id="btn-export-rc" style="display:none">📥 Export Excel</button>
+          <button class="btn btn-secondary btn-sm" onclick="window.print()" id="btn-print-rc" style="display:none">🖨 Imprimer</button>
         </div>
         <div id="rc-content"><p style="color:var(--text-muted);font-size:13px">Sélectionnez une période pour afficher le rapport comptable.</p></div>
+        <div id="rc-pop" style="display:none;position:fixed;z-index:500;background:var(--white,#fff);border:1px solid var(--border);box-shadow:0 8px 24px rgba(0,0,0,.18);border-radius:12px;padding:14px;width:280px;font-size:12px"></div>
       </div>
 
       <!-- FIDELITE -->
@@ -1045,6 +1050,7 @@ tr:hover td{background:var(--bg)}
             <div class="form-field"><label class="form-label">SIRET</label><input type="text" class="form-input" id="p-siret"></div>
             <div class="form-field"><label class="form-label">Adresse</label><input type="text" class="form-input" id="p-adresse"></div>
             <div class="form-field"><label class="form-label">N° TVA intracommunautaire</label><input type="text" class="form-input" id="p-tva-intra"></div>
+            <div class="form-field"><label class="form-label">Code NAF</label><input type="text" class="form-input" id="p-naf" placeholder="5610C"></div>
             <div class="form-field"><label class="form-label">Téléphone</label><input type="tel" class="form-input" id="p-tel"></div>
             <div class="form-field"><label class="form-label">Email</label><input type="email" class="form-input" id="p-email"></div>
             <div class="form-field"><label class="form-label">Site / Réseaux sociaux</label><input type="text" class="form-input" id="p-web" placeholder="@pokben"></div>
@@ -2029,6 +2035,7 @@ function showView(v){
   if(v==='dashboard'){ try{ renderEtabsDashboard(); }catch(e){ console.error('[TdB] rendu :', e); } }
   else _dashDetachLive();
   if(v==='etablissements') renderEtabs();
+  if(v==='rapport-comptable'){ _rcInitEtabs(); const t=new Date().toISOString().slice(0,10); if(!document.getElementById('rc-debut').value){ document.getElementById('rc-debut').value=t; document.getElementById('rc-fin').value=t; } }
   if(v==='controle') renderControle();
   if(v==='planning') renderPlanningSelector();
   if(v==='produits'){
@@ -5642,8 +5649,9 @@ function exportCloturesExcel(){
 // ============================================================
 
 function _dateRange(debut, fin){
-  const dates=[]; let d=new Date(debut+'T00:00:00'); const f=new Date(fin+'T00:00:00');
-  while(d<=f){ dates.push(d.toISOString().split('T')[0]); d.setDate(d.getDate()+1); }
+  // Tout en UTC : évite le décalage d'un jour selon le fuseau du navigateur
+  const dates=[]; let d=new Date(debut+'T00:00:00Z'); const f=new Date(fin+'T00:00:00Z');
+  while(d<=f){ dates.push(d.toISOString().split('T')[0]); d.setUTCDate(d.getUTCDate()+1); }
   return dates;
 }
 
@@ -5830,64 +5838,65 @@ function exportRapportPaiements(){
 // RAPPORT COMPTABLE
 // ============================================================
 let _rcData=null;
+const _rcStyleEl=document.createElement('style');
+_rcStyleEl.textContent=`
+.rc-adj{color:var(--amber);font-weight:700;cursor:pointer}.rc-adj s{color:var(--text-muted);font-weight:400;margin-right:4px;font-size:11px}
+.rc-cell{cursor:pointer}.rc-cell:hover{background:var(--amber-light)}
+.rc-svc td{background:var(--green-light);color:var(--green-dark);font-weight:800;text-align:left}
+.rc-tot td{font-weight:700;background:var(--bg)}
+.rc-grid td,.rc-grid th{text-align:right;white-space:nowrap}.rc-grid td:first-child,.rc-grid th:first-child{text-align:left}
+@media print{ .sidebar,.rapport-filtres,.topbar,#rc-pop{display:none!important} .view{display:block!important} .card{break-inside:avoid} }`;
+document.head.appendChild(_rcStyleEl);
+const _rcFmt=v=>(Math.round((v||0)*100)/100).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2});
+const _rcKey=(eid,date,svc)=>eid+'|'+date+'|'+svc;
+function _rcDateFr(d){ const [y,m,j]=(d||'').split('-'); return j?(j+'/'+m+'/'+y):d; }
+
+function _rcInitEtabs(){
+  const box=document.getElementById('rc-etabs'); if(!box||box.children.length) return;
+  Object.entries(etabsData||{}).forEach(([id,e])=>{
+    const lab=document.createElement('label');
+    lab.style.cssText='display:inline-flex;align-items:center;gap:4px;font-size:12px;border:1px solid var(--border);border-radius:20px;padding:3px 10px;cursor:pointer;background:var(--white,#fff)';
+    lab.innerHTML=`<input type="checkbox" value="${id}" checked> ${e.nom||id}`;
+    box.appendChild(lab);
+  });
+}
 
 async function chargerRapportComptable(){
-  const etab=document.getElementById('rc-etab').value;
-  const debut=document.getElementById('rc-debut').value;
-  const fin=document.getElementById('rc-fin').value;
+  _rcInitEtabs();
+  const debut=document.getElementById('rc-debut').value, fin=document.getElementById('rc-fin').value;
   if(!debut||!fin){ showNotif('Sélectionne une période','error'); return; }
+  const etabIds=[...document.querySelectorAll('#rc-etabs input:checked')].map(i=>i.value);
+  if(!etabIds.length){ showNotif('Coche au moins un établissement','error'); return; }
   const content=document.getElementById('rc-content');
   content.innerHTML='<div class="loading"><div class="spinner"></div>Chargement…</div>';
-  document.getElementById('btn-export-rc').style.display='none';
+  document.getElementById('btn-export-rc').style.display='none'; document.getElementById('btn-print-rc').style.display='none';
   try{
     const dates=_dateRange(debut,fin);
-    const etabIds=etab==='all'?Object.keys(etabsData):[etab];
-    const [clotSnap,tvaSnap]=await Promise.all([
-      db.ref('clotures').once('value'),
-      db.ref('parametres/tva').once('value')
-    ]);
-    const allClotures=clotSnap.val()||{};
-    const tvaParams=tvaSnap.val()||{sur_place:10,a_emporter:5.5};
-    let caTTC_sp=0,caTTC_ae=0,caTTC_total=0;
-    const pmtTotaux={}; let totAnn=0,totRem=0,nbSvc=0,nbCmd=0;
-    etabIds.forEach(eid=>{
-      Object.entries(allClotures[eid]||{}).forEach(([date,services])=>{
-        if(!dates.includes(date)) return;
-        Object.entries(services||{}).forEach(([service,cl])=>{
-          if(!cl) return;
-          nbSvc++;
-          const ca=Math.round((cl.ca||cl.ca_total||0)*100)/100;
-          // Répartition TTC sur place / à emporter
-          if(cl.ca_sur_place) caTTC_sp+=cl.ca_sur_place;
-          else if(cl.ca_a_emporter) caTTC_ae+=cl.ca_a_emporter;
-          else caTTC_sp+=ca; // défaut : sur place (10%)
-          caTTC_total+=ca;
-          nbCmd+=cl.nb_commandes||0;
-          const pn=_normaliserPmts(cl.detail_paiements||{});
-          Object.entries(pn).forEach(([m,v])=>{ pmtTotaux[m]=(pmtTotaux[m]||0)+v; });
-          totAnn+=cl.annulations||cl.total_annulations||cl.montant_annulations||0;
-          totRem+=cl.remises||cl.total_remises||cl.offerts||cl.montant_offerts||0;
+    const tvaParams=(await db.ref('parametres/tva').once('value')).val()||{sur_place:10,a_emporter:5.5};
+    const cartes={};
+    for(const eid of etabIds){ const c=(etabsData[eid]&&etabsData[eid].carte)||'poke'; if(!cartes[c]) cartes[c]=(await db.ref('cartes/'+c+'/produits').once('value')).val()||{}; }
+    const lus=await Promise.all(etabIds.map(eid=>Promise.all([
+      db.ref('commandes/'+eid).orderByKey().startAt(debut).endAt(fin).once('value'),
+      db.ref('annulations/'+eid).orderByKey().startAt(debut).endAt(fin).once('value'),
+      db.ref('fonds_caisse/'+eid).orderByKey().startAt(debut).endAt(fin).once('value'),
+      db.ref('clotures/'+eid).orderByKey().startAt(debut).endAt(fin).once('value'),
+      db.ref('ajustements/'+eid).orderByKey().startAt(debut).endAt(fin).once('value')
+    ])));
+    const lignes={};   // key → {eid,date,svc,brut,z,aj}
+    etabIds.forEach((eid,ix)=>{
+      const [cmS,anS,foS,clS,ajS]=lus[ix];
+      const cm=cmS.val()||{}, an=anS.val()||{}, fo=foS.val()||{}, cl=clS.val()||{}, aj=ajS.val()||{};
+      const produits=cartes[(etabsData[eid]&&etabsData[eid].carte)||'poke']||{};
+      dates.forEach(date=>{
+        ['midi','soir'].forEach(svc=>{
+          const brut=RapportZ.calculer(svc, cm[date]||{}, an[date]||{}, fo[date]||{}, {tva:tvaParams, produits});
+          if(!brut.nb_commandes && !brut.annulations.nb && !brut.non_soldees) return;
+          const ajust=(aj[date]&&aj[date][svc])||{};
+          lignes[_rcKey(eid,date,svc)]={eid,date,svc,brut,aj:ajust,z:RapportZ.ajuster(brut,ajust),cloture:!!(cl[date]&&cl[date][svc])};
         });
       });
     });
-    const tauxSP=(tvaParams.sur_place||10)/100;
-    const tauxAE=(tvaParams.a_emporter||5.5)/100;
-    const htSP=caTTC_sp/(1+tauxSP);
-    const htAE=caTTC_ae/(1+tauxAE);
-    _rcData={
-      debut,fin,etabIds,tvaParams,
-      caTTC_total:Math.round(caTTC_total*100)/100,
-      caTTC_sp:Math.round(caTTC_sp*100)/100,
-      caTTC_ae:Math.round(caTTC_ae*100)/100,
-      htSP:Math.round(htSP*100)/100,
-      tvaCollSP:Math.round((caTTC_sp-htSP)*100)/100,
-      htAE:Math.round(htAE*100)/100,
-      tvaCollAE:Math.round((caTTC_ae-htAE)*100)/100,
-      pmtTotaux,
-      totAnn:Math.round(totAnn*100)/100,
-      totRem:Math.round(totRem*100)/100,
-      nbSvc,nbCmd
-    };
+    _rcData={debut,fin,etabIds,tvaParams,lignes};
     _afficherRapportComptable();
   } catch(e){
     content.innerHTML=`<p style="color:var(--coral);font-size:13px">Erreur : ${e.message}</p>`;
@@ -5895,107 +5904,200 @@ async function chargerRapportComptable(){
   }
 }
 
+function _rcCell(l, champ, val, opts){
+  // cellule ajustable : l = ligne (ou null pour une somme), champ 'pmt:<mode>'|'couverts'|'remises'|'annulations'
+  opts=opts||{};
+  const origine=document.getElementById('rc-origine')&&document.getElementById('rc-origine').checked;
+  const a=l&&l.z.ajustements&&l.z.ajustements[champ];
+  const fmt=opts.entier?String(Math.round(val||0)):_rcFmt(val);
+  if(a){
+    const o=opts.entier?String(Math.round(a.origine)):_rcFmt(a.origine);
+    return `<td class="rc-adj" onclick="_rcOuvrirAjust('${l.eid}','${l.date}','${l.svc}','${champ.replace(/'/g,"\\'")}')" title="${(a.motif||'').replace(/"/g,'&quot;')} — ${a.par||''} ${a.le||''}">${origine?'<s>'+o+'</s>':''}${fmt} ✎</td>`;
+  }
+  if(l) return `<td class="rc-cell" onclick="_rcOuvrirAjust('${l.eid}','${l.date}','${l.svc}','${champ.replace(/'/g,"\\'")}')" title="Cliquer pour ajuster">${(val||opts.zero)?fmt:'—'}</td>`;
+  return `<td>${val?fmt:'—'}</td>`;
+}
+
 function _afficherRapportComptable(){
-  const content=document.getElementById('rc-content');
   const d=_rcData; if(!d) return;
-  const fmt2=v=>(Math.round((v||0)*100)/100).toFixed(2).replace('.',',')+' €';
-  const htTotal=Math.round((d.htSP+d.htAE)*100)/100;
-  const tvaTotal=Math.round((d.tvaCollSP+d.tvaCollAE)*100)/100;
-  const pmtTotal=Math.round(Object.values(d.pmtTotaux).reduce((s,v)=>s+v,0)*100)/100;
-  // Tableau TVA
-  const tvaRows=[];
-  if(d.caTTC_sp>0) tvaRows.push(`<tr><td>EUR</td><td>${(d.tvaParams.sur_place||10).toFixed(2).replace('.',',')} %<br><small style="color:var(--text-muted)">Sur place</small></td><td>${fmt2(d.htSP)}</td><td>${fmt2(d.caTTC_sp)}</td><td>0,00 €</td><td>0,00 €</td><td style="font-weight:600">${fmt2(d.tvaCollSP)}</td></tr>`);
-  if(d.caTTC_ae>0) tvaRows.push(`<tr><td>EUR</td><td>${(d.tvaParams.a_emporter||5.5).toFixed(2).replace('.',',')} %<br><small style="color:var(--text-muted)">À emporter</small></td><td>${fmt2(d.htAE)}</td><td>${fmt2(d.caTTC_ae)}</td><td>0,00 €</td><td>0,00 €</td><td style="font-weight:600">${fmt2(d.tvaCollAE)}</td></tr>`);
-  tvaRows.push(`<tr style="font-weight:700;background:var(--bg)"><td colspan="2">Total</td><td>${fmt2(htTotal)}</td><td>${fmt2(d.caTTC_total)}</td><td>0,00 €</td><td>0,00 €</td><td>${fmt2(tvaTotal)}</td></tr>`);
-  // Tableau paiements
-  const pmtBadge={'Carte bancaire':'badge-green','Espèces':'badge-amber','Tickets resto':'badge-coral','Chèques':'badge-gray'};
-  const pmtRows=Object.entries(d.pmtTotaux).map(([m,v])=>`
-    <tr>
-      <td>EUR</td>
-      <td><span class="badge ${pmtBadge[m]||'badge-gray'}">${m}</span></td>
-      <td style="font-weight:600">${fmt2(v)}</td>
-      <td style="color:var(--text-muted)">0,00 €</td>
-      <td style="font-weight:600;color:var(--green-dark)">${fmt2(v)}</td>
-    </tr>`).join('');
+  const content=document.getElementById('rc-content');
+  const L=Object.values(d.lignes);
+  if(!L.length){ content.innerHTML='<p style="color:var(--text-muted);font-size:13px">Aucune commande sur cette période.</p>'; return; }
+  const origine=document.getElementById('rc-origine').checked;
+  const tout=RapportZ.sommer(L.map(l=>origine?l.brut:l.z));
+  const nbAj=L.reduce((s,l)=>s+Object.keys(l.z.ajustements||{}).length,0);
+  const modes=[...new Set([...RapportZ.MODES_ORDRE.slice(0,5), ...L.flatMap(l=>Object.keys(l.z.paiements))])].filter(m=>RapportZ.MODES_ORDRE.slice(0,5).includes(m)||L.some(l=>l.z.paiements[m]));
+  const tauxList=Object.keys(tout.tva).sort((a,b)=>b-a);
+  const nomE=eid=>(etabsData[eid]&&etabsData[eid].nom)||eid;
+  const periode=d.debut===d.fin?_rcDateFr(d.debut):_rcDateFr(d.debut)+' → '+_rcDateFr(d.fin);
+
+  // ── Consolidé ──
+  const pmtRows=modes.map(m=>{ const p=tout.paiements[m]||{nb:0,montant:0}; return `<tr><td>${m}</td><td>${p.nb||'—'}</td><td>${p.montant?_rcFmt(p.montant)+' €':'—'}</td></tr>`; }).join('')
+    +`<tr><td>Avoirs émis (surplus tickets resto)</td><td>${tout.avoirs_emis.nb||'—'}</td><td>${tout.avoirs_emis.montant?_rcFmt(tout.avoirs_emis.montant)+' €':'—'}</td></tr>`
+    +`<tr class="rc-tot"><td>Total net encaissé</td><td>${tout.nb_commandes}</td><td>${_rcFmt(tout.total_encaisse)} €</td></tr>`;
+  const tvaRows=tauxList.map(t=>{ const x=tout.tva[t]; const lbl=String(t)===String(d.tvaParams.a_emporter||5.5)?'à emporter':'sur place'; return `<tr><td>${String(t).replace('.',',')} % ${lbl}</td><td>${_rcFmt(x.ht)}</td><td>${_rcFmt(x.tva)}</td><td>${_rcFmt(x.ttc)}</td></tr>`; }).join('')
+    +`<tr class="rc-tot"><td>Total</td><td>${_rcFmt(tout.total_ht)}</td><td>${_rcFmt(tout.total_tva)}</td><td>${_rcFmt(tout.ca_total)}</td></tr>`;
+  const remRows=`<tr><td>Remises et offerts</td><td>${tout.remises.nb||'—'}</td><td>${_rcFmt(tout.remises.montant)} €</td></tr>
+    <tr><td>Annulations</td><td>${tout.annulations.nb||'—'}</td><td>${_rcFmt(tout.annulations.montant)} €</td></tr>
+    <tr><td>Commandes non soldées</td><td>${tout.non_soldees||'—'}</td><td></td></tr>
+    <tr class="rc-tot"><td>Total</td><td>${tout.remises.nb+tout.annulations.nb}</td><td>${_rcFmt(tout.remises.montant+tout.annulations.montant)} €</td></tr>`;
+
+  // ── Détail service × camion ──
+  const colonnes=d.etabIds.filter(eid=>L.some(l=>l.eid===eid));
+  const parSvcEtab={};
+  L.forEach(l=>{ const k=l.svc+'|'+l.eid; (parSvcEtab[k]=parSvcEtab[k]||[]).push(l); });
+  const som=(svc,eid)=>RapportZ.sommer((eid?parSvcEtab[svc+'|'+eid]:L.filter(l=>l.svc===svc)).map(l=>origine?l.brut:l.z)||[]);
+  const unJour=d.debut===d.fin;
+  const ligneUnique=(svc,eid)=>unJour&&(parSvcEtab[svc+'|'+eid]||[])[0]||null;
+  const grille=['midi','soir'].filter(svc=>L.some(l=>l.svc===svc)).map(svc=>{
+    const S=colonnes.map(eid=>som(svc,eid)); const T=som(svc,null);
+    const row=(lbl,fn,champ,opts)=>`<tr><td>${lbl}</td>${colonnes.map((eid,i)=>champ&&ligneUnique(svc,eid)?_rcCell(ligneUnique(svc,eid),champ,fn(S[i]),opts):`<td>${fn(S[i])?(opts&&opts.entier?fn(S[i]):_rcFmt(fn(S[i]))):'—'}</td>`).join('')}<td style="font-weight:600">${fn(T)?(opts&&opts.entier?fn(T):_rcFmt(fn(T))):'—'}</td></tr>`;
+    return `<tr class="rc-svc"><td colspan="${colonnes.length+2}">${svc.toUpperCase()}</td></tr>`
+      + modes.filter(m=>S.some(x=>x.paiements[m])||RapportZ.MODES_ORDRE.slice(0,3).includes(m)).map(m=>row(m,x=>(x.paiements[m]||{}).montant||0,'pmt:'+m)).join('')
+      + (T.avoirs_emis.montant?row('Avoirs émis',x=>x.avoirs_emis.montant):'')
+      + `<tr class="rc-tot"><td>Total net</td>${S.map(x=>`<td>${_rcFmt(x.total_encaisse)}</td>`).join('')}<td>${_rcFmt(T.total_encaisse)}</td></tr>`
+      + row('CA HT',x=>x.total_ht)
+      + tauxList.map(t=>row('TVA '+String(t).replace('.',',')+' %',x=>(x.tva[t]||{}).tva||0)).join('')
+      + row('CA TTC',x=>x.ca_total)
+      + row('Couverts',x=>x.nb_couverts,'couverts',{entier:true})
+      + row('Commandes',x=>x.nb_commandes,null,{entier:true})
+      + row('Remises et offerts',x=>x.remises.montant,'remises')
+      + row('Annulations',x=>x.annulations.montant,'annulations');
+  }).join('');
+
+  // ── Jour par jour ──
+  const jours=L.slice().sort((a,b)=>a.date.localeCompare(b.date)||nomE(a.eid).localeCompare(nomE(b.eid))||a.svc.localeCompare(b.svc));
+  const jourRows=jours.map(l=>{ const z=origine?l.brut:l.z; return `<tr><td>${_rcDateFr(l.date)}</td><td>${nomE(l.eid)}</td><td>${l.svc}</td>`
+    + modes.map(m=>_rcCell(l,'pmt:'+m,(z.paiements[m]||{}).montant||0)).join('')
+    + `<td>${_rcFmt(z.total_encaisse)}</td><td>${_rcFmt(z.total_ht)}</td><td>${_rcFmt(z.total_tva)}</td><td>${_rcFmt(z.ca_total)}</td>`
+    + _rcCell(l,'couverts',z.nb_couverts,{entier:true,zero:true}) + `<td>${z.nb_commandes}</td>`
+    + _rcCell(l,'remises',z.remises.montant) + _rcCell(l,'annulations',z.annulations.montant)
+    + `<td title="${l.cloture?'Clôture faite en caisse':'Pas de clôture en caisse'}">${l.cloture?'✓':'<span style="color:var(--amber)">·</span>'}</td></tr>`; }).join('');
+
   content.innerHTML=`
-    <div class="stats-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px">
-      <div class="stat-card"><div class="stat-label">CA TTC</div><div class="stat-value green">${fmt2(d.caTTC_total)}</div></div>
-      <div class="stat-card"><div class="stat-label">CA HT</div><div class="stat-value">${fmt2(htTotal)}</div></div>
-      <div class="stat-card"><div class="stat-label">TVA collectée</div><div class="stat-value">${fmt2(tvaTotal)}</div></div>
-      <div class="stat-card"><div class="stat-label">Services / Commandes</div><div class="stat-value" style="font-size:18px">${d.nbSvc} / ${d.nbCmd}</div></div>
-    </div>
-
     <div class="card">
-      <div class="card-title">Rapport de TVA <small>taux paramétrés dans Configuration → Paramètres</small></div>
-      <div class="table-wrap"><table>
-        <thead><tr><th>Devise</th><th>Type / Taux</th><th>CA HT</th><th>CA TTC</th><th>Remboursé HT</th><th>Remboursé TTC</th><th>Montant TVA</th></tr></thead>
-        <tbody>${tvaRows.join('')}</tbody>
-      </table></div>
-      <p style="font-size:11px;color:var(--text-muted);margin-top:10px">⚠️ Répartition sur place / à emporter basée sur <code>ca_sur_place</code> / <code>ca_a_emporter</code> dans les clôtures. Si non renseigné, le CA est attribué au taux sur place par défaut.</p>
+      <div class="card-title">Consolidé — ${periode} · ${colonnes.length} établissement${colonnes.length>1?'s':''} <small>${nbAj?nbAj+' ajustement'+(nbAj>1?'s':'')+' sur cette période':'aucun ajustement'}${origine?' · <b style="color:var(--amber)">valeurs d\'origine affichées</b>':''}</small></div>
+      <div class="stats-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
+        <div class="stat-card"><div class="stat-label">CA TTC</div><div class="stat-value green">${_rcFmt(tout.ca_total)} €</div></div>
+        <div class="stat-card"><div class="stat-label">CA HT</div><div class="stat-value">${_rcFmt(tout.total_ht)} €</div></div>
+        <div class="stat-card"><div class="stat-label">TVA collectée</div><div class="stat-value">${_rcFmt(tout.total_tva)} €</div></div>
+        <div class="stat-card"><div class="stat-label">Couverts · Commandes · Panier/cvt</div><div class="stat-value" style="font-size:17px">${tout.nb_couverts} · ${tout.nb_commandes} · ${_rcFmt(tout.panier_moyen)} €</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px">
+        <div class="table-wrap"><table class="rc-grid"><thead><tr><th>Paiements</th><th>Nb</th><th>Montant</th></tr></thead><tbody>${pmtRows}</tbody></table></div>
+        <div class="table-wrap"><table class="rc-grid"><thead><tr><th>TVA</th><th>HT</th><th>TVA</th><th>TTC</th></tr></thead><tbody>${tvaRows}</tbody></table></div>
+        <div class="table-wrap"><table class="rc-grid"><thead><tr><th>Remises / annulations</th><th>Nb</th><th>Montant</th></tr></thead><tbody>${remRows}</tbody></table></div>
+      </div>
     </div>
-
     <div class="card">
-      <div class="card-title">Rapport de paiements</div>
-      <div class="table-wrap"><table>
-        <thead><tr><th>Devise</th><th>Moyen de paiement</th><th>Montant</th><th>Remboursement</th><th>Total net</th></tr></thead>
-        <tbody>
-          ${pmtRows}
-          <tr style="font-weight:700;background:var(--bg)"><td colspan="2">Total</td><td>${fmt2(pmtTotal)}</td><td>0,00 €</td><td>${fmt2(pmtTotal)}</td></tr>
-        </tbody>
-      </table></div>
+      <div class="card-title">Détail par service et par camion <small>${unJour?'cliquer sur un montant pour l\'ajuster — l\'original est conservé':'ajustements : choisir une seule journée, ou utiliser le tableau jour par jour'}</small></div>
+      <div class="table-wrap"><table class="rc-grid"><thead><tr><th></th>${colonnes.map(eid=>`<th>${nomE(eid)}</th>`).join('')}<th>Total</th></tr></thead><tbody>${grille}</tbody></table></div>
     </div>
-
     <div class="card">
-      <div class="card-title">Rapport de comptes clients</div>
-      <p style="color:var(--text-muted);font-size:13px">0,00 € — aucun compte client activé.</p>
-    </div>
-
-    <div class="card">
-      <div class="card-title">Remises, offerts &amp; annulations</div>
-      <div class="table-wrap"><table>
-        <thead><tr><th>Catégorie</th><th>Montant</th></tr></thead>
-        <tbody>
-          <tr><td>Total remises &amp; offerts</td><td style="font-weight:600">${fmt2(d.totRem)}</td></tr>
-          <tr><td>Total annulations</td><td style="font-weight:600;color:var(--coral)">${fmt2(d.totAnn)}</td></tr>
-          <tr style="font-weight:700;background:var(--bg)"><td>Total</td><td>${fmt2(d.totRem+d.totAnn)}</td></tr>
-        </tbody>
-      </table></div>
-      <p style="font-size:11px;color:var(--text-muted);margin-top:10px">⚠️ Remises et annulations remontées uniquement si les champs <code>annulations</code> / <code>remises</code> / <code>offerts</code> sont renseignés lors des clôtures dans la caisse.</p>
+      <div class="card-title">Jour par jour <small>une ligne par jour, camion et service — cliquer sur un montant pour l'ajuster · Z = clôture faite en caisse</small></div>
+      <div class="table-wrap"><table class="rc-grid"><thead><tr><th>Date</th><th>Camion</th><th>Service</th>${modes.map(m=>`<th>${m}</th>`).join('')}<th>Total net</th><th>CA HT</th><th>TVA</th><th>CA TTC</th><th>Cvt</th><th>Cmd</th><th>Remises</th><th>Annul.</th><th>Z</th></tr></thead><tbody>${jourRows}</tbody></table></div>
     </div>`;
   document.getElementById('btn-export-rc').style.display='inline-flex';
+  document.getElementById('btn-print-rc').style.display='inline-flex';
+}
+
+// ── Ajustements (ratures comptables, traçées) ──
+function _rcOuvrirAjust(eid,date,svc,champ){
+  const l=_rcData&&_rcData.lignes[_rcKey(eid,date,svc)]; if(!l) return;
+  const existant=l.z.ajustements&&l.z.ajustements[champ];
+  const brut=champ.indexOf('pmt:')===0?((l.brut.paiements[champ.slice(4)]||{}).montant||0):champ==='couverts'?l.brut.nb_couverts:champ==='remises'?l.brut.remises.montant:l.brut.annulations.montant;
+  const lbl=champ.indexOf('pmt:')===0?champ.slice(4):{couverts:'Couverts',remises:'Remises et offerts',annulations:'Annulations'}[champ];
+  const nomE=(etabsData[eid]&&etabsData[eid].nom)||eid;
+  const pop=document.getElementById('rc-pop');
+  pop.innerHTML=`<div style="font-weight:700;margin-bottom:6px">Ajuster — ${nomE} · ${_rcDateFr(date)} · ${svc} · ${lbl}</div>
+    <div style="color:var(--text-muted)">Valeur caisse</div><div style="font-weight:600;margin-bottom:6px">${champ==='couverts'?brut:_rcFmt(brut)+' €'}</div>
+    <div style="color:var(--text-muted)">Valeur corrigée</div><input class="form-input" id="rc-aj-val" type="number" step="${champ==='couverts'?'1':'0.01'}" value="${existant?existant.valeur:brut}" style="width:100%;margin:2px 0 6px">
+    <div style="color:var(--text-muted)">Motif</div><input class="form-input" id="rc-aj-motif" type="text" placeholder="ex. TPE : règlement CTR passé en CB" value="${existant?(existant.motif||'').replace(/"/g,'&quot;'):''}" style="width:100%;margin:2px 0 10px">
+    <div style="display:flex;gap:6px"><button class="btn btn-primary btn-sm" style="flex:1" onclick="_rcSauverAjust('${eid}','${date}','${svc}','${champ.replace(/'/g,"\\'")}')">Enregistrer</button>${existant?`<button class="btn btn-secondary btn-sm" onclick="_rcSupprimerAjust('${eid}','${date}','${svc}','${champ.replace(/'/g,"\\'")}')">Rétablir</button>`:''}<button class="btn btn-secondary btn-sm" onclick="document.getElementById('rc-pop').style.display='none'">Annuler</button></div>
+    ${existant?`<div style="color:var(--text-muted);margin-top:8px">${existant.par||''} · ${existant.le||''}</div>`:''}`;
+  const ev=window.event; const x=ev?Math.min(ev.clientX,window.innerWidth-300):200, y=ev?Math.min(ev.clientY+10,window.innerHeight-260):200;
+  pop.style.left=x+'px'; pop.style.top=y+'px'; pop.style.display='block';
+  setTimeout(()=>document.getElementById('rc-aj-val').select(),50);
+}
+function _rcSauverAjust(eid,date,svc,champ){
+  const val=parseFloat(document.getElementById('rc-aj-val').value); const motif=(document.getElementById('rc-aj-motif').value||'').trim();
+  if(isNaN(val)){ showNotif('Valeur invalide','error'); return; }
+  if(!motif){ showNotif('Indique un motif (il apparaît dans l\'export)','error'); return; }
+  const l=_rcData.lignes[_rcKey(eid,date,svc)]; if(!l) return;
+  const brut=champ.indexOf('pmt:')===0?((l.brut.paiements[champ.slice(4)]||{}).montant||0):champ==='couverts'?l.brut.nb_couverts:champ==='remises'?l.brut.remises.montant:l.brut.annulations.montant;
+  const user=(firebase.auth().currentUser&&firebase.auth().currentUser.email)||'admin';
+  const rec={valeur:val, origine:brut, motif, par:user.split('@')[0], le:new Date().toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'})};
+  const key=champ.replace(/[.#$\/\[\]]/g,'_');
+  db.ref('ajustements/'+eid+'/'+date+'/'+svc+'/'+key).set(rec).then(()=>{
+    l.aj[key]=rec; l.z=RapportZ.ajuster(l.brut,l.aj);
+    document.getElementById('rc-pop').style.display='none';
+    _afficherRapportComptable(); showNotif('Ajustement enregistré ✓','success');
+  }).catch(e=>showNotif('Erreur : '+e.message,'error'));
+}
+function _rcSupprimerAjust(eid,date,svc,champ){
+  const l=_rcData.lignes[_rcKey(eid,date,svc)]; if(!l) return;
+  const key=champ.replace(/[.#$\/\[\]]/g,'_');
+  db.ref('ajustements/'+eid+'/'+date+'/'+svc+'/'+key).remove().then(()=>{
+    delete l.aj[key]; l.z=RapportZ.ajuster(l.brut,l.aj);
+    document.getElementById('rc-pop').style.display='none';
+    _afficherRapportComptable(); showNotif('Valeur caisse rétablie','success');
+  });
 }
 
 function exportRapportComptable(){
   if(!_rcData){ showNotif('Aucune donnée','error'); return; }
   try{
-    const d=_rcData;
+    const d=_rcData, L=Object.values(d.lignes);
+    const nomE=eid=>(etabsData[eid]&&etabsData[eid].nom)||eid;
+    const modes=[...new Set([...RapportZ.MODES_ORDRE.slice(0,5), ...L.flatMap(l=>Object.keys(l.z.paiements))])];
+    const tauxList=Object.keys(RapportZ.sommer(L.map(l=>l.z)).tva).sort((a,b)=>b-a);
     const n=v=>Math.round((v||0)*100)/100;
-    const htTotal=n(d.htSP+d.htAE);
-    const tvaTotal=n(d.tvaCollSP+d.tvaCollAE);
-    const pmtTotal=n(Object.values(d.pmtTotaux).reduce((s,v)=>s+v,0));
-    // Feuille TVA
-    const rowsTVA=[{data:['Devise','Type','Taux TVA','CA HT (€)','CA TTC (€)','Remboursé HT (€)','Remboursé TTC (€)','Montant TVA (€)'],style:'header'}];
-    if(d.caTTC_sp>0) rowsTVA.push({data:['EUR','Sur place',(d.tvaParams.sur_place||10)/100,n(d.htSP),n(d.caTTC_sp),0,0,n(d.tvaCollSP)],style:''});
-    if(d.caTTC_ae>0) rowsTVA.push({data:['EUR','À emporter',(d.tvaParams.a_emporter||5.5)/100,n(d.htAE),n(d.caTTC_ae),0,0,n(d.tvaCollAE)],style:''});
-    rowsTVA.push({data:['Total','','',htTotal,n(d.caTTC_total),0,0,tvaTotal],style:'total'});
-    // Feuille paiements
-    const rowsPmt=[{data:['Devise','Moyen de paiement','Montant (€)','Remboursement (€)','Total net (€)'],style:'header'}];
-    Object.entries(d.pmtTotaux).forEach(([m,v])=>rowsPmt.push({data:['EUR',m,n(v),0,n(v)],style:''}));
-    rowsPmt.push({data:['Total','',pmtTotal,0,pmtTotal],style:'total'});
-    // Feuille remises & annulations
-    const rowsRem=[
-      {data:['Catégorie','Montant (€)'],style:'header'},
-      {data:['Total remises & offerts',n(d.totRem)],style:''},
-      {data:['Total annulations',n(d.totAnn)],style:''},
-      {data:['Total',n(d.totRem+d.totAnn)],style:'total'}
-    ];
-    _telechargerXLS(_genXLS([
-      {name:'TVA',rows:rowsTVA},
-      {name:'Paiements',rows:rowsPmt},
-      {name:'Remises & Annulations',rows:rowsRem}
-    ]),`rapport-comptable_${d.debut}_${d.fin}.xls`);
+    const bloc=(titre,z)=>{
+      const rows=[[titre],[],['Paiements','Nb','Montant (€)']];
+      modes.forEach(m=>{ const p=z.paiements[m]; if(p&&p.montant) rows.push([m,p.nb,n(p.montant)]); });
+      rows.push(['Avoirs émis (surplus TR)',z.avoirs_emis.nb,n(z.avoirs_emis.montant)]);
+      rows.push(['Total net encaissé',z.nb_commandes,n(z.total_encaisse)],[]);
+      rows.push(['TVA','HT (€)','TVA (€)','TTC (€)']);
+      tauxList.forEach(t=>{ const x=z.tva[t]||{ht:0,tva:0,ttc:0}; rows.push(['TVA '+t+' %',n(x.ht),n(x.tva),n(x.ttc)]); });
+      rows.push(['Total',n(z.total_ht),n(z.total_tva),n(z.ca_total)],[]);
+      rows.push(['Couverts',z.nb_couverts],['Commandes',z.nb_commandes],['Panier moyen / couvert (€)',n(z.panier_moyen)],['Ticket moyen / commande (€)',n(z.ticket_moyen)],[]);
+      rows.push(['Remises et offerts',z.remises.nb,n(z.remises.montant)],['Annulations',z.annulations.nb,n(z.annulations.montant)],['Commandes non soldées',z.non_soldees],[]);
+      return rows;
+    };
+    // Feuille 1 : consolidé
+    const tout=RapportZ.sommer(L.map(l=>l.z));
+    const f1=[['RAPPORT COMPTABLE'],['Période',_rcDateFr(d.debut)+' → '+_rcDateFr(d.fin)],['Établissements',d.etabIds.map(nomE).join(', ')],['Généré le',new Date().toLocaleString('fr-FR')],[]].concat(bloc('CONSOLIDÉ',tout));
+    // Feuille 2 : par camion & service (comme l'Excel : colonnes = camions)
+    const cols=d.etabIds.filter(eid=>L.some(l=>l.eid===eid));
+    const f2=[['Service','Ligne',...cols.map(nomE),'Total']];
+    ['midi','soir'].forEach(svc=>{
+      const S=cols.map(eid=>RapportZ.sommer(L.filter(l=>l.svc===svc&&l.eid===eid).map(l=>l.z))); const T=RapportZ.sommer(L.filter(l=>l.svc===svc).map(l=>l.z));
+      if(!T.nb_commandes) return;
+      const row=(lbl,fn)=>f2.push([svc.toUpperCase(),lbl,...S.map(x=>n(fn(x))),n(fn(T))]);
+      modes.forEach(m=>row(m,x=>(x.paiements[m]||{}).montant||0));
+      row('Avoirs émis',x=>x.avoirs_emis.montant); row('TOTAL NET',x=>x.total_encaisse);
+      row('CA HT',x=>x.total_ht); tauxList.forEach(t=>row('TVA '+t+' %',x=>(x.tva[t]||{}).tva||0)); row('CA TTC',x=>x.ca_total);
+      row('Couverts',x=>x.nb_couverts); row('Commandes',x=>x.nb_commandes); row('Remises et offerts',x=>x.remises.montant); row('Annulations',x=>x.annulations.montant);
+      f2.push([]);
+    });
+    // Feuille 3 : jour par jour (valeurs ajustées + colonnes d'origine quand différentes)
+    const f3=[['Date','Camion','Service',...modes,'Avoirs émis','Total net','CA HT','TVA','CA TTC','Couverts','Commandes','Remises','Annulations','Non soldées','Clôture caisse','Ajusté']];
+    L.slice().sort((a,b)=>a.date.localeCompare(b.date)||a.eid.localeCompare(b.eid)||a.svc.localeCompare(b.svc)).forEach(l=>{ const z=l.z;
+      f3.push([l.date,nomE(l.eid),l.svc,...modes.map(m=>n((z.paiements[m]||{}).montant||0)),n(z.avoirs_emis.montant),n(z.total_encaisse),n(z.total_ht),n(z.total_tva),n(z.ca_total),z.nb_couverts,z.nb_commandes,n(z.remises.montant),n(z.annulations.montant),z.non_soldees,l.cloture?'oui':'non',Object.keys(z.ajustements||{}).length?'oui':'']);
+    });
+    // Feuille 4 : TVA par jour
+    const f4=[['Date','Camion','Service','Taux','HT (€)','TVA (€)','TTC (€)']];
+    L.forEach(l=>Object.keys(l.z.tva).forEach(t=>f4.push([l.date,nomE(l.eid),l.svc,t+' %',n(l.z.tva[t].ht),n(l.z.tva[t].tva),n(l.z.tva[t].ttc)])));
+    // Feuille 5 : ajustements
+    const f5=[['Date','Camion','Service','Champ','Valeur caisse','Valeur corrigée','Motif','Par','Le']];
+    L.forEach(l=>Object.entries(l.z.ajustements||{}).forEach(([k,a])=>f5.push([l.date,nomE(l.eid),l.svc,k.replace('pmt:',''),n(a.origine),n(a.valeur),a.motif,a.par,a.le])));
+    const wb=XLSX.utils.book_new();
+    [['Consolidé',f1],['Par camion & service',f2],['Jour par jour',f3],['TVA',f4],['Ajustements',f5]].forEach(([nom,rows])=>{
+      const ws=XLSX.utils.aoa_to_sheet(rows); ws['!cols']=rows[0].map((_,i)=>({wch:i===0?26:14})); XLSX.utils.book_append_sheet(wb,ws,nom);
+    });
+    XLSX.writeFile(wb,`rapport-comptable_${d.debut}_${d.fin}.xlsx`);
     showNotif('Export téléchargé ✓','success');
-  } catch(e){ showNotif('Erreur : '+e.message,'error'); }
+  } catch(e){ showNotif('Erreur : '+e.message,'error'); console.error(e); }
 }
 
 // ============================================================
@@ -6381,7 +6483,7 @@ function effacerDonneesTest(){
 }
 function afficherParametres(){
   const e=parametresData.entreprise||{};
-  const champs={raison:'p-raison',siret:'p-siret',adresse:'p-adresse',tva_intracom:'p-tva-intra',tel:'p-tel',email:'p-email',web:'p-web',msg_ticket:'p-msg'};
+  const champs={raison:'p-raison',siret:'p-siret',adresse:'p-adresse',tva_intracom:'p-tva-intra',naf:'p-naf',tel:'p-tel',email:'p-email',web:'p-web',msg_ticket:'p-msg'};
   Object.entries(champs).forEach(([k,id])=>{ const el=document.getElementById(id); if(el) el.value=e[k]||''; });
   const tva=parametresData.tva||{};
   if(document.getElementById('p-tva-place')) document.getElementById('p-tva-place').value=tva.sur_place||10;
@@ -6435,7 +6537,7 @@ function supprimerMode(k){ if(parametresData.modes_paiement) delete parametresDa
 function ajouterMode(){ const n=prompt('Nom du mode de paiement :'); if(n?.trim()){ parametresData.modes_paiement=parametresData.modes_paiement||{}; parametresData.modes_paiement[n.trim().replace(/\s+/g,'_')]=true; renderModes(); } }
 
 function sauvegarderEntreprise(){
-  const data={raison_sociale:v('p-raison'),siret:v('p-siret'),adresse:v('p-adresse'),tva_intracom:v('p-tva-intra'),tel:v('p-tel'),email:v('p-email'),web:v('p-web'),msg_ticket:v('p-msg')};
+  const data={raison_sociale:v('p-raison'),siret:v('p-siret'),adresse:v('p-adresse'),tva_intracom:v('p-tva-intra'),naf:v('p-naf'),tel:v('p-tel'),email:v('p-email'),web:v('p-web'),msg_ticket:v('p-msg')};
   db.ref('parametres/entreprise').update(data).then(()=>showNotif('Informations enregistrées','success')).catch(()=>showNotif('Erreur Firebase','error'));
 }
 

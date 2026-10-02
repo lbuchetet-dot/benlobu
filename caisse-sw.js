@@ -4,11 +4,11 @@
 // démarre et fonctionne même sans réseau (les données passent
 // par la file locale et se synchronisent à la reconnexion).
 // ══════════════════════════════════════════════════════════
-const CACHE = 'pokben-caisse-v4';   // v3 : ajouts sur commande persistés + brouillon ; v2 : carte-poke.js
+const CACHE = 'pokben-caisse-v6';   // v3 : ajouts sur commande persistés + brouillon ; v2 : carte-poke.js
 
 const ASSETS = [
   './caisse.html',
-  './carte-poke.js',
+  './carte-poke.js', './rapport-z.js',
   'https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js',
   'https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js',
   'https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js',
