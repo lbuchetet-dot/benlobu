@@ -5946,7 +5946,7 @@ function _afficherRapportComptable(){
   const colonnes=d.etabIds.filter(eid=>L.some(l=>l.eid===eid));
   const parSvcEtab={};
   L.forEach(l=>{ const k=l.svc+'|'+l.eid; (parSvcEtab[k]=parSvcEtab[k]||[]).push(l); });
-  const som=(svc,eid)=>RapportZ.sommer((eid?parSvcEtab[svc+'|'+eid]:L.filter(l=>l.svc===svc)).map(l=>origine?l.brut:l.z)||[]);
+  const som=(svc,eid)=>RapportZ.sommer(((eid?parSvcEtab[svc+'|'+eid]:L.filter(l=>l.svc===svc))||[]).map(l=>origine?l.brut:l.z));
   const unJour=d.debut===d.fin;
   const ligneUnique=(svc,eid)=>unJour&&(parSvcEtab[svc+'|'+eid]||[])[0]||null;
   const grille=['midi','soir'].filter(svc=>L.some(l=>l.svc===svc)).map(svc=>{
