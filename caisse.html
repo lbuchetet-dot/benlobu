@@ -4538,7 +4538,13 @@ function _bonTailleLbl(a){
   if(p && t.toLowerCase().endsWith(p.toLowerCase())) t=t.slice(0,t.length-p.length).trim();
   return [t,p].filter(Boolean).join(' · ');
 }
-function _bonNomArticle(a){ return String(a.nom||'').replace(/\s*\(.*\)\s*$/,''); }   // « Bowl M Saumon (Sauce…) » → nom seul
+// « Bowl M Saumon (Sauce…) » → nom seul ; « Formule Ben — Crousty Ben S · Cookie · Eau » (site web) → « Formule Ben »
+function _nomArticleCourt(a){
+  let n=String((a&&a.nom)||'').replace(/\s*\(.*\)\s*$/,'');
+  if(a && (a.type==='formule' || (a.composition&&a.composition.length))) n=n.split(/\s+[—–-]\s+/)[0];
+  return n.trim();
+}
+function _bonNomArticle(a){ return _nomArticleCourt(a); }
 // Lignes structurées communes : [{t:'feed'|'h1'|'h2'|'h3'|'txt'|'sep'|'sep2'|'small'|'alert', v, align}]
 function _bonBlocs(d){
   const L=[];
@@ -5499,7 +5505,7 @@ function _etabIdsMemeMarque(){
 // Reconstitue un bon de préparation à partir de la commande web (sans dépendre de commandes/…)
 function _webVersBon(o){
   const articles = (o.items||[]).map(it=>({
-    prodId: it.id||'', nom: it.nomBase||it.nom||'', taille:(it.taille||''),
+    prodId: it.id||'', nom: _nomArticleCourt({nom:it.nomBase||it.nom||'', type:it.type, composition:it.composition}), taille:(it.taille||''),
     prix: it.prix||0, prixBase: it.prixBase!=null?it.prixBase:(it.prix||0),
     supplements: it.supplements||[], type: it.type||null, composition: it.composition||null,
     commentaire:'', qte: it.qty||1
@@ -5949,7 +5955,7 @@ function envoyerWebEnService(id){
   const now = new Date();
   const hRetrait = _webHeure(o) || now.toTimeString().substring(0,5);
   const articles = (o.items||[]).map(it=>({
-    prodId: it.id||'', nom: it.nomBase||it.nom||'', taille:'',
+    prodId: it.id||'', nom: _nomArticleCourt({nom:it.nomBase||it.nom||'', type:it.type, composition:it.composition}), taille:'',
     prix: it.prix||0, prixBase: it.prixBase!=null?it.prixBase:(it.prix||0),
     supplements: it.supplements||[], type: it.type||null, composition: it.composition||null,
     commentaire:'', qte: it.qty||1, _dejaEnvoye:true
@@ -6018,7 +6024,7 @@ function imprimerEtEnvoyerService(){
       list.forEach((o, idx)=>{
         const num = startNum + idx;
         const hRetrait = _webHeure(o) || now.toTimeString().substring(0,5);
-        const articles = (o.items||[]).map(it=>({prodId:it.id||'', nom:it.nomBase||it.nom||'', taille:(it.taille||''), prix:it.prix||0, prixBase:(it.prixBase!=null?it.prixBase:(it.prix||0)), supplements:it.supplements||[], type:it.type||null, composition:it.composition||null, commentaire:'', qte:it.qty||1, _dejaEnvoye:true}));
+        const articles = (o.items||[]).map(it=>({prodId:it.id||'', nom:_nomArticleCourt({nom:it.nomBase||it.nom||'', type:it.type, composition:it.composition}), taille:(it.taille||''), prix:it.prix||0, prixBase:(it.prixBase!=null?it.prixBase:(it.prix||0)), supplements:it.supplements||[], type:it.type||null, composition:it.composition||null, commentaire:'', qte:it.qty||1, _dejaEnvoye:true}));
         const couverts = _webCouverts(o);
         const nomClient = ((o.fname||o.prenom||'')+' '+(o.lname||o.nom||'')).trim() || (o.num||'Client web');
         const cmdKey = 'web_'+String(o.id);
