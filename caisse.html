@@ -4625,7 +4625,7 @@ function imprimerBons(ds){
   if(!ds || !ds.length) return false;
   try{
     if(eposActif()){
-      (async()=>{ for(const d of ds){ await eposImprimerBon(d,false); } })();
+      (async()=>{ await eposImprimerBons(ds); })();
       return true;
     }
     const pa=document.getElementById('print-area'); if(!pa) return false;
@@ -6556,6 +6556,37 @@ async function eposImprimerBon(d, ouvrirTiroir){
   const body = eposBuildBody(eposLignesBon(d), !!ouvrirTiroir);
   const r = await eposEnvoyer(body);
   if(!r.success && !r.async) showNotif('⚠️ Imprimante : '+r.code+' — vérifier réglages', 'error');
+  return true;
+}
+
+// Plusieurs bons d'un coup (lot web, « imprimer tous les bons »).
+//  · Bluetooth (TM Print Assistant) : UN SEUL envoi — chaque appel bascule vers l'app Epson et iOS ne garde que
+//    le premier ; on concatène donc les bons dans un même document, avec une coupe entre chaque. Si le lot est
+//    trop long pour une URL, on l'envoie par paquets, en laissant à l'app le temps de rendre la main.
+//  · Réseau : un POST par bon, en séquence, en attendant la réponse de l'imprimante.
+async function eposImprimerBons(ds){
+  if(!eposActif() || !ds || !ds.length) return false;
+  if(printMethod()==='bluetooth'){
+    const paquets=[]; let cur=[];
+    ds.forEach((d,i)=>{
+      const lignes = eposLignesBon(d).slice();
+      if(cur.length){ cur.push({cut:true}); }
+      cur = cur.concat(lignes);
+      const taille = encodeURIComponent(eposBuildBody(cur,false)).length;
+      if(taille > 60000 && cur.length > lignes.length){   // trop long : on referme le paquet avant ce bon
+        cur = cur.slice(0, cur.length - lignes.length - 1);
+        paquets.push(cur); cur = lignes.slice();
+      }
+    });
+    if(cur.length) paquets.push(cur);
+    for(let i=0;i<paquets.length;i++){
+      if(i>0) await new Promise(r=>setTimeout(r, 4000));
+      tmPrintAssistant(eposBuildBody(paquets[i], false));
+    }
+    if(paquets.length>1) showNotif(ds.length+' bons envoyés en '+paquets.length+' fois — revenir sur la caisse entre chaque','info');
+    return true;
+  }
+  for(const d of ds){ await eposImprimerBon(d,false); }
   return true;
 }
 
