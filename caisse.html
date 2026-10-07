@@ -2429,6 +2429,7 @@ function renderServiceEnCours(){
               +'<button onclick="changerCouvertsCommande(\''+key+'\',1,event)" style="width:22px;height:22px;padding:0;background:var(--white);border:1px solid var(--border);border-radius:6px;font-size:13px;line-height:1;cursor:pointer">+</button>'
             +'</span>'
           +'</div>'
+          +(c.note ? '<div style="font-size:11px;color:#9a6a00;background:#fdf3d8;border-radius:6px;padding:4px 8px;margin-bottom:6px">📝 '+String(c.note).replace(/[<>]/g,'')+'</div>' : '')
           +(((c.articles||[]).some(a=>a.a_envoyer) && !((c.articles||[]).every(a=>a.a_envoyer) && ((c.envois||[]).length||c.bon_imprime||c.origine==='web'))) ? '<div style="font-size:10px;font-weight:700;color:#fff;background:var(--amber);border-radius:10px;padding:2px 8px;display:inline-block;margin-bottom:6px">'+(c.articles||[]).filter(a=>a.a_envoyer).reduce((s,a)=>s+(a.qte||1),0)+' ajout(s) non envoyé(s) en cuisine</div>' : '')
           +'<div style="font-size:10px;color:var(--text-muted);margin-bottom:8px">'+
             (c.articles||[]).map(a=>a.qte+'× '+a.nom.split(' ').slice(1).join(' ')||a.nom).join(', ')+'</div>'
@@ -4516,7 +4517,7 @@ function imprimerBon(){
   const num = commandeEnCours ? commandeEnCours.num : cmdCounter + 1;
   const total = commandeEnCours ? commandeEnCours.total : getTotal();
   const nomAffiche = commandeEnCours ? commandeEnCours.nom_client : nom;
-  imprimerBons([{num, nom:nomAffiche, retrait, articles, total,
+  imprimerBons([{num, nom:nomAffiche, retrait, articles, total, note:(commandeEnCours&&commandeEnCours.note)||'',
     heure:(commandeEnCours?commandeEnCours.heure:''), couverts:(commandeEnCours?commandeEnCours.couverts:'')}]);
   marquerBonImprime();
 }
@@ -4554,6 +4555,10 @@ function _bonBlocs(d){
   if(meta) L.push({t:'txt', v:meta, align:'center'});
   L.push({t:'sep2'});
   if(d.retrait){ L.push({t:'h1', v:'RETRAIT '+String(d.retrait).replace(':','H').toUpperCase(), align:'center'}); L.push({t:'sep2'}); }
+  if(d.note){
+    L.push({t:'alert', v:'!! CLIENT : '+String(d.note).toUpperCase(), align:'left'});
+    L.push({t:'sep2'});
+  }
   if(d.complement){
     L.push({t:'alert', v:'COMPLEMENT'+(d.complement.rappel?' - deja envoye a '+d.complement.rappel:''), align:'center'});
     L.push({t:'h2', v:'AJOUT '+(d.complement.heure||''), align:'center'});
@@ -4613,7 +4618,7 @@ function _bonHtml(d){
   }).join('')+'</div>';
 }
 function _bonDepuisCommande(c, extra){
-  return Object.assign({num:c.num, nom:c.nom_client, retrait:c.retrait_souhaite, articles:c.articles||[], total:c.total, heure:c.heure, couverts:c.couverts}, extra||{});
+  return Object.assign({num:c.num, nom:c.nom_client, retrait:c.retrait_souhaite, articles:c.articles||[], total:c.total, heure:c.heure, couverts:c.couverts, note:c.note||''}, extra||{});
 }
 // Impression d'un ou plusieurs bons, quel que soit le canal. Renvoie true si l'envoi a pu partir.
 function imprimerBons(ds){
@@ -5513,7 +5518,7 @@ function _webVersBon(o){
   const now = new Date();
   return {
     num: o.web_num_service || o.num || '', nom_client: ((o.fname||o.prenom||'')+' '+(o.lname||o.nom||'')).trim() || (o.num||'Client web'),
-    couverts: (o.items||[]).reduce((s,it)=>s+(it.qty||1),0)||1,
+    couverts: _webCouverts(o),
     retrait_souhaite: _webHeure(o) || now.toTimeString().substring(0,5),
     heure: now.toTimeString().substring(0,5), service: o.service||detectService(now),
     emplacement: o.emplacement||etabInfo.emplacement_actuel||'—', statut:'en_cours',
